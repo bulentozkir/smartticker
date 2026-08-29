@@ -1,6 +1,6 @@
 # .NET build output
-[Bb]in/
-[Oo]bj/
+bin/
+obj/
 artifacts/
 publish/
 
@@ -62,6 +62,8 @@ crash-dumps/
 appsettings.Development.json
 appsettings.Local.json
 secrets.json
+*.pem
+*.key
 
 # OS-generated files
 .DS_Store
