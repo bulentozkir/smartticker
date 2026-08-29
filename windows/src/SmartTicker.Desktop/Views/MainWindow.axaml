@@ -1,0 +1,154 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SmartTicker.Desktop.ViewModels"
+        xmlns:controls="using:SmartTicker.Desktop.Controls"
+        xmlns:conv="using:SmartTicker.Desktop.Converters"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="SmartTicker.Desktop.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="SmartTicker"
+        Width="980"
+        Height="{Binding WindowHeight}"
+        MinWidth="420"
+        MinHeight="50"
+        MaxHeight="900"
+        CanResize="True"
+        WindowDecorations="BorderOnly"
+        Topmost="True"
+        ShowInTaskbar="True"
+        Background="{Binding BackgroundBrush}"
+        TransparencyLevelHint="None">
+
+    <Design.DataContext>
+        <!-- This only sets the DataContext for the previewer in an IDE,
+             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+        <vm:MainViewModel />
+    </Design.DataContext>
+
+    <Border BorderBrush="#2D3748" BorderThickness="1" CornerRadius="4">
+        <Border.ContextMenu>
+            <ContextMenu>
+                <MenuItem Header="{Binding Text.MenuQuotes}" Click="OpenSettings" />
+                <MenuItem Header="{Binding Text.MenuAppSettings}" Click="OpenAppSettings" />
+                <MenuItem Header="{Binding Text.MenuShowPriceLine}" ToggleType="CheckBox" IsChecked="{Binding ShowPriceLine, Mode=TwoWay}" />
+                <MenuItem Header="{Binding Text.MenuShowNewsLine}" ToggleType="CheckBox" IsChecked="{Binding ShowNewsLine, Mode=TwoWay}" />
+                <MenuItem Header="{Binding Text.MenuRefreshPrices}" Command="{Binding RefreshPricesCommand}" />
+                <MenuItem Header="{Binding Text.MenuRefreshNews}" Command="{Binding RefreshNewsCommand}" />
+                <MenuItem Header="{Binding Text.MenuPauseResume}" Command="{Binding TogglePauseCommand}" />
+                <MenuItem Header="{Binding Text.MenuLanguage}">
+                    <MenuItem Header="English" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="en"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=en}" />
+                    <MenuItem Header="Deutsch" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="de"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=de}" />
+                    <MenuItem Header="Español" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="es"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=es}" />
+                    <MenuItem Header="Français" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="fr"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=fr}" />
+                    <MenuItem Header="Italiano" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="it"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=it}" />
+                    <MenuItem Header="Nederlands" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="nl"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=nl}" />
+                    <MenuItem Header="Português" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="pt"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=pt}" />
+                    <MenuItem Header="Türkçe" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="tr"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=tr}" />
+                    <MenuItem Header="العربية" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="ar"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=ar}" />
+                    <MenuItem Header="Ελληνικά" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="el"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=el}" />
+                    <MenuItem Header="हिन्दी" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="hi"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=hi}" />
+                    <MenuItem Header="Bahasa Indonesia" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="id"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=id}" />
+                    <MenuItem Header="日本語" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="ja"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=ja}" />
+                    <MenuItem Header="한국어" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="ko"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=ko}" />
+                    <MenuItem Header="Русский" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="ru"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=ru}" />
+                    <MenuItem Header="中文" ToggleType="Radio" GroupName="AppLanguage"
+                              Command="{Binding SetLanguageCommand}" CommandParameter="zh"
+                              IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=zh}" />
+                </MenuItem>
+                <Separator />
+                <MenuItem Header="{Binding Text.MenuAbout}" Click="ShowAbout" />
+                <MenuItem Header="{Binding Text.MenuExit}" Click="ExitApplication" />
+            </ContextMenu>
+        </Border.ContextMenu>
+
+        <Grid ColumnDefinitions="18,*" RowDefinitions="Auto,Auto">
+            <Border Grid.RowSpan="2" Background="#182230" BorderBrush="#2D3748" BorderThickness="0,0,1,0">
+                <Button Command="{Binding TogglePauseCommand}"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Padding="0"
+                        MinWidth="0"
+                        MinHeight="0"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        ToolTip.Tip="{Binding StatusText}">
+                    <TextBlock Text="{Binding StatusGlyph}"
+                               Foreground="{Binding StatusColor}"
+                               FontSize="10"
+                               FontWeight="Bold" />
+                </Button>
+            </Border>
+            <Border Grid.Row="0" Grid.Column="1" Background="{Binding BackgroundBrush}" Padding="4,4,4,1"
+                    IsVisible="{Binding IsPriceVisible}">
+                <ItemsControl ItemsSource="{Binding VisiblePriceRows}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TickerLane">
+                            <controls:MarqueeText Segments="{Binding Segments}"
+                                                  PixelsPerSecond="{Binding PixelsPerSecond}"
+                                                  IsPaused="{Binding IsPaused}"
+                                                  LinkCommand="{Binding $parent[Window].((vm:MainViewModel)DataContext).OpenLinkCommand}"
+                                                  TextBrush="{Binding $parent[Window].((vm:MainViewModel)DataContext).PriceBrush}"
+                                                  SeparatorBrush="#FFD166"
+                                                  TickerFontSize="{Binding FontSize}"
+                                                  TickerFontWeight="SemiBold"
+                                                  Height="{Binding RowHeight}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+            <Border Grid.Row="1" Grid.Column="1" Background="{Binding BackgroundBrush}" Padding="4,1,4,4"
+                    IsVisible="{Binding IsNewsVisible}">
+                <ItemsControl ItemsSource="{Binding VisibleNewsRows}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TickerLane">
+                            <controls:MarqueeText Segments="{Binding Segments}"
+                                                  PixelsPerSecond="{Binding PixelsPerSecond}"
+                                                  IsPaused="{Binding IsPaused}"
+                                                  LinkCommand="{Binding $parent[Window].((vm:MainViewModel)DataContext).OpenLinkCommand}"
+                                                  TextBrush="{Binding $parent[Window].((vm:MainViewModel)DataContext).NewsBrush}"
+                                                  SeparatorBrush="#FFD166"
+                                                  TickerFontSize="{Binding FontSize}"
+                                                  Height="{Binding RowHeight}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+        </Grid>
+    </Border>
+
+</Window>

@@ -1,0 +1,277 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Windows.Input;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using SmartTicker.Desktop.ViewModels;
+
+namespace SmartTicker.Desktop.Controls;
+
+public sealed class MarqueeText : UserControl
+{
+    private const double CopyGap = 40;
+
+    public static readonly StyledProperty<IReadOnlyList<TickerSegment>?> SegmentsProperty =
+        AvaloniaProperty.Register<MarqueeText, IReadOnlyList<TickerSegment>?>(nameof(Segments));
+
+    public static readonly StyledProperty<ICommand?> LinkCommandProperty =
+        AvaloniaProperty.Register<MarqueeText, ICommand?>(nameof(LinkCommand));
+
+    public static readonly StyledProperty<int> PixelsPerSecondProperty =
+        AvaloniaProperty.Register<MarqueeText, int>(nameof(PixelsPerSecond), 50);
+
+    public static readonly StyledProperty<bool> IsPausedProperty =
+        AvaloniaProperty.Register<MarqueeText, bool>(nameof(IsPaused));
+
+    public static readonly StyledProperty<IBrush?> TextBrushProperty =
+        AvaloniaProperty.Register<MarqueeText, IBrush?>(nameof(TextBrush), Brushes.White);
+
+    // Null falls back to TextBrush at reduced opacity; an explicit brush renders fully opaque.
+    public static readonly StyledProperty<IBrush?> SeparatorBrushProperty =
+        AvaloniaProperty.Register<MarqueeText, IBrush?>(nameof(SeparatorBrush));
+
+    public static readonly StyledProperty<double> TickerFontSizeProperty =
+        AvaloniaProperty.Register<MarqueeText, double>(nameof(TickerFontSize), 14);
+
+    public static readonly StyledProperty<FontWeight> TickerFontWeightProperty =
+        AvaloniaProperty.Register<MarqueeText, FontWeight>(nameof(TickerFontWeight), FontWeight.Normal);
+
+    private readonly Canvas _canvas = new() { ClipToBounds = true };
+    private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(16) };
+    private readonly Stopwatch _clock = new();
+    private readonly List<Control> _copies = [];
+    private readonly Cursor _handCursor = new(StandardCursorType.Hand);
+    private double _contentWidth;
+    private double _contentHeight;
+    private double _origin;
+
+    public MarqueeText()
+    {
+        ClipToBounds = true;
+        Content = _canvas;
+        _timer.Tick += OnAnimationTick;
+        SizeChanged += (_, _) => RebuildCopies();
+        AttachedToVisualTree += OnAttachedToVisualTree;
+        DetachedFromVisualTree += OnDetachedFromVisualTree;
+    }
+
+    public IReadOnlyList<TickerSegment>? Segments
+    {
+        get => GetValue(SegmentsProperty);
+        set => SetValue(SegmentsProperty, value);
+    }
+
+    public ICommand? LinkCommand
+    {
+        get => GetValue(LinkCommandProperty);
+        set => SetValue(LinkCommandProperty, value);
+    }
+
+    public int PixelsPerSecond
+    {
+        get => GetValue(PixelsPerSecondProperty);
+        set => SetValue(PixelsPerSecondProperty, value);
+    }
+
+    public bool IsPaused
+    {
+        get => GetValue(IsPausedProperty);
+        set => SetValue(IsPausedProperty, value);
+    }
+
+    public IBrush? TextBrush
+    {
+        get => GetValue(TextBrushProperty);
+        set => SetValue(TextBrushProperty, value);
+    }
+
+    public IBrush? SeparatorBrush
+    {
+        get => GetValue(SeparatorBrushProperty);
+        set => SetValue(SeparatorBrushProperty, value);
+    }
+
+    public double TickerFontSize
+    {
+        get => GetValue(TickerFontSizeProperty);
+        set => SetValue(TickerFontSizeProperty, value);
+    }
+
+    public FontWeight TickerFontWeight
+    {
+        get => GetValue(TickerFontWeightProperty);
+        set => SetValue(TickerFontWeightProperty, value);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == SegmentsProperty ||
+            change.Property == TextBrushProperty ||
+            change.Property == SeparatorBrushProperty ||
+            change.Property == TickerFontSizeProperty ||
+            change.Property == TickerFontWeightProperty)
+        {
+            Dispatcher.UIThread.Post(RebuildCopies, DispatcherPriority.Loaded);
+        }
+
+        if (change.Property == IsPausedProperty)
+        {
+            _clock.Restart();
+        }
+    }
+
+    private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        RebuildCopies();
+        _clock.Restart();
+        _timer.Start();
+    }
+
+    private void OnDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        _timer.Stop();
+        _clock.Stop();
+    }
+
+    private void RebuildCopies()
+    {
+        _canvas.Children.Clear();
+        _copies.Clear();
+        if (Segments is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var first = CreateCopy();
+        first.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        _contentWidth = Math.Max(1, first.DesiredSize.Width);
+        _contentHeight = first.DesiredSize.Height;
+        var cycleWidth = _contentWidth + CopyGap;
+        var copyCount = Math.Max(2, (int)Math.Ceiling(Math.Max(Bounds.Width, 1) / cycleWidth) + 2);
+
+        _copies.Add(first);
+        _canvas.Children.Add(first);
+        for (var index = 1; index < copyCount; index++)
+        {
+            var copy = CreateCopy();
+            _copies.Add(copy);
+            _canvas.Children.Add(copy);
+        }
+
+        _origin = Math.Max(0, Bounds.Width / 2);
+        PositionCopies(cycleWidth);
+        _clock.Restart();
+    }
+
+    private Control CreateCopy()
+    {
+        var panel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        var segments = Segments ?? [];
+        for (var index = 0; index < segments.Count; index++)
+        {
+            if (index > 0)
+            {
+                panel.Children.Add(CreateBlock("  ◆  ", SeparatorBrush is null ? 0.55 : 1, SeparatorBrush ?? TextBrush));
+            }
+
+            panel.Children.Add(CreateSegmentBlock(segments[index]));
+        }
+
+        return panel;
+    }
+
+    private Control CreateSegmentBlock(TickerSegment segment)
+    {
+        Control content;
+        if (segment.Runs.Count == 1)
+        {
+            content = CreateBlock(segment.Runs[0].Text, 1, segment.Runs[0].Brush ?? TextBrush);
+        }
+        else
+        {
+            var pair = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            foreach (var run in segment.Runs)
+            {
+                pair.Children.Add(CreateBlock(run.Text, 1, run.Brush ?? TextBrush));
+            }
+
+            content = pair;
+        }
+
+        if (segment.Link is not { } link)
+        {
+            return content;
+        }
+
+        content.Cursor = _handCursor;
+        ToolTip.SetTip(content, $"Double-click to open {link.AbsoluteUri}");
+
+        // Handling press stops a window drag starting, which would otherwise swallow the second click.
+        content.PointerPressed += (_, args) =>
+        {
+            args.Handled = true;
+            if (args.ClickCount == 2 && LinkCommand?.CanExecute(link) == true)
+            {
+                LinkCommand.Execute(link);
+            }
+        };
+        return content;
+    }
+
+    private TextBlock CreateBlock(string text, double opacity, IBrush? brush) => new()
+    {
+        Text = text,
+        Foreground = brush,
+        Opacity = opacity,
+        FontFamily = new FontFamily("Inter"),
+        FontSize = TickerFontSize,
+        FontWeight = TickerFontWeight,
+        TextWrapping = TextWrapping.NoWrap,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    private void OnAnimationTick(object? sender, EventArgs e)
+    {
+        var elapsedSeconds = Math.Min(_clock.Elapsed.TotalSeconds, 0.1);
+        _clock.Restart();
+        if (IsPaused || _copies.Count == 0 || Bounds.Width <= 0)
+        {
+            return;
+        }
+
+        var cycleWidth = _contentWidth + CopyGap;
+        _origin -= Math.Clamp(PixelsPerSecond, 10, 200) * elapsedSeconds;
+        while (_origin <= -cycleWidth)
+        {
+            _origin += cycleWidth;
+        }
+
+        PositionCopies(cycleWidth);
+    }
+
+    private void PositionCopies(double cycleWidth)
+    {
+        var top = Math.Max(0, (Bounds.Height - _contentHeight) / 2);
+        for (var index = 0; index < _copies.Count; index++)
+        {
+            Canvas.SetLeft(_copies[index], _origin + index * cycleWidth);
+            Canvas.SetTop(_copies[index], top);
+        }
+    }
+}

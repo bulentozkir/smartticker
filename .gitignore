@@ -3,6 +3,8 @@ bin/
 obj/
 artifacts/
 publish/
+releases/**
+!releases/README.md
 
 # User-specific IDE files
 *.user
@@ -64,6 +66,8 @@ appsettings.Local.json
 secrets.json
 *.pem
 *.key
+*.pfx
+*.cer
 
 # OS-generated files
 .DS_Store

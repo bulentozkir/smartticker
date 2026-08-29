@@ -1,0 +1,40 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SmartTicker.Desktop.Views.AboutWindow"
+        Title="About SmartTicker"
+        Width="520"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="#10151D">
+    <StackPanel Margin="24" Spacing="14">
+        <StackPanel Spacing="3">
+            <TextBlock Text="SmartTicker" FontSize="24" FontWeight="SemiBold" Foreground="#70E1A1" />
+            <TextBlock Name="VersionText" Opacity="0.8" />
+        </StackPanel>
+
+        <TextBlock Text="A two-line always-on-top ticker for stocks, ETFs, commodities, and news from sources you configure yourself."
+                   TextWrapping="Wrap" Opacity="0.85" />
+
+        <Border Background="#182230" CornerRadius="4" Padding="12">
+            <StackPanel Spacing="8">
+                <TextBlock Text="Required Notice" FontWeight="SemiBold" Foreground="#F2B84B" />
+                <TextBlock Text="Bulent Ozkir (bulentozkir@hotmail.com) is the patent and license owner of SmartTicker."
+                           TextWrapping="Wrap" />
+                <TextBlock Text="No patent number, patent application status, or patent grant status is asserted by this notice."
+                           TextWrapping="Wrap" Opacity="0.8" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Spacing="6">
+            <TextBlock Text="Licensed for non-commercial use under the PolyForm Noncommercial License 1.0.0."
+                       TextWrapping="Wrap" />
+            <Button Content="View the license terms" Click="OpenLicense" HorizontalAlignment="Left" Padding="14,6" />
+        </StackPanel>
+
+        <TextBlock Text="Data is retrieved from the public pages you configure and may be delayed. Not investment advice."
+                   TextWrapping="Wrap" Opacity="0.7" />
+
+        <Button Content="Close" Click="CloseWindow" HorizontalAlignment="Right" Padding="18,7" />
+    </StackPanel>
+</Window>

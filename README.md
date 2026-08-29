@@ -23,9 +23,16 @@ SmartTicker does not provide real-time market data, trading services, or investm
 
 Users are responsible for ensuring that their use of each webpage or feed complies with its terms, licenses, robots directives, and applicable law.
 
+## Repository layout
+
+- [windows](windows/README.md) contains the active Windows application, tests, and Microsoft Store packaging.
+- [linux-debian](linux-debian/README.md) is reserved for future Debian support.
+- [macosx](macosx/README.md) is reserved for future macOS support.
+- [releases](releases/README.md) is the local and CI output contract for generated packages.
+
 ## Development status
 
-The repository is in its initial planning and scaffolding stage. Build and contribution instructions will be added with the first implementation.
+The Windows implementation is in progress. Build instructions are maintained in the Windows platform directory.
 
 ## Ownership
 

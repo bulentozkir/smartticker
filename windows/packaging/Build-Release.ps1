@@ -1,0 +1,182 @@
+<#
+.SYNOPSIS
+    Builds SmartTicker release artifacts under releases/windows/<version>/.
+
+.DESCRIPTION
+    Publishes self-contained builds, produces portable ZIP archives, stages a Microsoft Store
+    compatible MSIX layout, and writes SHA-256 checksums. MSIX packing requires makeappx.exe
+    from the Windows SDK; when it is unavailable the staged layout is still produced so the
+    packaging step can be completed on a machine that has the SDK installed.
+
+.EXAMPLE
+    ./Build-Release.ps1 -Version 1.0.0
+#>
+[CmdletBinding(SupportsShouldProcess)]
+param(
+    [Parameter(Mandatory)]
+    [ValidatePattern('^\d+\.\d+\.\d+$')]
+    [string]$Version,
+
+    [ValidateSet('win-x64', 'win-arm64')]
+    [string[]]$Runtime = @('win-x64', 'win-arm64'),
+
+    [string]$Configuration = 'Release'
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$packagingRoot = $PSScriptRoot
+$windowsRoot = Split-Path -Parent $packagingRoot
+$repositoryRoot = Split-Path -Parent $windowsRoot
+$project = Join-Path $windowsRoot 'src/SmartTicker.Desktop/SmartTicker.Desktop.csproj'
+$releaseRoot = Join-Path $repositoryRoot "releases/windows/$Version"
+$assetsDirectory = Join-Path $packagingRoot 'Assets'
+
+$dotnet = (Get-Command dotnet -ErrorAction SilentlyContinue |
+    Select-Object -First 1 -ExpandProperty Source)
+if (-not $dotnet) {
+    throw 'dotnet was not found on PATH. Install the .NET 10 SDK before building a release.'
+}
+
+function New-PlaceholderLogo {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][int]$Width,
+        [Parameter(Mandatory)][int]$Height
+    )
+
+    Add-Type -AssemblyName System.Drawing
+    $bitmap = New-Object System.Drawing.Bitmap($Width, $Height)
+    try {
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        try {
+            $graphics.Clear([System.Drawing.ColorTranslator]::FromHtml('#10151D'))
+            $accent = New-Object System.Drawing.SolidBrush(
+                [System.Drawing.ColorTranslator]::FromHtml('#70E1A1'))
+            try {
+                $barHeight = [Math]::Max(2, [int]($Height / 8))
+                $graphics.FillRectangle($accent, 0, [int](($Height - $barHeight) / 2), $Width, $barHeight)
+            }
+            finally {
+                $accent.Dispose()
+            }
+        }
+        finally {
+            $graphics.Dispose()
+        }
+
+        $bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
+    }
+    finally {
+        $bitmap.Dispose()
+    }
+}
+
+function Initialize-PackagingAssets {
+    $required = @(
+        @{ Name = 'StoreLogo.png'; Width = 50; Height = 50 },
+        @{ Name = 'Square44x44Logo.png'; Width = 44; Height = 44 },
+        @{ Name = 'Square150x150Logo.png'; Width = 150; Height = 150 },
+        @{ Name = 'Wide310x150Logo.png'; Width = 310; Height = 150 }
+    )
+
+    if (-not (Test-Path $assetsDirectory)) {
+        New-Item -ItemType Directory -Path $assetsDirectory -Force | Out-Null
+    }
+
+    foreach ($asset in $required) {
+        $assetPath = Join-Path $assetsDirectory $asset.Name
+        if (-not (Test-Path $assetPath)) {
+            Write-Host "Generating placeholder asset $($asset.Name)."
+            New-PlaceholderLogo -Path $assetPath -Width $asset.Width -Height $asset.Height
+        }
+    }
+}
+
+$portableDirectory = Join-Path $releaseRoot 'portable'
+$msixDirectory = Join-Path $releaseRoot 'msix'
+$checksumDirectory = Join-Path $releaseRoot 'checksums'
+foreach ($directory in @($portableDirectory, $msixDirectory, $checksumDirectory)) {
+    if ($PSCmdlet.ShouldProcess($directory, 'Create release directory')) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
+}
+
+Initialize-PackagingAssets
+
+$artifacts = [System.Collections.Generic.List[string]]::new()
+
+foreach ($identifier in $Runtime) {
+    Write-Host "=== Publishing ${identifier} ==="
+    $publishDirectory = Join-Path $releaseRoot "publish/$identifier"
+
+    if ($PSCmdlet.ShouldProcess($identifier, 'dotnet publish')) {
+        & $dotnet publish $project `
+            --configuration $Configuration `
+            --runtime $identifier `
+            --self-contained true `
+            -p:Version=$Version `
+            --output $publishDirectory
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet publish failed for ${identifier} with exit code ${LASTEXITCODE}."
+        }
+    }
+
+    $archivePath = Join-Path $portableDirectory "SmartTicker-$Version-$identifier.zip"
+    if ($PSCmdlet.ShouldProcess($archivePath, 'Create portable archive')) {
+        Compress-Archive -Path (Join-Path $publishDirectory '*') -DestinationPath $archivePath -Force
+        $artifacts.Add($archivePath)
+    }
+
+    $layout = Join-Path $msixDirectory "layout/$identifier"
+    if ($PSCmdlet.ShouldProcess($layout, 'Stage MSIX layout')) {
+        New-Item -ItemType Directory -Path $layout -Force | Out-Null
+        Copy-Item -Path (Join-Path $publishDirectory '*') -Destination $layout -Recurse -Force
+        Copy-Item -Path $assetsDirectory -Destination (Join-Path $layout 'Assets') -Recurse -Force
+
+        $architecture = if ($identifier -eq 'win-x64') { 'x64' } else { 'arm64' }
+        $manifestPath = Join-Path $layout 'AppxManifest.xml'
+        $manifest = Get-Content -Path (Join-Path $packagingRoot 'Package.appxmanifest') -Raw
+        $manifest = $manifest.Replace('Version="1.0.0.0"', "Version=""$Version.0""")
+        $manifest = $manifest.Replace('ProcessorArchitecture="x64"', "ProcessorArchitecture=""$architecture""")
+        Set-Content -Path $manifestPath -Value $manifest -Encoding UTF8
+    }
+}
+
+$makeAppx = (Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter 'makeappx.exe' -Recurse -ErrorAction SilentlyContinue |
+    Sort-Object FullName -Descending |
+    Select-Object -First 1 -ExpandProperty FullName)
+
+if ($makeAppx) {
+    foreach ($identifier in $Runtime) {
+        $layout = Join-Path $msixDirectory "layout/$identifier"
+        $packagePath = Join-Path $msixDirectory "SmartTicker-$Version-$identifier.msix"
+        if ($PSCmdlet.ShouldProcess($packagePath, 'Pack MSIX')) {
+            & $makeAppx pack /d $layout /p $packagePath /o
+            if ($LASTEXITCODE -ne 0) {
+                throw "makeappx failed for ${identifier} with exit code ${LASTEXITCODE}."
+            }
+
+            $artifacts.Add($packagePath)
+        }
+    }
+}
+else {
+    Write-Warning 'makeappx.exe was not found. The MSIX layout was staged but not packed.'
+    Write-Warning 'Install the Windows SDK, then run: makeappx pack /d <layout> /p <output.msix>'
+}
+
+if ($artifacts.Count -gt 0 -and $PSCmdlet.ShouldProcess('SHA256SUMS.txt', 'Write checksums')) {
+    $lines = foreach ($artifact in $artifacts) {
+        $hash = (Get-FileHash -Path $artifact -Algorithm SHA256).Hash
+        $name = Split-Path -Leaf $artifact
+        "$hash  $name"
+    }
+
+    Set-Content -Path (Join-Path $checksumDirectory 'SHA256SUMS.txt') -Value $lines -Encoding UTF8
+}
+
+Write-Host ''
+Write-Host "Release artifacts for ${Version} are in ${releaseRoot}."
+Write-Host 'Store submissions require the reserved Identity values from Partner Center.'

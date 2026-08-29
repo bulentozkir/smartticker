@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SmartTicker.Application/SmartTicker.Application.csproj" />
+    <Project Path="src/SmartTicker.Core/SmartTicker.Core.csproj" />
+    <Project Path="src/SmartTicker.Desktop/SmartTicker.Desktop.csproj" />
+    <Project Path="src/SmartTicker.Infrastructure/SmartTicker.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SmartTicker.Core.Tests/SmartTicker.Core.Tests.csproj" />
+    <Project Path="tests/SmartTicker.Desktop.Tests/SmartTicker.Desktop.Tests.csproj" />
+    <Project Path="tests/SmartTicker.Infrastructure.Tests/SmartTicker.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>
