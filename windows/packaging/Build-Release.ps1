@@ -144,11 +144,27 @@ foreach ($identifier in $Runtime) {
     }
 }
 
-$makeAppx = (Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter 'makeappx.exe' -Recurse -ErrorAction SilentlyContinue |
-    Sort-Object FullName -Descending |
-    Select-Object -First 1 -ExpandProperty FullName)
+function Find-MakeAppx {
+    $sdkRoot = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+    $installed = Get-ChildItem -Path $sdkRoot -Filter 'makeappx.exe' -Recurse -ErrorAction SilentlyContinue |
+        Sort-Object FullName -Descending |
+        Select-Object -First 1 -ExpandProperty FullName
+    if ($installed) {
+        return $installed
+    }
+
+    # The SDK build tools package carries makeappx, so a full Windows SDK install is not required.
+    $packages = if ($env:NUGET_PACKAGES) { $env:NUGET_PACKAGES } else { Join-Path $env:USERPROFILE '.nuget/packages' }
+    Get-ChildItem -Path (Join-Path $packages 'microsoft.windows.sdk.buildtools') -Filter 'makeappx.exe' -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -like '*\x64\*' } |
+        Sort-Object FullName -Descending |
+        Select-Object -First 1 -ExpandProperty FullName
+}
+
+$makeAppx = Find-MakeAppx
 
 if ($makeAppx) {
+    Write-Host "Packing with $makeAppx"
     foreach ($identifier in $Runtime) {
         $layout = Join-Path $msixDirectory "layout/$identifier"
         $packagePath = Join-Path $msixDirectory "SmartTicker-$Version-$identifier.msix"
@@ -163,8 +179,9 @@ if ($makeAppx) {
     }
 }
 else {
-    Write-Warning 'makeappx.exe was not found. The MSIX layout was staged but not packed.'
-    Write-Warning 'Install the Windows SDK, then run: makeappx pack /d <layout> /p <output.msix>'
+    Write-Warning 'makeappx.exe was not found in the Windows SDK or the SDK build tools package.'
+    Write-Warning 'The MSIX layout was staged but not packed. Install the Windows SDK, or restore'
+    Write-Warning 'Microsoft.Windows.SDK.BuildTools, then run: makeappx pack /d <layout> /p <output.msix>'
 }
 
 if ($artifacts.Count -gt 0 -and $PSCmdlet.ShouldProcess('SHA256SUMS.txt', 'Write checksums')) {

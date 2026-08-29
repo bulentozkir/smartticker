@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "priceRowCount": 1,
-  "newsRowCount": 1,
+  "priceRowCount": 2,
+  "newsRowCount": 2,
   "priceScrollSpeed": 50,
   "newsScrollSpeed": 40,
   "priceRefreshSeconds": 60,
