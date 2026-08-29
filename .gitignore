@@ -1,0 +1,79 @@
+# .NET build output
+[Bb]in/
+[Oo]bj/
+artifacts/
+publish/
+
+# User-specific IDE files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# Visual Studio
+.vs/
+TestResults/
+*.VisualState.xml
+
+# Visual Studio Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+
+# JetBrains IDEs
+.idea/
+*.sln.iml
+_ReSharper*/
+*.DotSettings.user
+
+# Test and coverage output
+coverage/
+coverage*.json
+coverage*.xml
+*.coverage
+*.coveragexml
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+!**/packages/build/
+
+# Logs and diagnostics
+*.log
+logs/
+crash-dumps/
+
+# Local application data and databases
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+.local/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+
+# OS-generated files
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
