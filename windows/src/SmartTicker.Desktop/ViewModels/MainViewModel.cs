@@ -95,6 +95,51 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public ObservableCollection<string> ImportProblems { get; } = [];
 
+    // Shown until the first entry exists, so a fresh install is not just an empty bar.
+    public bool ShowStarterPrompt => Subscriptions.Count == 0;
+
+    public string StarterSourceUri => _starterSettings?.Location.AbsoluteUri ?? string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsLoadingStarter { get; set; }
+
+    [RelayCommand]
+    private async Task LoadStarterQuotesAsync()
+    {
+        if (_starterSettings is null)
+        {
+            ReportImportFailure("the starter file", ["Downloading is unavailable in the designer."]);
+            return;
+        }
+
+        try
+        {
+            IsLoadingStarter = true;
+            var json = await _starterSettings.DownloadAsync(_lifetimeCancellation.Token);
+            var result = ImportSettingsJson(json);
+            if (result.Success)
+            {
+                ReportImportSuccess("the starter quotes from GitHub", result.Settings!.Subscriptions.Length);
+                await RefreshPricesAsync();
+                await RefreshNewsAsync();
+            }
+            else
+            {
+                ReportImportFailure("the starter quotes from GitHub", result.Errors);
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
+        {
+            ReportImportFailure(
+                "the starter quotes from GitHub",
+                [exception is TaskCanceledException ? "The download timed out." : exception.Message]);
+        }
+        finally
+        {
+            IsLoadingStarter = false;
+        }
+    }
+
     public void ReportImportSuccess(string fileName, int entryCount)
     {
         ImportProblems.Clear();
@@ -238,6 +283,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly INewsFetcher? _newsFetcher;
     private readonly ISettingsStore? _settingsStore;
     private readonly ILinkLauncher? _linkLauncher;
+    private readonly IStarterSettingsSource? _starterSettings;
     private readonly SemaphoreSlim _priceRefreshGate = new(1, 1);
     private readonly SemaphoreSlim _newsRefreshGate = new(1, 1);
     private readonly NewsRepeatFilter _newsRepeatFilter = new();
@@ -256,8 +302,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         INewsSelectorDiscovery? newsSelectorDiscovery = null,
         ISettingsStore? settingsStore = null,
         INewsFetcher? newsFetcher = null,
-        ILinkLauncher? linkLauncher = null)
+        ILinkLauncher? linkLauncher = null,
+        IStarterSettingsSource? starterSettings = null)
     {
+        _starterSettings = starterSettings;
         _selectorDiscovery = selectorDiscovery;
         _quoteFetcher = quoteFetcher;
         _newsSelectorDiscovery = newsSelectorDiscovery;
@@ -779,6 +827,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         NewsLine = newsEntries.Length == 0
             ? "NEWS  •  Add RSS/Atom feeds in Settings  •  Refresh: 5 min"
             : "NEWS  •  " + string.Join("  •  ", newsEntries.Select(item => $"{item.Symbol} — {item.SourceName}"));
+        OnPropertyChanged(nameof(ShowStarterPrompt));
         UpdateVisibleRows();
     }
 

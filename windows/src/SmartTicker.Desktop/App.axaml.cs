@@ -28,7 +28,8 @@ public partial class App : Avalonia.Application
                     new StaticHtmlNewsSelectorDiscovery(),
                     new LocalJsonSettingsStore(),
                     new StaticHtmlNewsFetcher(),
-                    new DefaultBrowserLinkLauncher()),
+                    new DefaultBrowserLinkLauncher(),
+                    new GitHubStarterSettingsSource()),
             };
         }
 

@@ -32,6 +32,14 @@ public partial class MainWindow : Window
             }
         };
         DataContextChanged += (_, _) => ConfigureFlowTimers();
+        // A fresh install shows an empty bar with no obvious next step, so the starter offer comes to the user.
+        Opened += (_, _) => Dispatcher.UIThread.Post(() =>
+        {
+            if (ViewModel is { ShowStarterPrompt: true })
+            {
+                new SettingsWindow { DataContext = DataContext }.Show(this);
+            }
+        });
         SizeChanged += (_, e) =>
         {
             if (ViewModel is { } viewModel)

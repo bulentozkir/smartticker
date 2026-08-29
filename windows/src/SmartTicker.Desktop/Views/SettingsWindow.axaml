@@ -22,6 +22,26 @@
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="12">
+        <Border Background="#152A1E" BorderBrush="#3FB950" BorderThickness="1" CornerRadius="8" Padding="16"
+                IsVisible="{Binding ShowStarterPrompt}">
+            <StackPanel Spacing="8">
+                <TextBlock Text="Start with the sample quotes" FontSize="17" FontWeight="SemiBold" Foreground="#3FB950" />
+                <TextBlock TextWrapping="Wrap" Opacity="0.85"
+                           Text="Nothing is configured yet. Download the published sample to get 20 ready-made entries with verified selectors, then edit or remove whatever you do not want." />
+                <TextBlock Text="{Binding StarterSourceUri}" TextWrapping="Wrap" FontSize="12" Opacity="0.6" />
+                <Button Content="Import sample quotes from GitHub"
+                        Command="{Binding LoadStarterQuotesCommand}"
+                        IsEnabled="{Binding !IsLoadingStarter}"
+                        HorizontalAlignment="Left" Padding="18,8" />
+                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasImportStatus}">
+                    <TextBlock Text="{Binding ImportStatusIcon}" FontWeight="Bold"
+                               Foreground="{Binding ImportStatusColor}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ImportStatusMessage}" TextWrapping="Wrap"
+                               Foreground="{Binding ImportStatusColor}" VerticalAlignment="Center" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
         <Border Background="#11000000" CornerRadius="8" Padding="16">
             <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="10">
                 <TextBlock Grid.Row="0" Text="Ticker" VerticalAlignment="Center" />
@@ -153,6 +173,7 @@
                 </StackPanel>
             </Grid>
         </Border>
+        </StackPanel>
         </ScrollViewer>
 
         <TextBlock Grid.Row="2" Text="{Binding EntryMessage}" TextWrapping="Wrap" />
