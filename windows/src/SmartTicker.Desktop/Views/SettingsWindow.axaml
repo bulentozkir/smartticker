@@ -4,6 +4,7 @@
         xmlns:models="using:SmartTicker.Core.Models"
         x:Class="SmartTicker.Desktop.Views.SettingsWindow"
         x:DataType="vm:MainViewModel"
+        Icon="/Assets/SmartTicker.ico"
         Title="{Binding Text.TitleQuotes}"
         Width="900"
         Height="760"

@@ -28,7 +28,7 @@ $repositoryRoot = Split-Path -Parent $linuxRoot
 $project = Join-Path $repositoryRoot 'windows/src/SmartTicker.Desktop/SmartTicker.Desktop.csproj'
 $releaseRoot = Join-Path $repositoryRoot "releases/linux/$Version"
 $publishDirectory = Join-Path $releaseRoot 'publish/linux-x64'
-$icon = Join-Path $repositoryRoot 'windows/packaging/Assets/Square150x150Logo.png'
+$icon = Join-Path $repositoryRoot 'windows/packaging/Assets/AppIcon256.png'
 
 $dotnet = (Get-Command dotnet -ErrorAction SilentlyContinue |
     Select-Object -First 1 -ExpandProperty Source)

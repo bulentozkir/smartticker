@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="SmartTicker.Desktop.Views.AboutWindow"
+        Icon="/Assets/SmartTicker.ico"
         Title="About SmartTicker"
         Width="520"
         SizeToContent="Height"
