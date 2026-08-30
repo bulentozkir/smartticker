@@ -44,7 +44,8 @@ Version: ${VERSION}
 Section: utils
 Priority: optional
 Architecture: ${ARCH}
-Maintainer: SmartTicker <noreply@smartticker.invalid>
+Maintainer: Bulent Ozkir <bulentozkir@hotmail.com>
+Homepage: https://github.com/bulentozkir/smartticker
 Installed-Size: ${INSTALLED_KB}
 Depends: libc6, libgcc-s1, libstdc++6, zlib1g, libx11-6, libice6, libsm6, libfontconfig1, libglib2.0-0
 Description: Desktop price and news ticker

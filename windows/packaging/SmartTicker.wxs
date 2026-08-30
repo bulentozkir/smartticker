@@ -8,7 +8,9 @@
            Compressed="yes">
 
     <SummaryInformation Description="SmartTicker desktop price and news ticker" />
-    <MajorUpgrade DowngradeErrorMessage="A newer version of SmartTicker is already installed." />
+    <!-- Without AllowSameVersionUpgrades, reinstalling the same version lands a second ARP entry. -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer version of SmartTicker is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
     <StandardDirectory Id="ProgramFiles6432Folder">

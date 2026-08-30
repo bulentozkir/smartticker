@@ -1341,6 +1341,19 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial bool AlertNeverExpires { get; set; } = true;
 
+    [ObservableProperty]
+    public partial AlertRule? EditingAlertRule { get; set; }
+
+    public bool IsEditingAlertRule => EditingAlertRule is not null;
+
+    public string AlertSubmitText => EditingAlertRule is null ? "Add rule" : "Update rule";
+
+    partial void OnEditingAlertRuleChanged(AlertRule? value)
+    {
+        OnPropertyChanged(nameof(IsEditingAlertRule));
+        OnPropertyChanged(nameof(AlertSubmitText));
+    }
+
     public IReadOnlyList<AlertComparison> ComparisonOptions { get; } = Enum.GetValues<AlertComparison>();
 
     public string AlertStoreLocation => _alertStore?.FilePath ?? "(not available in the designer)";
@@ -1396,7 +1409,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     partial void OnAlertBuzzCountChanged(int value) => SaveAlerts();
 
     [RelayCommand]
-    private void AddAlertRule()
+    private void SaveAlertRule()
     {
         if (AlertSubscription is not { } subscription)
         {
@@ -1418,6 +1431,35 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        if (EditingAlertRule is { } editing)
+        {
+            var index = AlertRules.IndexOf(editing);
+            if (index < 0)
+            {
+                ClearAlertForm();
+                AlertMessage = "That rule no longer exists.";
+                return;
+            }
+
+            AlertRules[index] = editing with
+            {
+                SubscriptionId = subscription.Id,
+                Symbol = subscription.Symbol,
+                Comparison = AlertComparisonChoice,
+                Threshold = threshold,
+                StartsOn = starts,
+                EndsOn = ends,
+            };
+
+            // The condition changed, so a rule already sitting in its fired state must re-arm.
+            _arming.Rearm(editing.Id);
+            ClearAlertForm();
+            SaveAlerts();
+            AlertMessage = $"Updated alert for {subscription.Symbol}.";
+            EvaluateAlerts();
+            return;
+        }
+
         AlertRules.Add(new AlertRule
         {
             Id = Guid.NewGuid(),
@@ -1428,10 +1470,44 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             StartsOn = starts,
             EndsOn = ends,
         });
+        ClearAlertForm();
         SaveAlerts();
-        AlertThresholdText = string.Empty;
         AlertMessage = $"Added alert for {subscription.Symbol}.";
         EvaluateAlerts();
+    }
+
+    [RelayCommand]
+    private void EditAlertRule(AlertRule? rule)
+    {
+        if (rule is null || !AlertRules.Contains(rule))
+        {
+            return;
+        }
+
+        AlertSubscription = Subscriptions.FirstOrDefault(item => item.Id == rule.SubscriptionId);
+        AlertComparisonChoice = rule.Comparison;
+        AlertThresholdText = rule.Threshold.ToString(CultureInfo.InvariantCulture);
+        AlertStartsOn = rule.StartsOn;
+        AlertNeverExpires = rule.EndsOn is null;
+        AlertEndsOn = rule.EndsOn;
+        EditingAlertRule = rule;
+        AlertMessage = $"Editing the {rule.Symbol} alert.";
+    }
+
+    [RelayCommand]
+    private void CancelAlertEdit()
+    {
+        ClearAlertForm();
+        AlertMessage = string.Empty;
+    }
+
+    private void ClearAlertForm()
+    {
+        EditingAlertRule = null;
+        AlertThresholdText = string.Empty;
+        AlertStartsOn = null;
+        AlertEndsOn = null;
+        AlertNeverExpires = true;
     }
 
     [RelayCommand]
@@ -1444,6 +1520,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         AlertRules.Remove(rule);
         _arming.Rearm(rule.Id);
+        if (EditingAlertRule == rule)
+        {
+            ClearAlertForm();
+        }
+
         SaveAlerts();
         AlertMessage = $"Removed alert for {rule.Symbol}.";
     }
@@ -1803,6 +1884,88 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     };
 
     public string ExportSettingsJson() => SettingsJson.Serialize(CurrentSettings());
+
+    public string ExportAlertsJson() => AlertsJson.Serialize(new AlertSettings
+    {
+        Rules = [.. AlertRules],
+        SoundEnabled = AlertSoundEnabled,
+        BlinkSeconds = AlertBlinkSeconds,
+        BuzzCount = AlertBuzzCount,
+    });
+
+    /// <summary>Validates untrusted JSON and only replaces the live alerts when every check passes.</summary>
+    public AlertsImportResult ImportAlertsJson(string? json)
+    {
+        var result = AlertsImportValidator.Validate(json);
+        if (!result.Success)
+        {
+            return result;
+        }
+
+        var imported = result.Settings!;
+
+        // Subscription ids differ between machines, so rules are re-attached by symbol where possible.
+        var relinked = 0;
+        var orphaned = 0;
+        var rules = new List<AlertRule>(imported.Rules.Length);
+        foreach (var rule in imported.Rules)
+        {
+            var match = Subscriptions.FirstOrDefault(item => item.Id == rule.SubscriptionId)
+                ?? Subscriptions.FirstOrDefault(item =>
+                    string.Equals(item.Symbol, rule.Symbol, StringComparison.OrdinalIgnoreCase));
+
+            if (match is null)
+            {
+                orphaned++;
+                rules.Add(rule);
+                continue;
+            }
+
+            if (match.Id != rule.SubscriptionId)
+            {
+                relinked++;
+            }
+
+            rules.Add(rule with { SubscriptionId = match.Id, Symbol = match.Symbol });
+        }
+
+        try
+        {
+            _isApplyingAlerts = true;
+            AlertRules.Clear();
+            foreach (var rule in rules)
+            {
+                AlertRules.Add(rule);
+            }
+
+            AlertSoundEnabled = imported.SoundEnabled;
+            AlertBlinkSeconds = imported.BlinkSeconds;
+            AlertBuzzCount = imported.BuzzCount;
+        }
+        finally
+        {
+            _isApplyingAlerts = false;
+        }
+
+        _arming.Clear();
+        ClearAlertForm();
+        SaveAlerts();
+
+        var notes = new List<string> { $"Imported {rules.Count} alert rule{(rules.Count == 1 ? string.Empty : "s")}" };
+        if (relinked > 0)
+        {
+            notes.Add($"{relinked} re-linked by symbol");
+        }
+
+        if (orphaned > 0)
+        {
+            notes.Add($"{orphaned} match no configured quote and will not fire");
+        }
+
+        AlertMessage = string.Join(", ", notes) + ".";
+        EntryMessage = AlertMessage;
+        return result;
+    }
 
     /// <summary>Validates untrusted JSON and only replaces the live settings when every check passes.</summary>
     public SettingsImportResult ImportSettingsJson(string? json)

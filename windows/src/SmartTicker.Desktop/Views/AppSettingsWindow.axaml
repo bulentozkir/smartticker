@@ -178,6 +178,12 @@
                             <Button Content="Export settings…" Click="ExportSettings" Padding="18,8" />
                             <Button Content="Import settings…" Click="ImportSettings" Padding="18,8" />
                         </StackPanel>
+                        <TextBlock Classes="caption" TextWrapping="Wrap"
+                                   Text="Alert rules live in their own file. Importing replaces every rule; rules are matched to quotes by symbol." />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Export alert rules…" Click="ExportAlerts" Padding="18,8" />
+                            <Button Content="Import alert rules…" Click="ImportAlerts" Padding="18,8" />
+                        </StackPanel>
                         <StackPanel Spacing="8" IsVisible="{Binding HasImportStatus}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="{Binding ImportStatusIcon}" FontSize="18" FontWeight="Bold"

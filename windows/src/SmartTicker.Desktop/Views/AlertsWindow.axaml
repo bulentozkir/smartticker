@@ -56,7 +56,9 @@
                     </StackPanel>
                 </Grid>
                 <StackPanel Orientation="Horizontal" Spacing="10">
-                    <Button Content="Add rule" Classes="primary" Command="{Binding AddAlertRuleCommand}" Padding="18,8" />
+                    <Button Content="{Binding AlertSubmitText}" Classes="primary" Command="{Binding SaveAlertRuleCommand}" Padding="18,8" />
+                    <Button Content="Cancel" Command="{Binding CancelAlertEditCommand}" Padding="18,8"
+                            IsVisible="{Binding IsEditingAlertRule}" />
                     <TextBlock Text="{Binding AlertMessage}" TextWrapping="Wrap" Foreground="#8B949E" VerticalAlignment="Center" />
                 </StackPanel>
             </StackPanel>
@@ -88,7 +90,7 @@
                     <DataTemplate x:DataType="models:AlertRule">
                         <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="6" Padding="10,8"
                                 Opacity="{Binding RowOpacity}">
-                            <Grid ColumnDefinitions="104,130,150,*,Auto,Auto" ColumnSpacing="10">
+                            <Grid ColumnDefinitions="104,130,150,*,Auto,Auto,Auto" ColumnSpacing="10">
                                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                                             ToolTip.Tip="{Binding StateText}">
                                     <TextBlock Text="{Binding StateGlyph}" FontSize="15"
@@ -99,10 +101,13 @@
                                 <TextBlock Grid.Column="1" Text="{Binding Symbol}" FontWeight="Bold" Foreground="#79C0FF" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="2" Text="{Binding Summary}" Foreground="#E6EDF3" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="3" Text="{Binding ScheduleText}" Foreground="#8B949E" VerticalAlignment="Center" />
-                                <Button Grid.Column="4" Content="{Binding ToggleActionText}" Padding="12,6" MinWidth="84"
+                                <Button Grid.Column="4" Content="Edit" Padding="12,6" MinWidth="64"
+                                        Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).EditAlertRuleCommand}"
+                                        CommandParameter="{Binding}" />
+                                <Button Grid.Column="5" Content="{Binding ToggleActionText}" Padding="12,6" MinWidth="84"
                                         Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleAlertRuleCommand}"
                                         CommandParameter="{Binding}" />
-                                <Button Grid.Column="5" Content="Remove" Padding="12,6"
+                                <Button Grid.Column="6" Content="Remove" Padding="12,6"
                                         Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RemoveAlertRuleCommand}"
                                         CommandParameter="{Binding}" />
                             </Grid>
