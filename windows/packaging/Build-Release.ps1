@@ -133,9 +133,16 @@ foreach ($identifier in $Runtime) {
 
     $layout = Join-Path $msixDirectory "layout/$identifier"
     if ($PSCmdlet.ShouldProcess($layout, 'Stage MSIX layout')) {
+        # A dirty layout keeps stale assets, and copying the folder itself nests Assets\Assets.
+        if (Test-Path $layout) {
+            Remove-Item -Path $layout -Recurse -Force
+        }
+
         New-Item -ItemType Directory -Path $layout -Force | Out-Null
         Copy-Item -Path (Join-Path $publishDirectory '*') -Destination $layout -Recurse -Force
-        Copy-Item -Path $assetsDirectory -Destination (Join-Path $layout 'Assets') -Recurse -Force
+        $layoutAssets = Join-Path $layout 'Assets'
+        New-Item -ItemType Directory -Path $layoutAssets -Force | Out-Null
+        Copy-Item -Path (Join-Path $assetsDirectory '*') -Destination $layoutAssets -Recurse -Force
 
         $architecture = if ($identifier -eq 'win-x64') { 'x64' } else { 'arm64' }
         $manifestPath = Join-Path $layout 'AppxManifest.xml'

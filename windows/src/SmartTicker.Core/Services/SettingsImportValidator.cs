@@ -37,6 +37,7 @@ public static class SettingsImportValidator
         "acknowledgedSources",
         "showPriceLine",
         "showNewsLine",
+        "launchAtLogin",
         "backgroundColor",
         "symbolColor",
         "priceColor",
@@ -123,6 +124,7 @@ public static class SettingsImportValidator
                     errors),
                 ShowPriceLine = ReadBool(root, string.Empty, "showPriceLine", true, errors),
                 ShowNewsLine = ReadBool(root, string.Empty, "showNewsLine", true, errors),
+                LaunchAtLogin = ReadBool(root, string.Empty, "launchAtLogin", false, errors),
                 BackgroundColor = ReadColor(root, "backgroundColor", SmartTickerSettings.DefaultBackgroundColor, errors),
                 BackgroundOpacity = ReadFraction(
                     root,

@@ -67,6 +67,24 @@
 
                 <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
                     <StackPanel Spacing="14">
+                        <TextBlock Classes="section" Text="Startup" />
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <CheckBox Content="Start SmartTicker when I sign in"
+                                      IsChecked="{Binding LaunchAtLogin}"
+                                      IsEnabled="{Binding IsLaunchAtLoginSupported}"
+                                      VerticalAlignment="Center" />
+                            <TextBlock Classes="caption" VerticalAlignment="Center"
+                                       Text="Applies to this user account only."
+                                       IsVisible="{Binding IsLaunchAtLoginSupported}" />
+                            <TextBlock Classes="caption" VerticalAlignment="Center"
+                                       Text="Not available on this platform."
+                                       IsVisible="{Binding !IsLaunchAtLoginSupported}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
+                    <StackPanel Spacing="14">
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Classes="section" Text="Appearance" VerticalAlignment="Center" />
                             <Button Grid.Column="1" Content="Reset to defaults" Command="{Binding ResetColorsCommand}"

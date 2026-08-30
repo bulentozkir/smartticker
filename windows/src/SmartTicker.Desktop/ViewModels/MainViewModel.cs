@@ -231,6 +231,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public partial bool ShowNewsLine { get; set; } = true;
 
     [ObservableProperty]
+    public partial bool LaunchAtLogin { get; set; }
+
+    public bool IsLaunchAtLoginSupported => _startupRegistration?.IsSupported ?? false;
+
+    [ObservableProperty]
     public partial string BackgroundColorHex { get; set; } = SmartTickerSettings.DefaultBackgroundColor;
 
     [ObservableProperty]
@@ -352,6 +357,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly IStarterSettingsSource? _starterSettings;
     private readonly IAlertStore? _alertStore;
     private readonly IAlertSound? _alertSound;
+    private readonly IStartupRegistration? _startupRegistration;
     private readonly DispatcherTimer _blinkTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly Dictionary<Guid, DateTimeOffset> _blinkingUntil = [];
     private readonly AlertArmingState _arming = new();
@@ -377,10 +383,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         ILinkLauncher? linkLauncher = null,
         IStarterSettingsSource? starterSettings = null,
         IAlertStore? alertStore = null,
-        IAlertSound? alertSound = null)
+        IAlertSound? alertSound = null,
+        IStartupRegistration? startupRegistration = null)
     {
         _alertStore = alertStore;
         _alertSound = alertSound;
+        _startupRegistration = startupRegistration;
         _starterSettings = starterSettings;
         _selectorDiscovery = selectorDiscovery;
         _quoteFetcher = quoteFetcher;
@@ -1020,6 +1028,45 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsNewsVisible));
         UpdateVisibleRows();
         SaveSettings();
+    }
+
+    partial void OnLaunchAtLoginChanged(bool value)
+    {
+        if (_isApplyingSettings || _startupRegistration is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _startupRegistration.SetEnabled(value);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+            or System.Security.SecurityException or InvalidOperationException)
+        {
+            EntryMessage = $"Startup setting could not be changed: {exception.Message}";
+            RevertLaunchAtLogin();
+            return;
+        }
+
+        SaveSettings();
+    }
+
+    private void RevertLaunchAtLogin()
+    {
+        try
+        {
+            _isApplyingSettings = true;
+            LaunchAtLogin = _startupRegistration?.IsEnabled ?? false;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+            or System.Security.SecurityException)
+        {
+        }
+        finally
+        {
+            _isApplyingSettings = false;
+        }
     }
 
     partial void OnBackgroundColorHexChanged(string value) => ApplyColorChange(nameof(BackgroundBrush));
@@ -1704,6 +1751,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             NewsScrollSpeed = settings.NewsScrollSpeed;
             ShowPriceLine = settings.ShowPriceLine;
             ShowNewsLine = settings.ShowNewsLine;
+            // The OS wins: the user may have switched autostart off outside the app.
+            LaunchAtLogin = _startupRegistration?.IsEnabled ?? settings.LaunchAtLogin;
             BackgroundColorHex = settings.BackgroundColor;
             BackgroundOpacity = settings.BackgroundOpacity;
             SymbolColorHex = settings.SymbolColor;
@@ -1736,6 +1785,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         AcknowledgedSources = _acknowledgements.ToArray(),
         ShowPriceLine = ShowPriceLine,
         ShowNewsLine = ShowNewsLine,
+        LaunchAtLogin = LaunchAtLogin,
         BackgroundColor = BackgroundColorHex,
         BackgroundOpacity = BackgroundOpacity,
         SymbolColor = SymbolColorHex,

@@ -7,6 +7,7 @@ using SmartTicker.Infrastructure.Audio;
 using SmartTicker.Infrastructure.Extraction;
 using SmartTicker.Infrastructure.Launching;
 using SmartTicker.Infrastructure.Persistence;
+using SmartTicker.Infrastructure.Startup;
 
 namespace SmartTicker.Desktop;
 
@@ -32,7 +33,8 @@ public partial class App : Avalonia.Application
                     new DefaultBrowserLinkLauncher(),
                     new GitHubStarterSettingsSource(),
                     new LocalJsonAlertStore(),
-                    new SystemAlertSound()),
+                    new SystemAlertSound(),
+                    StartupRegistrationFactory.Create()),
             };
         }
 
