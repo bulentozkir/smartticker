@@ -32,6 +32,7 @@
         <Border.ContextMenu>
             <ContextMenu>
                 <MenuItem Header="{Binding Text.MenuQuotes}" Click="OpenSettings" />
+                <MenuItem Header="{Binding Text.MenuAlerts}" Click="OpenAlerts" />
                 <MenuItem Header="{Binding Text.MenuAppSettings}" Click="OpenAppSettings" />
                 <MenuItem Header="{Binding Text.MenuShowPriceLine}" ToggleType="CheckBox" IsChecked="{Binding ShowPriceLine, Mode=TwoWay}" />
                 <MenuItem Header="{Binding Text.MenuShowNewsLine}" ToggleType="CheckBox" IsChecked="{Binding ShowNewsLine, Mode=TwoWay}" />

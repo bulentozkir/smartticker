@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using SmartTicker.Desktop.ViewModels;
 using SmartTicker.Desktop.Views;
+using SmartTicker.Infrastructure.Audio;
 using SmartTicker.Infrastructure.Extraction;
 using SmartTicker.Infrastructure.Launching;
 using SmartTicker.Infrastructure.Persistence;
@@ -29,7 +30,9 @@ public partial class App : Avalonia.Application
                     new LocalJsonSettingsStore(),
                     new StaticHtmlNewsFetcher(),
                     new DefaultBrowserLinkLauncher(),
-                    new GitHubStarterSettingsSource()),
+                    new GitHubStarterSettingsSource(),
+                    new LocalJsonAlertStore(),
+                    new SystemAlertSound()),
             };
         }
 

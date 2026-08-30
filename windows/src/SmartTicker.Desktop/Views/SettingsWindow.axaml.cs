@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using SmartTicker.Core.Models;
@@ -10,7 +11,21 @@ public partial class SettingsWindow : Window
     public SettingsWindow()
     {
         InitializeComponent();
+        DataContextChanged += (_, _) =>
+        {
+            if (DataContext is MainViewModel viewModel)
+            {
+                viewModel.ConfirmAlertRemoval = ConfirmAlertRemovalAsync;
+            }
+        };
     }
+
+    private Task<bool> ConfirmAlertRemovalAsync(string symbol, int count) =>
+        ConfirmDialog.ShowAsync(
+            this,
+            "Alert rules",
+            $"{symbol} has {count} alert rule(s). Delete them?",
+            "Delete rules");
 
     private void EditSubscription(object? sender, RoutedEventArgs e)
     {

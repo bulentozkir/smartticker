@@ -5,6 +5,8 @@ public sealed class UiStrings
 {
     public required string MenuQuotes { get; init; }
 
+    public string MenuAlerts { get; init; } = "Alerts";
+
     public required string MenuAppSettings { get; init; }
 
     public required string MenuShowPriceLine { get; init; }

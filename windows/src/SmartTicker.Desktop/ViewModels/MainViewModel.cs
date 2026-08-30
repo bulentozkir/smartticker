@@ -1,12 +1,14 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SmartTicker.Application.Sources;
@@ -20,6 +22,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 {
     // Flags a price entry whose subscription does not collect news.
     private const string NoNewsMarker = "⊗ ";
+
+    // Flags a price entry with a live alert.
+    private const string AlertMarker = "❗ ";
 
     [ObservableProperty]
     public partial string QuoteLine { get; set; } = "PRICES  •  Add an authorized webpage or feed in Settings  •  Refresh: 1 min";
@@ -330,6 +335,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public IBrush PriceDownBrush => ToBrush(PriceDownColorHex, SmartTickerSettings.DefaultPriceDownColor);
 
+    // Fixed rather than themed: a fired alert has to stand out against whatever palette is configured.
+    private static readonly IBrush AlertFlashBrush = new SolidColorBrush(Color.Parse("#FF00FF"));
+
+    private static readonly IBrush AlertFlashTextBrush = new SolidColorBrush(Color.Parse("#000000"));
+
     private static IBrush ToBrush(string hex, string fallback) =>
         new SolidColorBrush(Color.Parse(HexColor.TryNormalize(hex, out var normalized) ? normalized : fallback));
 
@@ -340,6 +350,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly ISettingsStore? _settingsStore;
     private readonly ILinkLauncher? _linkLauncher;
     private readonly IStarterSettingsSource? _starterSettings;
+    private readonly IAlertStore? _alertStore;
+    private readonly IAlertSound? _alertSound;
+    private readonly DispatcherTimer _blinkTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private readonly Dictionary<Guid, DateTimeOffset> _blinkingUntil = [];
+    private readonly AlertArmingState _arming = new();
+    private bool _blinkOn;
     private readonly SemaphoreSlim _priceRefreshGate = new(1, 1);
     private readonly SemaphoreSlim _newsRefreshGate = new(1, 1);
     private readonly NewsRepeatFilter _newsRepeatFilter = new();
@@ -359,8 +375,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         ISettingsStore? settingsStore = null,
         INewsFetcher? newsFetcher = null,
         ILinkLauncher? linkLauncher = null,
-        IStarterSettingsSource? starterSettings = null)
+        IStarterSettingsSource? starterSettings = null,
+        IAlertStore? alertStore = null,
+        IAlertSound? alertSound = null)
     {
+        _alertStore = alertStore;
+        _alertSound = alertSound;
         _starterSettings = starterSettings;
         _selectorDiscovery = selectorDiscovery;
         _quoteFetcher = quoteFetcher;
@@ -368,8 +388,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _settingsStore = settingsStore;
         _newsFetcher = newsFetcher;
         _linkLauncher = linkLauncher;
+        _blinkTimer.Tick += (_, _) => OnBlinkTick();
         SelectedSource = SourceAlternatives[0];
         LoadSettings();
+        LoadAlerts();
     }
 
     public string SourceSummary => string.Join("  •  ", SourceAlternatives.Select(source => source.Name));
@@ -475,6 +497,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             Subscriptions[index] = subscription!.WithNewsRepeatLimit(NewNewsRepeatLimit);
             _newsRepeatFilter.Forget(editing.Id);
             EntryMessage = $"Updated {subscription!.Symbol} from {subscription.SourceName}.";
+            await ReconcileAlertsAfterRenameAsync(editing, subscription!.Symbol);
         }
         else
         {
@@ -542,28 +565,41 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    private void RemoveSubscription(TickerSubscription? subscription)
+    private async Task RemoveSubscriptionAsync(TickerSubscription? subscription)
     {
-        if (subscription is not null)
+        if (subscription is null)
         {
-            Subscriptions.Remove(subscription);
-            var quote = LatestQuotes.FirstOrDefault(item => item.SubscriptionId == subscription.Id);
-            if (quote is not null)
-            {
-                LatestQuotes.Remove(quote);
-            }
-
-            var news = LatestNews.FirstOrDefault(item => item.SubscriptionId == subscription.Id);
-            if (news is not null)
-            {
-                LatestNews.Remove(news);
-            }
-
-            _newsRepeatFilter.Forget(subscription.Id);
-
-            UpdateTickerLines();
-            SaveSettings();
+            return;
         }
+
+        var alertCount = CountAlertsFor(subscription.Id);
+        if (alertCount > 0)
+        {
+            var remove = ConfirmAlertRemoval is null ||
+                await ConfirmAlertRemoval(subscription.Symbol, alertCount);
+            if (remove)
+            {
+                DropAlertsFor(subscription.Id);
+            }
+        }
+
+        Subscriptions.Remove(subscription);
+        var quote = LatestQuotes.FirstOrDefault(item => item.SubscriptionId == subscription.Id);
+        if (quote is not null)
+        {
+            LatestQuotes.Remove(quote);
+        }
+
+        var news = LatestNews.FirstOrDefault(item => item.SubscriptionId == subscription.Id);
+        if (news is not null)
+        {
+            LatestNews.Remove(news);
+        }
+
+        _newsRepeatFilter.Forget(subscription.Id);
+
+        UpdateTickerLines();
+        SaveSettings();
     }
 
     [RelayCommand]
@@ -616,6 +652,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             }
 
             UpdatePriceRows();
+            EvaluateAlerts();
         }
         catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
         {
@@ -1126,7 +1163,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             .Select(item =>
             {
                 var quote = LatestQuotes.FirstOrDefault(snapshot => snapshot.SubscriptionId == item.Id);
-                var marker = HasNoNews(item) ? NoNewsMarker : string.Empty;
+                var alerting = IsAlerting(item.Id);
+                var marker = alerting ? AlertMarker : HasNoNews(item) ? NoNewsMarker : string.Empty;
                 var value = quote switch
                 {
                     { Success: true, Price: { } price } => $"{price:N2}{FormatCurrency(quote.Currency)}",
@@ -1158,7 +1196,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                     }
                 }
 
-                return new TickerSegment(runs, item.SourceUri);
+                return new TickerSegment(runs, item.SourceUri)
+                {
+                    Highlight = alerting
+                        ? _blinkOn
+                            ? new TickerHighlight(AlertFlashBrush, AlertFlashTextBrush)
+                            : new TickerHighlight(AlertFlashTextBrush, AlertFlashBrush)
+                        : null,
+                };
             })
             .ToArray();
         ReplaceVisibleRows(
@@ -1214,6 +1259,311 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         return news is not null && (!news.Success || news.Headlines.Count == 0);
     }
 
+    public ObservableCollection<AlertRule> AlertRules { get; } = [];
+
+    /// <summary>Set by the window so the view model can ask before discarding alert rules.</summary>
+    public Func<string, int, Task<bool>>? ConfirmAlertRemoval { get; set; }
+
+    [ObservableProperty]
+    public partial bool AlertSoundEnabled { get; set; } = true;
+
+    [ObservableProperty]
+    public partial int AlertBlinkSeconds { get; set; } = AlertSettings.DefaultBlinkSeconds;
+
+    [ObservableProperty]
+    public partial int AlertBuzzCount { get; set; } = AlertSettings.DefaultBuzzCount;
+
+    [ObservableProperty]
+    public partial string AlertMessage { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial TickerSubscription? AlertSubscription { get; set; }
+
+    [ObservableProperty]
+    public partial AlertComparison AlertComparisonChoice { get; set; } = AlertComparison.GreaterThanOrEqual;
+
+    [ObservableProperty]
+    public partial string AlertThresholdText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial DateTimeOffset? AlertStartsOn { get; set; }
+
+    [ObservableProperty]
+    public partial DateTimeOffset? AlertEndsOn { get; set; }
+
+    [ObservableProperty]
+    public partial bool AlertNeverExpires { get; set; } = true;
+
+    public IReadOnlyList<AlertComparison> ComparisonOptions { get; } = Enum.GetValues<AlertComparison>();
+
+    public string AlertStoreLocation => _alertStore?.FilePath ?? "(not available in the designer)";
+
+    private bool _isApplyingAlerts;
+
+    private void LoadAlerts()
+    {
+        if (_alertStore is null)
+        {
+            return;
+        }
+
+        var alerts = _alertStore.Load();
+        _isApplyingAlerts = true;
+        try
+        {
+            AlertSoundEnabled = alerts.SoundEnabled;
+            AlertBlinkSeconds = alerts.BlinkSeconds;
+            AlertBuzzCount = alerts.BuzzCount;
+            AlertRules.Clear();
+            foreach (var rule in alerts.Rules)
+            {
+                AlertRules.Add(rule);
+            }
+        }
+        finally
+        {
+            _isApplyingAlerts = false;
+        }
+    }
+
+    private void SaveAlerts()
+    {
+        if (_alertStore is null || _isApplyingAlerts)
+        {
+            return;
+        }
+
+        _alertStore.Save(new AlertSettings
+        {
+            Rules = [.. AlertRules],
+            SoundEnabled = AlertSoundEnabled,
+            BlinkSeconds = AlertBlinkSeconds,
+            BuzzCount = AlertBuzzCount,
+        });
+    }
+
+    partial void OnAlertSoundEnabledChanged(bool value) => SaveAlerts();
+
+    partial void OnAlertBlinkSecondsChanged(int value) => SaveAlerts();
+
+    partial void OnAlertBuzzCountChanged(int value) => SaveAlerts();
+
+    [RelayCommand]
+    private void AddAlertRule()
+    {
+        if (AlertSubscription is not { } subscription)
+        {
+            AlertMessage = "Choose the quote this alert watches.";
+            return;
+        }
+
+        if (!decimal.TryParse(AlertThresholdText, NumberStyles.Number, CultureInfo.InvariantCulture, out var threshold))
+        {
+            AlertMessage = "Enter a numeric threshold, for example 250.50.";
+            return;
+        }
+
+        var starts = AlertStartsOn;
+        var ends = AlertNeverExpires ? null : AlertEndsOn;
+        if (starts is { } from && ends is { } to && to < from)
+        {
+            AlertMessage = "The end date cannot be before the start date.";
+            return;
+        }
+
+        AlertRules.Add(new AlertRule
+        {
+            Id = Guid.NewGuid(),
+            SubscriptionId = subscription.Id,
+            Symbol = subscription.Symbol,
+            Comparison = AlertComparisonChoice,
+            Threshold = threshold,
+            StartsOn = starts,
+            EndsOn = ends,
+        });
+        SaveAlerts();
+        AlertThresholdText = string.Empty;
+        AlertMessage = $"Added alert for {subscription.Symbol}.";
+        EvaluateAlerts();
+    }
+
+    [RelayCommand]
+    private void RemoveAlertRule(AlertRule? rule)
+    {
+        if (rule is null)
+        {
+            return;
+        }
+
+        AlertRules.Remove(rule);
+        _arming.Rearm(rule.Id);
+        SaveAlerts();
+        AlertMessage = $"Removed alert for {rule.Symbol}.";
+    }
+
+    [RelayCommand]
+    private void ToggleAlertRule(AlertRule? rule)
+    {
+        if (rule is null)
+        {
+            return;
+        }
+
+        var index = AlertRules.IndexOf(rule);
+        if (index < 0)
+        {
+            return;
+        }
+
+        var updated = rule with { Enabled = !rule.Enabled };
+        AlertRules[index] = updated;
+
+        // Re-arm so a re-enabled rule can fire again against the price it is already breaching.
+        _arming.Rearm(rule.Id);
+        if (!updated.Enabled &&
+            !AlertRules.Any(other => other.SubscriptionId == rule.SubscriptionId && _arming.IsFiring(other.Id)))
+        {
+            _blinkingUntil.Remove(rule.SubscriptionId);
+        }
+
+        SaveAlerts();
+        AlertMessage = updated.Enabled
+            ? $"Enabled alert for {updated.Symbol}."
+            : $"Disabled alert for {updated.Symbol}.";
+        // Runs last so a rule that fires immediately reports that instead of the toggle message.
+        EvaluateAlerts();
+        UpdatePriceRows();
+    }
+
+    public int CountAlertsFor(Guid subscriptionId) =>
+        AlertRules.Count(rule => rule.SubscriptionId == subscriptionId);
+
+    private void DropAlertsFor(Guid subscriptionId)
+    {
+        foreach (var rule in AlertRules.Where(rule => rule.SubscriptionId == subscriptionId).ToArray())
+        {
+            AlertRules.Remove(rule);
+            _arming.Rearm(rule.Id);
+        }
+
+        _blinkingUntil.Remove(subscriptionId);
+        SaveAlerts();
+    }
+
+    // Rules store the symbol for display, so a renamed quote must carry the new one.
+    private void RenameAlertsFor(Guid subscriptionId, string symbol)
+    {
+        for (var index = 0; index < AlertRules.Count; index++)
+        {
+            if (AlertRules[index].SubscriptionId == subscriptionId && AlertRules[index].Symbol != symbol)
+            {
+                AlertRules[index] = AlertRules[index] with { Symbol = symbol };
+            }
+        }
+
+        SaveAlerts();
+    }
+
+    private void EvaluateAlerts()
+    {
+        if (AlertRules.Count == 0)
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.Now;
+        var fired = new List<AlertRule>();
+        foreach (var rule in AlertRules)
+        {
+            var quote = LatestQuotes.FirstOrDefault(snapshot => snapshot.SubscriptionId == rule.SubscriptionId);
+            if (quote is not { Success: true, Price: { } price })
+            {
+                _arming.Rearm(rule.Id);
+                continue;
+            }
+
+            if (_arming.ShouldNotify(rule, price, now))
+            {
+                fired.Add(rule);
+            }
+        }
+
+        if (fired.Count == 0)
+        {
+            return;
+        }
+
+        var until = now.AddSeconds(AlertBlinkSeconds);
+        foreach (var rule in fired)
+        {
+            _blinkingUntil[rule.SubscriptionId] = until;
+        }
+
+        AlertMessage = fired.Count == 1
+            ? $"Alert fired: {fired[0].Summary}"
+            : $"{fired.Count} alerts fired.";
+
+        if (AlertSoundEnabled)
+        {
+            _alertSound?.Buzz(AlertBuzzCount);
+        }
+
+        _blinkOn = true;
+        if (!_blinkTimer.IsEnabled)
+        {
+            _blinkTimer.Start();
+        }
+
+        UpdatePriceRows();
+    }
+
+    private void OnBlinkTick()
+    {
+        var now = DateTimeOffset.Now;
+        foreach (var key in _blinkingUntil.Where(pair => pair.Value <= now).Select(pair => pair.Key).ToArray())
+        {
+            _blinkingUntil.Remove(key);
+        }
+
+        if (_blinkingUntil.Count == 0)
+        {
+            _blinkTimer.Stop();
+            _blinkOn = false;
+        }
+        else
+        {
+            _blinkOn = !_blinkOn;
+        }
+
+        UpdatePriceRows();
+    }
+
+    private bool IsAlerting(Guid subscriptionId) => _blinkingUntil.ContainsKey(subscriptionId);
+
+    private async Task ReconcileAlertsAfterRenameAsync(TickerSubscription original, string newSymbol)
+    {
+        if (original.Symbol == newSymbol)
+        {
+            return;
+        }
+
+        var alertCount = CountAlertsFor(original.Id);
+        if (alertCount == 0)
+        {
+            return;
+        }
+
+        if (ConfirmAlertRemoval is not null && await ConfirmAlertRemoval(original.Symbol, alertCount))
+        {
+            DropAlertsFor(original.Id);
+            EntryMessage += $" Removed {alertCount} alert rule(s).";
+            return;
+        }
+
+        RenameAlertsFor(original.Id, newSymbol);
+    }
+
+
     private static TickerSegment Tint(TickerSegment segment, IBrush brush) =>
         new(segment.Runs.Select(run => run with { Brush = brush }).ToArray(), segment.Link);
 
@@ -1240,24 +1590,39 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         double fontSize,
         string emptyMessage)
     {
-        target.Clear();
+        var lanes = new List<IReadOnlyList<TickerSegment>>();
         if (source.Count == 0)
         {
-            target.Add(new TickerLane(
-                [new TickerSegment(emptyMessage, null)], pixelsPerSecond, isPaused, rowHeight, fontSize));
-            return;
+            lanes.Add([new TickerSegment(emptyMessage, null)]);
+        }
+        else
+        {
+            var count = Math.Min(Math.Clamp(rowCount, 1, 8), source.Count);
+            var rows = Enumerable.Range(0, count).Select(_ => new List<TickerSegment>()).ToArray();
+            for (var index = 0; index < source.Count; index++)
+            {
+                rows[index % count].Add(source[index]);
+            }
+
+            lanes.AddRange(rows);
         }
 
-        var count = Math.Min(Math.Clamp(rowCount, 1, 8), source.Count);
-        var rows = Enumerable.Range(0, count).Select(_ => new List<TickerSegment>()).ToArray();
-        for (var index = 0; index < source.Count; index++)
+        // Reuse the existing lanes so the marquee controls survive the refresh and keep scrolling.
+        while (target.Count > lanes.Count)
         {
-            rows[index % count].Add(source[index]);
+            target.RemoveAt(target.Count - 1);
         }
 
-        foreach (var row in rows)
+        for (var index = 0; index < lanes.Count; index++)
         {
-            target.Add(new TickerLane(row, pixelsPerSecond, isPaused, rowHeight, fontSize));
+            if (index < target.Count)
+            {
+                target[index].Update(lanes[index], pixelsPerSecond, isPaused, rowHeight, fontSize);
+            }
+            else
+            {
+                target.Add(new TickerLane(lanes[index], pixelsPerSecond, isPaused, rowHeight, fontSize));
+            }
         }
     }
 

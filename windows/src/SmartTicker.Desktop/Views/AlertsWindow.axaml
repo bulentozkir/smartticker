@@ -1,0 +1,114 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SmartTicker.Desktop.ViewModels"
+        xmlns:models="using:SmartTicker.Core.Models"
+        x:Class="SmartTicker.Desktop.Views.AlertsWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Alerts"
+        Width="960"
+        Height="700"
+        MinWidth="640"
+        MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        Background="#0D1117">
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="24" RowSpacing="16">
+        <StackPanel Grid.Row="0" Spacing="5">
+            <TextBlock Text="Alerts" FontSize="24" FontWeight="SemiBold" Foreground="#E6EDF3" />
+            <TextBlock TextWrapping="Wrap" Foreground="#8B949E"
+                       Text="Rules are checked after every price refresh and fire once when the condition becomes true." />
+            <TextBlock Text="{Binding AlertStoreLocation}" TextWrapping="Wrap" FontSize="12" Foreground="#6E7681" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
+            <StackPanel Spacing="14">
+                <TextBlock Classes="section" Text="New rule" />
+                <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="12">
+                    <TextBlock Grid.Row="0" Classes="lbl" Text="Quote" VerticalAlignment="Center" />
+                    <ComboBox Grid.Row="0" Grid.Column="1" Width="320" HorizontalAlignment="Left"
+                              ItemsSource="{Binding Subscriptions}"
+                              SelectedItem="{Binding AlertSubscription}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:TickerSubscription">
+                                <TextBlock Text="{Binding Symbol}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <TextBlock Grid.Row="1" Classes="lbl" Text="Condition" VerticalAlignment="Center" />
+                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                        <TextBlock Classes="caption" Text="Price" VerticalAlignment="Center" />
+                        <ComboBox Width="150" ItemsSource="{Binding ComparisonOptions}"
+                                  SelectedItem="{Binding AlertComparisonChoice}" />
+                        <TextBox Text="{Binding AlertThresholdText}" Width="160" PlaceholderText="250.50" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="2" Classes="lbl" Text="Active from" VerticalAlignment="Center" />
+                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                        <DatePicker SelectedDate="{Binding AlertStartsOn}" />
+                        <TextBlock Classes="caption" Text="Leave empty to start immediately" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="3" Classes="lbl" Text="Expires" VerticalAlignment="Center" />
+                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                        <CheckBox Content="Never expires" IsChecked="{Binding AlertNeverExpires}" VerticalAlignment="Center" />
+                        <DatePicker SelectedDate="{Binding AlertEndsOn}" IsEnabled="{Binding !AlertNeverExpires}" />
+                    </StackPanel>
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Button Content="Add rule" Classes="primary" Command="{Binding AddAlertRuleCommand}" Padding="18,8" />
+                    <TextBlock Text="{Binding AlertMessage}" TextWrapping="Wrap" Foreground="#8B949E" VerticalAlignment="Center" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2" Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
+            <StackPanel Spacing="12">
+                <TextBlock Classes="section" Text="When an alert fires" />
+                <StackPanel Orientation="Horizontal" Spacing="18">
+                    <CheckBox Content="Buzz" IsChecked="{Binding AlertSoundEnabled}" VerticalAlignment="Center" />
+                    <NumericUpDown Value="{Binding AlertBuzzCount}" Minimum="1" Maximum="20" Increment="1"
+                                   FormatString="0" Width="120" FontSize="15" FontWeight="SemiBold"
+                                   HorizontalContentAlignment="Center"
+                                   IsEnabled="{Binding AlertSoundEnabled}" />
+                    <TextBlock Classes="caption" Text="times" VerticalAlignment="Center" />
+                    <TextBlock Classes="caption" Text="Blink for" VerticalAlignment="Center" Margin="14,0,0,0" />
+                    <NumericUpDown Value="{Binding AlertBlinkSeconds}" Minimum="5" Maximum="900" Increment="15"
+                                   FormatString="0" Width="130" FontSize="15" FontWeight="SemiBold"
+                                   HorizontalContentAlignment="Center" />
+                    <TextBlock Classes="caption" Text="seconds" VerticalAlignment="Center" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="8">
+            <TextBlock Text="Configured rules" FontSize="17" FontWeight="SemiBold" Foreground="#E6EDF3" />
+            <ListBox Grid.Row="1" ItemsSource="{Binding AlertRules}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="models:AlertRule">
+                        <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="6" Padding="10,8"
+                                Opacity="{Binding RowOpacity}">
+                            <Grid ColumnDefinitions="104,130,150,*,Auto,Auto" ColumnSpacing="10">
+                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                                            ToolTip.Tip="{Binding StateText}">
+                                    <TextBlock Text="{Binding StateGlyph}" FontSize="15"
+                                               Foreground="{Binding StateColor}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding StateText}" FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{Binding StateColor}" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="{Binding Symbol}" FontWeight="Bold" Foreground="#79C0FF" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="{Binding Summary}" Foreground="#E6EDF3" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="3" Text="{Binding ScheduleText}" Foreground="#8B949E" VerticalAlignment="Center" />
+                                <Button Grid.Column="4" Content="{Binding ToggleActionText}" Padding="12,6" MinWidth="84"
+                                        Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleAlertRuleCommand}"
+                                        CommandParameter="{Binding}" />
+                                <Button Grid.Column="5" Content="Remove" Padding="12,6"
+                                        Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RemoveAlertRuleCommand}"
+                                        CommandParameter="{Binding}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+    </Grid>
+</Window>

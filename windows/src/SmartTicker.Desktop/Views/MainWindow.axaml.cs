@@ -82,6 +82,12 @@ public partial class MainWindow : Window
         settings.Show(this);
     }
 
+    private void OpenAlerts(object? sender, RoutedEventArgs e)
+    {
+        var alerts = new AlertsWindow { DataContext = DataContext };
+        alerts.Show(this);
+    }
+
     private void ConfigureFlowTimers()
     {
         _priceRefreshTimer.Stop();

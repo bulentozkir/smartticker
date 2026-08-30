@@ -142,6 +142,8 @@ public sealed class MarqueeText : UserControl
 
     private void RebuildCopies()
     {
+        var hadContent = _copies.Count > 0 && _contentWidth > 1;
+        var previousOrigin = _origin;
         _canvas.Children.Clear();
         _copies.Clear();
         if (Segments is not { Count: > 0 })
@@ -165,7 +167,11 @@ public sealed class MarqueeText : UserControl
             _canvas.Children.Add(copy);
         }
 
-        _origin = Math.Max(0, Bounds.Width / 2);
+        // A refresh (price tick or alert blink) rebuilds the copies, so the crawl position is carried
+        // over; resetting it here would restart the scroll on every update.
+        _origin = hadContent
+            ? Math.Clamp(previousOrigin, -cycleWidth, Math.Max(0, Bounds.Width))
+            : Math.Max(0, Bounds.Width / 2);
         PositionCopies(cycleWidth);
         _clock.Restart();
     }
@@ -194,10 +200,11 @@ public sealed class MarqueeText : UserControl
 
     private Control CreateSegmentBlock(TickerSegment segment)
     {
+        var highlightForeground = segment.Highlight?.Foreground;
         Control content;
         if (segment.Runs.Count == 1)
         {
-            content = CreateBlock(segment.Runs[0].Text, 1, segment.Runs[0].Brush ?? TextBrush);
+            content = CreateBlock(segment.Runs[0].Text, 1, highlightForeground ?? segment.Runs[0].Brush ?? TextBrush);
         }
         else
         {
@@ -208,10 +215,23 @@ public sealed class MarqueeText : UserControl
             };
             foreach (var run in segment.Runs)
             {
-                pair.Children.Add(CreateBlock(run.Text, 1, run.Brush ?? TextBrush));
+                pair.Children.Add(CreateBlock(run.Text, 1, highlightForeground ?? run.Brush ?? TextBrush));
             }
 
             content = pair;
+        }
+
+        if (segment.Highlight is { } highlight)
+        {
+            // Padding is identical in both blink phases so the row does not shift as it flips.
+            content = new Border
+            {
+                Background = highlight.Background,
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(8, 1),
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = content,
+            };
         }
 
         if (segment.Link is not { } link)
