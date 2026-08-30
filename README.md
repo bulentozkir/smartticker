@@ -10,7 +10,7 @@ The first release targets Windows. The application is planned in C# with .NET 10
 - Delayed price discovery from user-provided public webpages
 - User-provided ticker and display names
 - Automatic static-HTML price detection with an optional CSS selector
-- Price refresh every 1 minute by default
+- Price refresh every 30 seconds by default
 - RSS/Atom headline refresh every 5 minutes by default
 - Right-click menu for settings, refresh, pause/resume, always-on-top, About, and exit
 - Local-only configuration and cached state

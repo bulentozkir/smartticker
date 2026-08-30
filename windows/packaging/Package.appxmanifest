@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Development identity only. Replace Name, Publisher, and PublisherDisplayName with the
-  values reserved in Microsoft Partner Center before submitting to the Microsoft Store.
+  Identity reserved in Partner Center for Store ID 9NG2ZP5LFKDN. Publisher must stay the
+  CN GUID exactly as issued; the Store rejects packages whose identity does not match.
 -->
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -11,7 +11,7 @@
 
   <Identity
     Name="BulentOzkir.SmartTicker"
-    Publisher="CN=Bulent Ozkir"
+    Publisher="CN=06D08AF4-6BB1-40DF-9B96-5DF27BEE0635"
     Version="1.0.0.0"
     ProcessorArchitecture="x64" />
 
