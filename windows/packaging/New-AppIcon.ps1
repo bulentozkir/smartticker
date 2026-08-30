@@ -5,7 +5,8 @@
 .DESCRIPTION
     Renders three ascending bars over a ticker-tape rule on a rounded plate, using the app's own
     palette. Produces the MSIX PNG assets, the multi-resolution .ico embedded in the executable,
-    and the PNG the Debian package installs, so all three platforms stay identical.
+    the PNG the Debian package installs, and the 300x300 Store listing tile, so every surface
+    stays identical.
 
 .EXAMPLE
     ./New-AppIcon.ps1
@@ -229,9 +230,12 @@ New-Item -ItemType Directory -Path (Split-Path -Parent $IconPath) -Force | Out-N
 
 $pngTargets = @(
     @{ Name = 'Square44x44Logo.png'; Width = 44; Height = 44 },
+    @{ Name = 'Square71x71Logo.png'; Width = 71; Height = 71 },
     @{ Name = 'Square150x150Logo.png'; Width = 150; Height = 150 },
     @{ Name = 'StoreLogo.png'; Width = 50; Height = 50 },
-    @{ Name = 'AppIcon256.png'; Width = 256; Height = 256 }
+    @{ Name = 'AppIcon256.png'; Width = 256; Height = 256 },
+    # Store listing tile, not referenced by the manifest.
+    @{ Name = 'AppTileIcon300x300.png'; Width = 300; Height = 300 }
 )
 
 foreach ($target in $pngTargets) {
