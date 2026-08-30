@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="SmartTicker"
+           Manufacturer="SmartTicker"
+           Version="$(var.Version)"
+           UpgradeCode="8CFB30A0-9F3B-48DF-86AD-67DAFFA6F788"
+           Scope="perMachine"
+           Compressed="yes">
+
+    <SummaryInformation Description="SmartTicker desktop price and news ticker" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of SmartTicker is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="SmartTicker" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ShortcutFolder" Name="SmartTicker" />
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="SmartTicker">
+      <ComponentGroupRef Id="ApplicationFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="ApplicationFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**" />
+    </ComponentGroup>
+
+    <Component Id="StartMenuShortcut" Directory="ShortcutFolder" Guid="0C9AA1A8-0053-44E7-A63E-9A16D7CE7B3D">
+      <Shortcut Id="SmartTickerShortcut"
+                Name="SmartTicker"
+                Target="[INSTALLFOLDER]SmartTicker.Desktop.exe"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="RemoveShortcutFolder" Directory="ShortcutFolder" On="uninstall" />
+      <!-- A shortcut cannot be a keypath, so the component is anchored to a registry value instead. -->
+      <RegistryValue Root="HKMU" Key="Software\SmartTicker" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+  </Fragment>
+</Wix>

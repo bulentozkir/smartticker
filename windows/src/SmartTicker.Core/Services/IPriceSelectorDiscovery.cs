@@ -6,5 +6,6 @@ public interface IPriceSelectorDiscovery
 {
     Task<IReadOnlyList<CssSelectorSuggestion>> DiscoverAsync(
         Uri pageUri,
+        SelectorKind kind = SelectorKind.Price,
         CancellationToken cancellationToken = default);
 }

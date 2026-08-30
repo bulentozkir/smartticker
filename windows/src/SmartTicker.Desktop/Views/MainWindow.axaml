@@ -19,8 +19,8 @@
         WindowDecorations="BorderOnly"
         Topmost="True"
         ShowInTaskbar="True"
-        Background="{Binding BackgroundBrush}"
-        TransparencyLevelHint="None">
+        Background="Transparent"
+        TransparencyLevelHint="Transparent">
 
     <Design.DataContext>
         <!-- This only sets the DataContext for the previewer in an IDE,
@@ -28,7 +28,7 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <Border BorderBrush="#2D3748" BorderThickness="1" CornerRadius="4">
+    <Border Background="{Binding BackgroundBrush}" BorderBrush="#2D3748" BorderThickness="1" CornerRadius="4">
         <Border.ContextMenu>
             <ContextMenu>
                 <MenuItem Header="{Binding Text.MenuQuotes}" Click="OpenSettings" />

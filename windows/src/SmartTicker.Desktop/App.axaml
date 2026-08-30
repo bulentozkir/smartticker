@@ -9,8 +9,91 @@
         <local:ViewLocator />
     </Application.DataTemplates>
 
+    <Application.Resources>
+        <SolidColorBrush x:Key="TextControlBackground" Color="#010409" />
+        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#0B1017" />
+        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#010409" />
+        <SolidColorBrush x:Key="TextControlBorderBrush" Color="#30363D" />
+        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#484F58" />
+        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#58A6FF" />
+        <SolidColorBrush x:Key="TextControlForeground" Color="#E6EDF3" />
+        <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#E6EDF3" />
+        <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#6E7681" />
+        <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="#6E7681" />
+        <SolidColorBrush x:Key="ComboBoxBackground" Color="#010409" />
+        <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#0B1017" />
+        <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#30363D" />
+        <SolidColorBrush x:Key="ComboBoxForeground" Color="#E6EDF3" />
+    </Application.Resources>
+
     <Application.Styles>
         <FluentTheme />
         <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
+
+        <Style Selector="TextBlock.lbl">
+            <Setter Property="Foreground" Value="#8FA3BF" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style Selector="TextBlock.caption">
+            <Setter Property="Foreground" Value="#8B949E" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="TextBlock.section">
+            <Setter Property="Foreground" Value="#E6EDF3" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#010409" />
+            <Setter Property="Foreground" Value="#E6EDF3" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="MinHeight" Value="34" />
+            <Setter Property="Padding" Value="10,6" />
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="#010409" />
+            <Setter Property="Foreground" Value="#E6EDF3" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="MinHeight" Value="34" />
+        </Style>
+        <Style Selector="NumericUpDown">
+            <Setter Property="Background" Value="#010409" />
+            <Setter Property="Foreground" Value="#E6EDF3" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <!-- Padding is left alone so NumericUpDown spinner buttons keep their template size. -->
+        <Style Selector="Button">
+            <Setter Property="Background" Value="#21262D" />
+            <Setter Property="Foreground" Value="#C9D1D9" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#1F6FEB" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#388BFD" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="Foreground" Value="#E6EDF3" />
+        </Style>
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
     </Application.Styles>
 </Application>

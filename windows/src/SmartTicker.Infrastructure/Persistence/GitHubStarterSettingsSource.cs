@@ -11,7 +11,7 @@ public sealed class GitHubStarterSettingsSource : IStarterSettingsSource, IDispo
         "https://raw.githubusercontent.com/bulentozkir/smartticker/refs/heads/main/samples/smartticker-settings.sample.json");
 
     public Task<string> DownloadAsync(CancellationToken cancellationToken = default) =>
-        _client.GetStringAsync(Location, cancellationToken);
+        _client.GetJsonAsync(Location, cancellationToken);
 
     public void Dispose() => _client.Dispose();
 }

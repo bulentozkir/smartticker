@@ -58,6 +58,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public partial string NewExtendedChangeCssSelector { get; set; } = string.Empty;
 
     [ObservableProperty]
+    public partial string NewChangeCssSelector { get; set; } = string.Empty;
+
+    [ObservableProperty]
     public partial int NewNewsRepeatLimit { get; set; } = TickerSubscription.DefaultNewsRepeatLimit;
 
     [ObservableProperty]
@@ -226,6 +229,29 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public partial string BackgroundColorHex { get; set; } = SmartTickerSettings.DefaultBackgroundColor;
 
     [ObservableProperty]
+    public partial double BackgroundOpacity { get; set; } = SmartTickerSettings.DefaultOpacity;
+
+    // The suggestion list is shared, so only the row that started the discovery renders it.
+    [ObservableProperty]
+    public partial SelectorKind DiscoveryTarget { get; set; } = SelectorKind.Price;
+
+    public bool ShowPriceMatches => DiscoveryTarget == SelectorKind.Price;
+
+    public bool ShowChangeMatches => DiscoveryTarget == SelectorKind.Change;
+
+    public bool ShowExtendedMatches => DiscoveryTarget == SelectorKind.ExtendedPrice;
+
+    public bool ShowExtendedChangeMatches => DiscoveryTarget == SelectorKind.ExtendedChange;
+
+    partial void OnDiscoveryTargetChanged(SelectorKind value)
+    {
+        OnPropertyChanged(nameof(ShowPriceMatches));
+        OnPropertyChanged(nameof(ShowChangeMatches));
+        OnPropertyChanged(nameof(ShowExtendedMatches));
+        OnPropertyChanged(nameof(ShowExtendedChangeMatches));
+    }
+
+    [ObservableProperty]
     public partial string SymbolColorHex { get; set; } = SmartTickerSettings.DefaultSymbolColor;
 
     [ObservableProperty]
@@ -236,6 +262,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     public partial string NewsColorHex { get; set; } = SmartTickerSettings.DefaultNewsColor;
+
+    [ObservableProperty]
+    public partial string NewsColor2Hex { get; set; } = SmartTickerSettings.DefaultNewsColor2;
+
+    [ObservableProperty]
+    public partial string NewsColor3Hex { get; set; } = SmartTickerSettings.DefaultNewsColor3;
+
+    [ObservableProperty]
+    public partial string NewsColor4Hex { get; set; } = SmartTickerSettings.DefaultNewsColor4;
 
     [ObservableProperty]
     public partial string PriceUpColorHex { get; set; } = SmartTickerSettings.DefaultPriceUpColor;
@@ -260,7 +295,20 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public bool IsNewsVisible => ShowNewsLine && Layout.ShowNews;
 
-    public IBrush BackgroundBrush => ToBrush(BackgroundColorHex, SmartTickerSettings.DefaultBackgroundColor);
+    // Alpha on the background keeps the desktop visible through the bar while the text stays crisp.
+    public IBrush BackgroundBrush
+    {
+        get
+        {
+            var color = Color.Parse(HexColor.TryNormalize(BackgroundColorHex, out var normalized)
+                ? normalized
+                : SmartTickerSettings.DefaultBackgroundColor);
+            var alpha = (byte)Math.Round(Math.Clamp(BackgroundOpacity, SmartTickerSettings.MinimumOpacity, SmartTickerSettings.MaximumOpacity) * 255);
+            return new SolidColorBrush(Color.FromArgb(alpha, color.R, color.G, color.B));
+        }
+    }
+
+    public string BackgroundOpacityText => $"{BackgroundOpacity * 100:0}%";
 
     public IBrush SymbolBrush => ToBrush(SymbolColorHex, SmartTickerSettings.DefaultSymbolColor);
 
@@ -269,6 +317,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public IBrush PriceBrush => ToBrush(PriceColorHex, SmartTickerSettings.DefaultPriceColor);
 
     public IBrush NewsBrush => ToBrush(NewsColorHex, SmartTickerSettings.DefaultNewsColor);
+
+    public IBrush NewsAlternateBrush => ToBrush(NewsColor2Hex, SmartTickerSettings.DefaultNewsColor2);
+
+    public IBrush NewsBrush3 => ToBrush(NewsColor3Hex, SmartTickerSettings.DefaultNewsColor3);
+
+    public IBrush NewsBrush4 => ToBrush(NewsColor4Hex, SmartTickerSettings.DefaultNewsColor4);
+
+    private IReadOnlyList<IBrush> NewsBrushCycle => [NewsBrush, NewsAlternateBrush, NewsBrush3, NewsBrush4];
 
     public IBrush PriceUpBrush => ToBrush(PriceUpColorHex, SmartTickerSettings.DefaultPriceUpColor);
 
@@ -410,6 +466,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             ExtendedChangeCssSelector = string.IsNullOrWhiteSpace(NewExtendedChangeCssSelector)
                 ? null
                 : NewExtendedChangeCssSelector.Trim(),
+            ChangeCssSelector = string.IsNullOrWhiteSpace(NewChangeCssSelector) ? null : NewChangeCssSelector.Trim(),
         };
 
         if (EditingSubscription is { } editing)
@@ -467,6 +524,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         NewCssSelector = subscription.CssSelector ?? string.Empty;
         NewExtendedCssSelector = subscription.ExtendedCssSelector ?? string.Empty;
         NewExtendedChangeCssSelector = subscription.ExtendedChangeCssSelector ?? string.Empty;
+        NewChangeCssSelector = subscription.ChangeCssSelector ?? string.Empty;
         NewNewsCssSelector = subscription.NewsCssSelector ?? string.Empty;
         NewNewsRepeatLimit = subscription.NewsRepeatLimit;
         NewCollectPrice = subscription.CollectPrice;
@@ -616,9 +674,30 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    private async Task DiscoverSelectorsAsync()
+    private Task DiscoverSelectorsAsync() => DiscoverForAsync(SelectorKind.Price);
+
+    [RelayCommand]
+    private Task DiscoverChangeSelectorsAsync() => DiscoverForAsync(SelectorKind.Change);
+
+    [RelayCommand]
+    private Task DiscoverExtendedSelectorsAsync() => DiscoverForAsync(SelectorKind.ExtendedPrice);
+
+    [RelayCommand]
+    private Task DiscoverExtendedChangeSelectorsAsync() => DiscoverForAsync(SelectorKind.ExtendedChange);
+
+    private static string DescribeKind(SelectorKind kind) => kind switch
+    {
+        SelectorKind.Change => "price change",
+        SelectorKind.ExtendedPrice => "after-hours price",
+        SelectorKind.ExtendedChange => "after-hours change",
+        _ => "price",
+    };
+
+    private async Task DiscoverForAsync(SelectorKind kind)
     {
         SelectorSuggestions.Clear();
+        DiscoveryTarget = kind;
+        var label = DescribeKind(kind);
         if (_selectorDiscovery is null)
         {
             DiscoveryMessage = "Selector discovery is unavailable in the designer.";
@@ -634,16 +713,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         try
         {
             IsDiscovering = true;
-            DiscoveryMessage = "Inspecting public static HTML…";
-            var suggestions = await _selectorDiscovery.DiscoverAsync(uri);
+            DiscoveryMessage = $"Inspecting public static HTML for the {label}…";
+            var suggestions = await _selectorDiscovery.DiscoverAsync(uri, kind);
             foreach (var suggestion in suggestions)
             {
                 SelectorSuggestions.Add(suggestion);
             }
 
             DiscoveryMessage = suggestions.Count == 0
-                ? "No reliable selector was found. The page may require JavaScript or a manual selector."
-                : $"Found {suggestions.Count} possible selector(s). Test the selected value before saving.";
+                ? $"No reliable {label} selector was found. The page may require JavaScript or a manual selector."
+                : $"Found {suggestions.Count} possible {label} selector(s). Test the selected value before saving.";
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
         {
@@ -665,8 +744,23 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        NewCssSelector = suggestion.Selector;
-        DiscoveryMessage = $"Selected {suggestion.Selector}. Verify it with the source before saving.";
+        switch (DiscoveryTarget)
+        {
+            case SelectorKind.Change:
+                NewChangeCssSelector = suggestion.Selector;
+                break;
+            case SelectorKind.ExtendedPrice:
+                NewExtendedCssSelector = suggestion.Selector;
+                break;
+            case SelectorKind.ExtendedChange:
+                NewExtendedChangeCssSelector = suggestion.Selector;
+                break;
+            default:
+                NewCssSelector = suggestion.Selector;
+                break;
+        }
+
+        DiscoveryMessage = $"Selected {suggestion.Selector} as the {DescribeKind(DiscoveryTarget)} selector. Verify it with the source before saving.";
     }
 
     [RelayCommand]
@@ -893,7 +987,40 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnBackgroundColorHexChanged(string value) => ApplyColorChange(nameof(BackgroundBrush));
 
-    partial void OnNewsColorHexChanged(string value) => ApplyColorChange(nameof(NewsBrush));
+    partial void OnBackgroundOpacityChanged(double value)
+    {
+        OnPropertyChanged(nameof(BackgroundOpacityText));
+        ApplyColorChange(nameof(BackgroundBrush));
+    }
+
+    // News brushes are baked into segments, so the rows must be rebuilt.
+    partial void OnNewsColorHexChanged(string value)
+    {
+        OnPropertyChanged(nameof(NewsBrush));
+        UpdateNewsRows();
+        SaveSettings();
+    }
+
+    partial void OnNewsColor2HexChanged(string value)
+    {
+        OnPropertyChanged(nameof(NewsAlternateBrush));
+        UpdateNewsRows();
+        SaveSettings();
+    }
+
+    partial void OnNewsColor3HexChanged(string value)
+    {
+        OnPropertyChanged(nameof(NewsBrush3));
+        UpdateNewsRows();
+        SaveSettings();
+    }
+
+    partial void OnNewsColor4HexChanged(string value)
+    {
+        OnPropertyChanged(nameof(NewsBrush4));
+        UpdateNewsRows();
+        SaveSettings();
+    }
 
     // Price row brushes are baked into segments, so the rows must be rebuilt.
     partial void OnSymbolColorHexChanged(string value)
@@ -941,10 +1068,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private void ResetColors()
     {
         BackgroundColorHex = SmartTickerSettings.DefaultBackgroundColor;
+        BackgroundOpacity = SmartTickerSettings.DefaultOpacity;
         SymbolColorHex = SmartTickerSettings.DefaultSymbolColor;
         PriceColorHex = SmartTickerSettings.DefaultPriceColor;
         ExtendedPriceColorHex = SmartTickerSettings.DefaultExtendedPriceColor;
         NewsColorHex = SmartTickerSettings.DefaultNewsColor;
+        NewsColor2Hex = SmartTickerSettings.DefaultNewsColor2;
+        NewsColor3Hex = SmartTickerSettings.DefaultNewsColor3;
+        NewsColor4Hex = SmartTickerSettings.DefaultNewsColor4;
         PriceUpColorHex = SmartTickerSettings.DefaultPriceUpColor;
         PriceDownColorHex = SmartTickerSettings.DefaultPriceDownColor;
     }
@@ -1055,9 +1186,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             .Select(item => (IReadOnlyList<TickerSegment>)BuildNewsSegments(item).ToArray())
             .ToArray();
         var rows = RoundRobinSequencer.Interleave(groups);
+        // Colours cycle over the interleaved order, so neighbouring headlines always differ.
+        var cycle = NewsBrushCycle;
+        var tinted = rows
+            .Select((segment, index) => Tint(segment, cycle[index % cycle.Count]))
+            .ToArray();
         ReplaceVisibleRows(
             VisibleNewsRows,
-            rows,
+            tinted,
             NewsRowCount,
             NewsScrollSpeed,
             IsPaused,
@@ -1077,6 +1213,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         var news = LatestNews.FirstOrDefault(snapshot => snapshot.SubscriptionId == item.Id);
         return news is not null && (!news.Success || news.Headlines.Count == 0);
     }
+
+    private static TickerSegment Tint(TickerSegment segment, IBrush brush) =>
+        new(segment.Runs.Select(run => run with { Brush = brush }).ToArray(), segment.Link);
 
     private IEnumerable<TickerSegment> BuildNewsSegments(TickerSubscription item)
     {
@@ -1145,6 +1284,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         NewNewsCssSelector = string.Empty;
         NewExtendedCssSelector = string.Empty;
         NewExtendedChangeCssSelector = string.Empty;
+        NewChangeCssSelector = string.Empty;
         NewNewsRepeatLimit = TickerSubscription.DefaultNewsRepeatLimit;
         NewCollectPrice = true;
         NewCollectNews = false;
@@ -1200,10 +1340,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             ShowPriceLine = settings.ShowPriceLine;
             ShowNewsLine = settings.ShowNewsLine;
             BackgroundColorHex = settings.BackgroundColor;
+            BackgroundOpacity = settings.BackgroundOpacity;
             SymbolColorHex = settings.SymbolColor;
             ExtendedPriceColorHex = settings.ExtendedPriceColor;
             PriceColorHex = settings.PriceColor;
             NewsColorHex = settings.NewsColor;
+            NewsColor2Hex = settings.NewsColor2;
+            NewsColor3Hex = settings.NewsColor3;
+            NewsColor4Hex = settings.NewsColor4;
             PriceUpColorHex = settings.PriceUpColor;
             PriceDownColorHex = settings.PriceDownColor;
             PriceRefreshSeconds = settings.PriceRefreshSeconds;
@@ -1228,10 +1372,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         ShowPriceLine = ShowPriceLine,
         ShowNewsLine = ShowNewsLine,
         BackgroundColor = BackgroundColorHex,
+        BackgroundOpacity = BackgroundOpacity,
         SymbolColor = SymbolColorHex,
         ExtendedPriceColor = ExtendedPriceColorHex,
         PriceColor = PriceColorHex,
         NewsColor = NewsColorHex,
+        NewsColor2 = NewsColor2Hex,
+        NewsColor3 = NewsColor3Hex,
+        NewsColor4 = NewsColor4Hex,
         PriceUpColor = PriceUpColorHex,
         PriceDownColor = PriceDownColorHex,
         PriceRefreshSeconds = PriceRefreshSeconds,

@@ -12,7 +12,10 @@
   "symbolColor": "#79C0FF",
   "priceColor": "#FFA657",
   "extendedPriceColor": "#00E5FF",
-  "newsColor": "#D8DEE9",
+  "newsColor": "#FFFFFF",
+  "newsColor2": "#00E5FF",
+  "newsColor3": "#A3E635",
+  "newsColor4": "#79C0FF",
   "priceUpColor": "#3FB950",
   "priceDownColor": "#F85149",
   "acknowledgedSources": [

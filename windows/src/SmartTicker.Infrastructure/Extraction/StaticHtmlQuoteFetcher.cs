@@ -33,7 +33,7 @@ public sealed class StaticHtmlQuoteFetcher : IQuoteFetcher, IDisposable
                 DateTimeOffset.UtcNow,
                 extraction.Success,
                 extraction.Message,
-                extraction.Success ? _changeExtractor.Extract(html) : null,
+                extraction.Success ? ExtractChange(html, subscription) : null,
                 extended.Price,
                 extended.ChangePercent);
         }
@@ -56,6 +56,11 @@ public sealed class StaticHtmlQuoteFetcher : IQuoteFetcher, IDisposable
     }
 
     public void Dispose() => _client.Dispose();
+
+    private decimal? ExtractChange(string html, TickerSubscription subscription) =>
+        string.IsNullOrWhiteSpace(subscription.ChangeCssSelector)
+            ? _changeExtractor.Extract(html)
+            : _changeExtractor.Extract(html, subscription.ChangeCssSelector);
 
     private (decimal? Price, decimal? ChangePercent) ExtractExtended(string html, TickerSubscription subscription)
     {

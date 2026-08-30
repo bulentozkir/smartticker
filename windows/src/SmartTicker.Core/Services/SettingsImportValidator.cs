@@ -30,6 +30,7 @@ public static class SettingsImportValidator
         "priceRowCount",
         "newsRowCount",
         "priceScrollSpeed",
+        "backgroundOpacity",
         "newsScrollSpeed",
         "priceRefreshSeconds",
         "newsRefreshSeconds",
@@ -41,6 +42,9 @@ public static class SettingsImportValidator
         "priceColor",
         "extendedPriceColor",
         "newsColor",
+        "newsColor2",
+        "newsColor3",
+        "newsColor4",
         "priceUpColor",
         "priceDownColor",
         "language",
@@ -57,6 +61,7 @@ public static class SettingsImportValidator
         "cssSelector",
         "extendedCssSelector",
         "extendedChangeCssSelector",
+        "changeCssSelector",
         "newsCssSelector",
         "newsRepeatLimit",
     };
@@ -119,10 +124,20 @@ public static class SettingsImportValidator
                 ShowPriceLine = ReadBool(root, string.Empty, "showPriceLine", true, errors),
                 ShowNewsLine = ReadBool(root, string.Empty, "showNewsLine", true, errors),
                 BackgroundColor = ReadColor(root, "backgroundColor", SmartTickerSettings.DefaultBackgroundColor, errors),
+                BackgroundOpacity = ReadFraction(
+                    root,
+                    "backgroundOpacity",
+                    SmartTickerSettings.MinimumOpacity,
+                    SmartTickerSettings.MaximumOpacity,
+                    SmartTickerSettings.DefaultOpacity,
+                    errors),
                 SymbolColor = ReadColor(root, "symbolColor", SmartTickerSettings.DefaultSymbolColor, errors),
                 ExtendedPriceColor = ReadColor(root, "extendedPriceColor", SmartTickerSettings.DefaultExtendedPriceColor, errors),
                 PriceColor = ReadColor(root, "priceColor", SmartTickerSettings.DefaultPriceColor, errors),
                 NewsColor = ReadColor(root, "newsColor", SmartTickerSettings.DefaultNewsColor, errors),
+                NewsColor2 = ReadColor(root, "newsColor2", SmartTickerSettings.DefaultNewsColor2, errors),
+                NewsColor3 = ReadColor(root, "newsColor3", SmartTickerSettings.DefaultNewsColor3, errors),
+                NewsColor4 = ReadColor(root, "newsColor4", SmartTickerSettings.DefaultNewsColor4, errors),
                 PriceUpColor = ReadColor(root, "priceUpColor", SmartTickerSettings.DefaultPriceUpColor, errors),
                 PriceDownColor = ReadColor(root, "priceDownColor", SmartTickerSettings.DefaultPriceDownColor, errors),
                 Language = ReadLanguage(root, errors),
@@ -239,6 +254,7 @@ public static class SettingsImportValidator
         var cssSelector = ReadString(map, path, "cssSelector", errors);
         var extendedCssSelector = ReadString(map, path, "extendedCssSelector", errors);
         var extendedChangeCssSelector = ReadString(map, path, "extendedChangeCssSelector", errors);
+        var changeCssSelector = ReadString(map, path, "changeCssSelector", errors);
         var newsCssSelector = ReadString(map, path, "newsCssSelector", errors);
         var repeatLimit = ReadInt(
             map,
@@ -272,6 +288,7 @@ public static class SettingsImportValidator
             NewsRepeatLimit = repeatLimit,
             ExtendedCssSelector = string.IsNullOrWhiteSpace(extendedCssSelector) ? null : extendedCssSelector.Trim(),
             ExtendedChangeCssSelector = string.IsNullOrWhiteSpace(extendedChangeCssSelector) ? null : extendedChangeCssSelector.Trim(),
+            ChangeCssSelector = string.IsNullOrWhiteSpace(changeCssSelector) ? null : changeCssSelector.Trim(),
         };
     }
 
@@ -398,6 +415,34 @@ public static class SettingsImportValidator
                 errors.Add($"'{Field(path, name)}' is not a SmartTicker setting. Check the spelling or remove it.");
             }
         }
+    }
+
+    private static double ReadFraction(
+        Dictionary<string, JsonElement> map,
+        string name,
+        double minimum,
+        double maximum,
+        double fallback,
+        List<string> errors)
+    {
+        if (!map.TryGetValue(name, out var element))
+        {
+            return fallback;
+        }
+
+        if (element.ValueKind != JsonValueKind.Number || !element.TryGetDouble(out var value) || !double.IsFinite(value))
+        {
+            errors.Add($"'{name}' must be a number between {minimum} and {maximum}, but it is {Describe(element.ValueKind)}.");
+            return fallback;
+        }
+
+        if (value < minimum || value > maximum)
+        {
+            errors.Add($"'{name}' is {value}, which is outside the allowed range {minimum}-{maximum}.");
+            return fallback;
+        }
+
+        return value;
     }
 
     private static int ReadInt(

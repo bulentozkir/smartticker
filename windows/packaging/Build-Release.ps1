@@ -4,9 +4,10 @@
 
 .DESCRIPTION
     Publishes self-contained builds, produces portable ZIP archives, stages a Microsoft Store
-    compatible MSIX layout, and writes SHA-256 checksums. MSIX packing requires makeappx.exe
-    from the Windows SDK; when it is unavailable the staged layout is still produced so the
-    packaging step can be completed on a machine that has the SDK installed.
+    compatible MSIX layout, builds an MSI installer, and writes SHA-256 checksums. MSIX packing
+    requires makeappx.exe from the Windows SDK and the MSI requires the WiX CLI
+    (dotnet tool install --global wix); when either is unavailable the rest of the artifacts are
+    still produced.
 
 .EXAMPLE
     ./Build-Release.ps1 -Version 1.0.0
@@ -96,8 +97,9 @@ function Initialize-PackagingAssets {
 
 $portableDirectory = Join-Path $releaseRoot 'portable'
 $msixDirectory = Join-Path $releaseRoot 'msix'
+$msiDirectory = Join-Path $releaseRoot 'msi'
 $checksumDirectory = Join-Path $releaseRoot 'checksums'
-foreach ($directory in @($portableDirectory, $msixDirectory, $checksumDirectory)) {
+foreach ($directory in @($portableDirectory, $msixDirectory, $msiDirectory, $checksumDirectory)) {
     if ($PSCmdlet.ShouldProcess($directory, 'Create release directory')) {
         New-Item -ItemType Directory -Path $directory -Force | Out-Null
     }
@@ -182,6 +184,47 @@ else {
     Write-Warning 'makeappx.exe was not found in the Windows SDK or the SDK build tools package.'
     Write-Warning 'The MSIX layout was staged but not packed. Install the Windows SDK, or restore'
     Write-Warning 'Microsoft.Windows.SDK.BuildTools, then run: makeappx pack /d <layout> /p <output.msix>'
+}
+
+function Find-Wix {
+    $onPath = Get-Command wix -ErrorAction SilentlyContinue |
+        Select-Object -First 1 -ExpandProperty Source
+    if ($onPath) {
+        return $onPath
+    }
+
+    # A freshly installed global tool is not on PATH until the shell restarts.
+    $toolPath = Join-Path $env:USERPROFILE '.dotnet/tools/wix.exe'
+    if (Test-Path $toolPath) {
+        return $toolPath
+    }
+
+    return $null
+}
+
+$wix = Find-Wix
+
+if ($wix) {
+    Write-Host "Building MSI with $wix"
+    $wxs = Join-Path $packagingRoot 'SmartTicker.wxs'
+    foreach ($identifier in $Runtime) {
+        $publishDirectory = Join-Path $releaseRoot "publish/$identifier"
+        $msiPath = Join-Path $msiDirectory "SmartTicker-$Version-$identifier.msi"
+        $architecture = if ($identifier -eq 'win-x64') { 'x64' } else { 'arm64' }
+        if ($PSCmdlet.ShouldProcess($msiPath, 'Build MSI')) {
+            & $wix build $wxs -arch $architecture -o $msiPath `
+                -d "Version=$Version" -d "PublishDir=$publishDirectory"
+            if ($LASTEXITCODE -ne 0) {
+                throw "wix build failed for ${identifier} with exit code ${LASTEXITCODE}."
+            }
+
+            $artifacts.Add($msiPath)
+        }
+    }
+}
+else {
+    Write-Warning 'The WiX CLI was not found, so no MSI was built.'
+    Write-Warning 'Install it with: dotnet tool install --global wix'
 }
 
 if ($artifacts.Count -gt 0 -and $PSCmdlet.ShouldProcess('SHA256SUMS.txt', 'Write checksums')) {

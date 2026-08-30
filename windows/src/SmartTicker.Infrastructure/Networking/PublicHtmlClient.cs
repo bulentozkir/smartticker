@@ -10,6 +10,9 @@ internal sealed class PublicHtmlClient : IDisposable
 {
     private const int MaximumResponseBytes = 8 * 1024 * 1024;
 
+    private static readonly string[] HtmlMediaTypes = ["text/html", "application/xhtml+xml"];
+    private static readonly string[] JsonMediaTypes = ["application/json", "text/plain", "text/json"];
+
     private static readonly string TooLargeMessage =
         $"The HTML document exceeds the {MaximumResponseBytes / (1024 * 1024)} MB limit.";
     private readonly HttpClient _httpClient;
@@ -30,13 +33,26 @@ internal sealed class PublicHtmlClient : IDisposable
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
     }
 
-    public async Task<string> GetStringAsync(Uri pageUri, CancellationToken cancellationToken)
+    public Task<string> GetStringAsync(Uri pageUri, CancellationToken cancellationToken) =>
+        FetchAsync(pageUri, HtmlMediaTypes, "text/html", cancellationToken);
+
+    // Raw file hosts commonly serve JSON as text/plain, so both are accepted.
+    public Task<string> GetJsonAsync(Uri fileUri, CancellationToken cancellationToken) =>
+        FetchAsync(fileUri, JsonMediaTypes, "application/json", cancellationToken);
+
+    private async Task<string> FetchAsync(
+        Uri pageUri,
+        string[] allowedMediaTypes,
+        string acceptHeader,
+        CancellationToken cancellationToken)
     {
         var currentUri = pageUri;
         for (var redirect = 0; redirect <= 3; redirect++)
         {
             await ValidatePublicUriAsync(currentUri, cancellationToken);
             using var request = new HttpRequestMessage(HttpMethod.Get, currentUri);
+            request.Headers.Accept.Clear();
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(acceptHeader));
             using var response = await _httpClient.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
@@ -57,10 +73,10 @@ internal sealed class PublicHtmlClient : IDisposable
 
             response.EnsureSuccessStatusCode();
             if (response.Content.Headers.ContentType?.MediaType is { } mediaType &&
-                !mediaType.Equals("text/html", StringComparison.OrdinalIgnoreCase) &&
-                !mediaType.Equals("application/xhtml+xml", StringComparison.OrdinalIgnoreCase))
+                !allowedMediaTypes.Contains(mediaType, StringComparer.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("The URL did not return an HTML document.");
+                throw new InvalidOperationException(
+                    $"The URL returned {mediaType} instead of {string.Join(" or ", allowedMediaTypes)}.");
             }
 
             return await ReadLimitedHtmlAsync(response.Content, cancellationToken);

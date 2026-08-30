@@ -11,10 +11,11 @@ public sealed class StaticHtmlPriceSelectorDiscovery : IPriceSelectorDiscovery, 
 
     public async Task<IReadOnlyList<CssSelectorSuggestion>> DiscoverAsync(
         Uri pageUri,
+        SelectorKind kind = SelectorKind.Price,
         CancellationToken cancellationToken = default)
     {
         var html = await _client.GetStringAsync(pageUri, cancellationToken);
-        return _analyzer.Analyze(html);
+        return _analyzer.Analyze(html, kind);
     }
 
     public void Dispose() => _client.Dispose();

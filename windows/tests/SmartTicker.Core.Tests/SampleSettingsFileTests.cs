@@ -42,6 +42,9 @@ public sealed class SampleSettingsFileTests
         Assert.Equal(SmartTickerSettings.DefaultPriceColor, settings.PriceColor);
         Assert.Equal(SmartTickerSettings.DefaultExtendedPriceColor, settings.ExtendedPriceColor);
         Assert.Equal(SmartTickerSettings.DefaultNewsColor, settings.NewsColor);
+        Assert.Equal(SmartTickerSettings.DefaultNewsColor2, settings.NewsColor2);
+        Assert.Equal(SmartTickerSettings.DefaultNewsColor3, settings.NewsColor3);
+        Assert.Equal(SmartTickerSettings.DefaultNewsColor4, settings.NewsColor4);
         Assert.Equal(SmartTickerSettings.DefaultPriceUpColor, settings.PriceUpColor);
         Assert.Equal(SmartTickerSettings.DefaultPriceDownColor, settings.PriceDownColor);
     }

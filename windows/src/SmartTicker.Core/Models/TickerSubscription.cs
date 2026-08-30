@@ -19,6 +19,8 @@ public sealed record TickerSubscription(
 
     public string? ExtendedChangeCssSelector { get; init; }
 
+    public string? ChangeCssSelector { get; init; }
+
     public int NewsRepeatLimit { get; init; } = DefaultNewsRepeatLimit;
 
     public TickerSubscription WithNewsRepeatLimit(int limit) =>

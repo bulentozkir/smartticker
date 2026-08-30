@@ -9,14 +9,30 @@
         Height="760"
         MinWidth="680"
         MinHeight="540"
-        WindowStartupLocation="CenterOwner">
+        WindowStartupLocation="CenterOwner"
+        Background="#0D1117">
+    <Window.Resources>
+        <DataTemplate x:Key="SuggestionTemplate" x:DataType="models:CssSelectorSuggestion">
+            <Grid ColumnDefinitions="*,140,60,Auto" ColumnSpacing="8" Margin="3">
+                <TextBlock Text="{Binding Selector}" TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding Reason}" VerticalAlignment="Center" Foreground="#A5D6FF" />
+                <TextBlock Grid.Column="1" Text="{Binding SampleValue}" TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" Foreground="#E6EDF3" />
+                <TextBlock Grid.Column="2" Text="{Binding Confidence, StringFormat={}{0}%}"
+                           VerticalAlignment="Center" Foreground="#8B949E" />
+                <Button Grid.Column="3" Content="Use" Padding="12,6"
+                        Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).UseSelectorSuggestionCommand}"
+                        CommandParameter="{Binding}" />
+            </Grid>
+        </DataTemplate>
+    </Window.Resources>
     <Grid RowDefinitions="Auto,*,Auto,200" Margin="24" RowSpacing="16">
         <StackPanel Grid.Row="0" Spacing="5">
-            <TextBlock Text="Quotes" FontSize="24" FontWeight="SemiBold" />
+            <TextBlock Text="Quotes" FontSize="24" FontWeight="SemiBold" Foreground="#E6EDF3" />
             <TextBlock Text="Stocks, ETFs, Commodities, and News configuration"
-                       TextWrapping="Wrap" Opacity="0.8" />
+                       TextWrapping="Wrap" Foreground="#8B949E" />
             <TextBlock Text="Add each symbol/source combination separately. The same symbol may be added any number of times."
-                       TextWrapping="Wrap" Opacity="0.8" />
+                       TextWrapping="Wrap" Foreground="#8B949E" />
             <TextBlock Text="Sign-in does not authorize crawling. SmartTicker does not collect passwords, browser cookies, or authenticated sessions."
                        TextWrapping="Wrap" Foreground="#D9822B" FontWeight="SemiBold" />
         </StackPanel>
@@ -31,6 +47,7 @@
                            Text="Nothing is configured yet. Download the published sample to get 20 ready-made entries with verified selectors, then edit or remove whatever you do not want." />
                 <TextBlock Text="{Binding StarterSourceUri}" TextWrapping="Wrap" FontSize="12" Opacity="0.6" />
                 <Button Content="Import sample quotes from GitHub"
+                        Classes="primary"
                         Command="{Binding LoadStarterQuotesCommand}"
                         IsEnabled="{Binding !IsLoadingStarter}"
                         HorizontalAlignment="Left" Padding="18,8" />
@@ -40,13 +57,24 @@
                     <TextBlock Text="{Binding ImportStatusMessage}" TextWrapping="Wrap"
                                Foreground="{Binding ImportStatusColor}" VerticalAlignment="Center" />
                 </StackPanel>
+                <Border Background="#1B1F27" CornerRadius="6" Padding="10" IsVisible="{Binding HasImportProblems}">
+                    <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding ImportProblems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="12" Foreground="#F85149" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
             </StackPanel>
         </Border>
-        <Border Background="#11000000" CornerRadius="8" Padding="16">
-            <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="10">
-                <TextBlock Grid.Row="0" Text="Ticker" VerticalAlignment="Center" />
+        <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
+            <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="14">
+                <TextBlock Grid.Row="0" Classes="lbl" Text="Ticker" VerticalAlignment="Center" />
                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding NewSymbol}" PlaceholderText="MSFT" />
-                <TextBlock Grid.Row="1" Text="Source" VerticalAlignment="Center" />
+                <TextBlock Grid.Row="1" Classes="lbl" Text="Source" VerticalAlignment="Center" />
                 <ComboBox Grid.Row="1" Grid.Column="1"
                           ItemsSource="{Binding SourceAlternatives}"
                           SelectedItem="{Binding SelectedSource}">
@@ -56,7 +84,7 @@
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
-                <TextBlock Grid.Row="2" Text="URL suffix" VerticalAlignment="Top" Margin="0,9,0,0" />
+                <TextBlock Grid.Row="2" Classes="lbl" Text="URL suffix" VerticalAlignment="Top" Margin="0,9,0,0" />
                 <StackPanel Grid.Row="2" Grid.Column="1" Spacing="5">
                     <Border Padding="10,7" CornerRadius="4" Background="#1A2430">
                         <StackPanel Spacing="3">
@@ -99,39 +127,66 @@
                         </StackPanel>
                     </Border>
                 </StackPanel>
-                <TextBlock Grid.Row="3" Text="Price selector" VerticalAlignment="Center" />
+                <TextBlock Grid.Row="3" Classes="lbl" Text="Price selector" VerticalAlignment="Center" />
                 <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <TextBox Text="{Binding NewCssSelector}" PlaceholderText="Optional CSS selector for a quote value" />
                     <Button Grid.Column="1" Content="Discover price" Command="{Binding DiscoverSelectorsCommand}" />
                 </Grid>
-                <TextBlock Grid.Row="4" Text="Price matches" VerticalAlignment="Top" />
-                <StackPanel Grid.Row="4" Grid.Column="1" Spacing="6">
-                    <TextBlock Text="{Binding DiscoveryMessage}" TextWrapping="Wrap" Opacity="0.8" />
-                    <ListBox ItemsSource="{Binding SelectorSuggestions}" MaxHeight="85">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="models:CssSelectorSuggestion">
-                                <Grid ColumnDefinitions="*,100,70,Auto" ColumnSpacing="8" Margin="3">
-                                    <TextBlock Text="{Binding Selector}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Grid.Column="1" Text="{Binding SampleValue}" />
-                                    <TextBlock Grid.Column="2" Text="{Binding Confidence, StringFormat={}{0}%}" />
-                                    <Button Grid.Column="3" Content="Use"
-                                            Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).UseSelectorSuggestionCommand}"
-                                            CommandParameter="{Binding}" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                <TextBlock Grid.Row="4" Classes="lbl" Text="Price matches" VerticalAlignment="Top"
+                           IsVisible="{Binding ShowPriceMatches}" />
+                <StackPanel Grid.Row="4" Grid.Column="1" Spacing="6" IsVisible="{Binding ShowPriceMatches}">
+                    <TextBlock Text="{Binding DiscoveryMessage}" TextWrapping="Wrap" Foreground="#8B949E" />
+                    <ListBox ItemsSource="{Binding SelectorSuggestions}" MaxHeight="120"
+                             ItemTemplate="{StaticResource SuggestionTemplate}" />
                 </StackPanel>
-                <TextBlock Grid.Row="5" Text="After-hours selector" VerticalAlignment="Center" />
-                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding NewExtendedCssSelector}"
-                         PlaceholderText="Optional CSS selector for the post-market price"
-                         ToolTip.Tip="Yahoo: [data-testid=&quot;qsp-post-price&quot;]   CNBC: .QuoteStrip-extendedDataContainer .QuoteStrip-lastPrice" />
-                <TextBlock Grid.Row="6" Text="After-hours change" VerticalAlignment="Center" />
-                <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding NewExtendedChangeCssSelector}"
-                         PlaceholderText="Optional CSS selector for the post-market change percent"
-                         ToolTip.Tip="CNBC: .QuoteStrip-extendedDataContainer [class*=changeUp],.QuoteStrip-extendedDataContainer [class*=changeDown]" />
-                <TextBlock Grid.Row="7" Text="News selector" VerticalAlignment="Center" />
-                <Grid Grid.Row="7" Grid.Column="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+
+                <TextBlock Grid.Row="5" Classes="lbl" Text="Price change" VerticalAlignment="Center" />
+                <Grid Grid.Row="5" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBox Text="{Binding NewChangeCssSelector}"
+                             PlaceholderText="Optional CSS selector for the change percent (auto-detected when blank)"
+                             ToolTip.Tip="Leave blank to use the built-in detection. Trading Economics: #market_daily_Pchg" />
+                    <Button Grid.Column="1" Content="Discover change" Command="{Binding DiscoverChangeSelectorsCommand}" />
+                </Grid>
+                <TextBlock Grid.Row="6" Classes="lbl" Text="Change matches" VerticalAlignment="Top"
+                           IsVisible="{Binding ShowChangeMatches}" />
+                <StackPanel Grid.Row="6" Grid.Column="1" Spacing="6" IsVisible="{Binding ShowChangeMatches}">
+                    <TextBlock Text="{Binding DiscoveryMessage}" TextWrapping="Wrap" Foreground="#8B949E" />
+                    <ListBox ItemsSource="{Binding SelectorSuggestions}" MaxHeight="120"
+                             ItemTemplate="{StaticResource SuggestionTemplate}" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="7" Classes="lbl" Text="After-hours selector" VerticalAlignment="Center" />
+                <Grid Grid.Row="7" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBox Text="{Binding NewExtendedCssSelector}"
+                             PlaceholderText="Optional CSS selector for the post-market price"
+                             ToolTip.Tip="Yahoo: [data-testid=&quot;qsp-post-price&quot;]   CNBC: .QuoteStrip-extendedDataContainer .QuoteStrip-lastPrice" />
+                    <Button Grid.Column="1" Content="Discover after-hours" Command="{Binding DiscoverExtendedSelectorsCommand}" />
+                </Grid>
+                <TextBlock Grid.Row="8" Classes="lbl" Text="After-hours matches" VerticalAlignment="Top"
+                           IsVisible="{Binding ShowExtendedMatches}" />
+                <StackPanel Grid.Row="8" Grid.Column="1" Spacing="6" IsVisible="{Binding ShowExtendedMatches}">
+                    <TextBlock Text="{Binding DiscoveryMessage}" TextWrapping="Wrap" Foreground="#8B949E" />
+                    <ListBox ItemsSource="{Binding SelectorSuggestions}" MaxHeight="120"
+                             ItemTemplate="{StaticResource SuggestionTemplate}" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="9" Classes="lbl" Text="After-hours change" VerticalAlignment="Center" />
+                <Grid Grid.Row="9" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBox Text="{Binding NewExtendedChangeCssSelector}"
+                             PlaceholderText="Optional CSS selector for the post-market change percent"
+                             ToolTip.Tip="CNBC: .QuoteStrip-extendedDataContainer [class*=changeUp],.QuoteStrip-extendedDataContainer [class*=changeDown]" />
+                    <Button Grid.Column="1" Content="Discover after-hours change" Command="{Binding DiscoverExtendedChangeSelectorsCommand}" />
+                </Grid>
+                <TextBlock Grid.Row="10" Classes="lbl" Text="After-hours change matches" VerticalAlignment="Top"
+                           IsVisible="{Binding ShowExtendedChangeMatches}" />
+                <StackPanel Grid.Row="10" Grid.Column="1" Spacing="6" IsVisible="{Binding ShowExtendedChangeMatches}">
+                    <TextBlock Text="{Binding DiscoveryMessage}" TextWrapping="Wrap" Foreground="#8B949E" />
+                    <ListBox ItemsSource="{Binding SelectorSuggestions}" MaxHeight="120"
+                             ItemTemplate="{StaticResource SuggestionTemplate}" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="11" Classes="lbl" Text="News selector" VerticalAlignment="Center" />
+                <Grid Grid.Row="11" Grid.Column="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                     <TextBox Text="{Binding NewNewsCssSelector}" PlaceholderText="Optional CSS selector for headline links" />
                     <Button Grid.Column="1" Content="Discover news" Command="{Binding DiscoverNewsSelectorsCommand}" />
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6"
@@ -144,8 +199,8 @@
                         <TextBlock Text="times" VerticalAlignment="Center" Opacity="0.75" />
                     </StackPanel>
                 </Grid>
-                <TextBlock Grid.Row="8" Text="News matches" VerticalAlignment="Top" />
-                <StackPanel Grid.Row="8" Grid.Column="1" Spacing="6">
+                <TextBlock Grid.Row="12" Classes="lbl" Text="News matches" VerticalAlignment="Top" />
+                <StackPanel Grid.Row="12" Grid.Column="1" Spacing="6">
                     <TextBlock Text="{Binding NewsDiscoveryMessage}" TextWrapping="Wrap" Opacity="0.8" />
                     <ListBox ItemsSource="{Binding NewsSelectorSuggestions}" MaxHeight="85">
                         <ListBox.ItemTemplate>
@@ -162,13 +217,13 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
                 </StackPanel>
-                <TextBlock Grid.Row="9" Text="Collect" VerticalAlignment="Center" />
-                <StackPanel Grid.Row="9" Grid.Column="1" Orientation="Horizontal" Spacing="18">
+                <TextBlock Grid.Row="13" Classes="lbl" Text="Collect" VerticalAlignment="Center" />
+                <StackPanel Grid.Row="13" Grid.Column="1" Orientation="Horizontal" Spacing="18">
                     <CheckBox Content="Price" IsChecked="{Binding NewCollectPrice}" />
                     <CheckBox Content="News" IsChecked="{Binding NewCollectNews}" />
                 </StackPanel>
-                <StackPanel Grid.Row="10" Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                    <Button Content="{Binding EntryActionText}" Command="{Binding AddSubscriptionCommand}" Padding="18,8" />
+                <StackPanel Grid.Row="14" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button Content="{Binding EntryActionText}" Classes="primary" Command="{Binding AddSubscriptionCommand}" Padding="18,8" />
                     <Button Content="Cancel edit" Command="{Binding CancelEditCommand}" IsVisible="{Binding IsEditing}" Padding="18,8" />
                 </StackPanel>
             </Grid>
@@ -179,16 +234,17 @@
         <TextBlock Grid.Row="2" Text="{Binding EntryMessage}" TextWrapping="Wrap" />
 
         <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="8">
-            <TextBlock Text="Configured entries" FontSize="17" FontWeight="SemiBold" />
+            <TextBlock Text="Configured entries" FontSize="17" FontWeight="SemiBold" Foreground="#E6EDF3" />
             <ListBox Grid.Row="1" ItemsSource="{Binding Subscriptions}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="models:TickerSubscription">
-                        <Grid ColumnDefinitions="90,130,*,Auto,Auto,Auto,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="5" Margin="4">
-                            <TextBlock Text="{Binding Symbol}" FontWeight="Bold" />
-                            <TextBlock Grid.Column="1" Text="{Binding SourceName}" />
-                            <TextBlock Grid.Column="2" Text="{Binding SourceUri}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Grid.Column="3" Text="Price" IsVisible="{Binding CollectPrice}" />
-                            <TextBlock Grid.Column="4" Text="News" IsVisible="{Binding CollectNews}" />
+                      <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="6" Padding="10,8">
+                        <Grid ColumnDefinitions="90,130,*,Auto,Auto,Auto,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="5">
+                            <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="#79C0FF" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding SourceName}" Foreground="#C9D1D9" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="{Binding SourceUri}" TextTrimming="CharacterEllipsis" Foreground="#8B949E" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="3" Text="Price" IsVisible="{Binding CollectPrice}" Foreground="#3FB950" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="4" Text="News" IsVisible="{Binding CollectNews}" Foreground="#D29922" FontWeight="SemiBold" VerticalAlignment="Center" />
                             <Button Grid.Column="5" Content="Edit" Click="EditSubscription" />
                             <Button Grid.Column="6" Content="Remove" Click="RemoveSubscription" />
                             <Button Grid.Column="7" Content="↑" ToolTip.Tip="Move up" Padding="12,6"
@@ -198,15 +254,16 @@
                                     Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MoveSubscriptionDownCommand}"
                                     CommandParameter="{Binding}" />
                             <StackPanel Grid.Row="1" Grid.ColumnSpan="9" Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="Price CSS:" FontWeight="SemiBold" Opacity="0.75" />
-                                <TextBlock Text="{Binding PriceSelectorDisplay}" MaxWidth="230" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="News CSS:" FontWeight="SemiBold" Opacity="0.75" Margin="12,0,0,0" />
-                                <TextBlock Text="{Binding NewsSelectorDisplay}" MaxWidth="230" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="Price CSS:" FontWeight="SemiBold" Foreground="#6E7681" />
+                                <TextBlock Text="{Binding PriceSelectorDisplay}" MaxWidth="230" TextTrimming="CharacterEllipsis" Foreground="#A5D6FF" />
+                                <TextBlock Text="News CSS:" FontWeight="SemiBold" Foreground="#6E7681" Margin="12,0,0,0" />
+                                <TextBlock Text="{Binding NewsSelectorDisplay}" MaxWidth="230" TextTrimming="CharacterEllipsis" Foreground="#A5D6FF" />
                                 <TextBlock Text="{Binding NewsRepeatLimit, StringFormat=Show max {0}x}"
-                                           FontWeight="SemiBold" Opacity="0.75" Margin="12,0,0,0"
+                                           FontWeight="SemiBold" Foreground="#6E7681" Margin="12,0,0,0"
                                            IsVisible="{Binding CollectNews}" />
                             </StackPanel>
                         </Grid>
+                      </Border>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>

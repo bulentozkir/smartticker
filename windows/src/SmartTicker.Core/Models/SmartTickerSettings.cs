@@ -17,7 +17,13 @@ public sealed record SmartTickerSettings(
 
     // Defaults from earlier builds; an unchanged value is upgraded on load rather than left looking stale.
     public static IReadOnlyList<string> RetiredPriceColors { get; } = ["#70E1A1", "#79C0FF", "#00E5FF"];
-    public const string DefaultNewsColor = "#D8DEE9";
+    public const string DefaultNewsColor = "#FFFFFF";
+    public const string DefaultNewsColor2 = "#00E5FF";
+    public const string DefaultNewsColor3 = "#A3E635";
+    public const string DefaultNewsColor4 = "#79C0FF";
+
+    // The single off-white news colour predates the alternating pair.
+    public static IReadOnlyList<string> RetiredNewsColors { get; } = ["#D8DEE9"];
     public const string DefaultPriceUpColor = "#3FB950";
     public const string DefaultPriceDownColor = "#F85149";
 
@@ -25,6 +31,13 @@ public sealed record SmartTickerSettings(
     public const int MaximumRefreshSeconds = 300;
     public const int DefaultPriceRefreshSeconds = 60;
     public const int DefaultNewsRefreshSeconds = 300;
+
+    // Below this the ticker stops being legible against a busy desktop.
+    public const double MinimumOpacity = 0.2;
+    public const double MaximumOpacity = 1.0;
+    public const double DefaultOpacity = 1.0;
+
+    public double BackgroundOpacity { get; init; } = DefaultOpacity;
 
     public int PriceRefreshSeconds { get; init; } = DefaultPriceRefreshSeconds;
 
@@ -46,6 +59,12 @@ public sealed record SmartTickerSettings(
 
     public string NewsColor { get; init; } = DefaultNewsColor;
 
+    public string NewsColor2 { get; init; } = DefaultNewsColor2;
+
+    public string NewsColor3 { get; init; } = DefaultNewsColor3;
+
+    public string NewsColor4 { get; init; } = DefaultNewsColor4;
+
     public string PriceUpColor { get; init; } = DefaultPriceUpColor;
 
     public string PriceDownColor { get; init; } = DefaultPriceDownColor;
@@ -60,10 +79,21 @@ public sealed record SmartTickerSettings(
         50,
         40);
 
-    public SmartTickerSettings UpgradeDefaults() =>
-        RetiredPriceColors.Contains(PriceColor, StringComparer.OrdinalIgnoreCase)
-            ? this with { PriceColor = DefaultPriceColor }
-            : this;
+    public SmartTickerSettings UpgradeDefaults()
+    {
+        var upgraded = this;
+        if (RetiredPriceColors.Contains(upgraded.PriceColor, StringComparer.OrdinalIgnoreCase))
+        {
+            upgraded = upgraded with { PriceColor = DefaultPriceColor };
+        }
+
+        if (RetiredNewsColors.Contains(upgraded.NewsColor, StringComparer.OrdinalIgnoreCase))
+        {
+            upgraded = upgraded with { NewsColor = DefaultNewsColor };
+        }
+
+        return upgraded;
+    }
 
     public SmartTickerSettings Normalize() => this with
     {
@@ -72,6 +102,9 @@ public sealed record SmartTickerSettings(
         AcknowledgedSources = AcknowledgedSources ?? [],
         PriceRowCount = Math.Clamp(PriceRowCount, 1, 8),
         NewsRowCount = Math.Clamp(NewsRowCount, 1, 8),
+        BackgroundOpacity = double.IsFinite(BackgroundOpacity)
+            ? Math.Clamp(BackgroundOpacity, MinimumOpacity, MaximumOpacity)
+            : DefaultOpacity,
         PriceScrollSpeed = Math.Clamp(PriceScrollSpeed, 10, 200),
         NewsScrollSpeed = Math.Clamp(NewsScrollSpeed, 10, 200),
         PriceRefreshSeconds = Math.Clamp(PriceRefreshSeconds, MinimumRefreshSeconds, MaximumRefreshSeconds),

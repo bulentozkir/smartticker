@@ -9,139 +9,183 @@
         Height="620"
         MinWidth="560"
         MinHeight="420"
-        WindowStartupLocation="CenterOwner">
+        WindowStartupLocation="CenterOwner"
+        Background="#0D1117">
     <Grid RowDefinitions="Auto,*,Auto" Margin="24" RowSpacing="16">
         <StackPanel Grid.Row="0" Spacing="5">
-            <TextBlock Text="App Settings" FontSize="24" FontWeight="SemiBold" />
+            <TextBlock Text="App Settings" FontSize="24" FontWeight="SemiBold" Foreground="#E6EDF3" />
             <TextBlock Text="Ticker layout, scrolling speed, colors, and settings backup."
-                       TextWrapping="Wrap" Opacity="0.8" />
+                       TextWrapping="Wrap" Foreground="#8B949E" />
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <Border Background="#11000000" CornerRadius="8" Padding="16">
-                <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="14">
-                    <TextBlock Grid.Row="0" Text="Price display" VerticalAlignment="Center" />
-                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="12">
-                        <TextBlock Text="Rows" VerticalAlignment="Center" />
-                        <ComboBox ItemsSource="{Binding RowCountOptions}" SelectedItem="{Binding PriceRowCount}"
-                                  Width="88" MinHeight="38" FontSize="16" FontWeight="SemiBold"
-                                  Background="#202A38" Foreground="#FFFFFF" />
-                        <TextBlock Text="Scroll speed" VerticalAlignment="Center" Margin="12,0,0,0" />
-                        <ComboBox ItemsSource="{Binding ScrollSpeedOptions}" SelectedItem="{Binding PriceScrollSpeed}"
-                                  Width="104" MinHeight="38" FontSize="16" FontWeight="SemiBold"
-                                  Background="#202A38" Foreground="#FFFFFF" />
-                        <TextBlock Text="px/sec" VerticalAlignment="Center" Opacity="0.75" />
+            <StackPanel Spacing="14">
+
+                <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
+                    <StackPanel Spacing="14">
+                        <TextBlock Classes="section" Text="Ticker rows and speed" />
+                        <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="14">
+                            <TextBlock Grid.Row="0" Classes="lbl" Text="Price display" VerticalAlignment="Center" />
+                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                                <TextBlock Classes="caption" Text="Rows" VerticalAlignment="Center" />
+                                <ComboBox ItemsSource="{Binding RowCountOptions}" SelectedItem="{Binding PriceRowCount}"
+                                          Width="88" FontSize="15" FontWeight="SemiBold" />
+                                <TextBlock Classes="caption" Text="Scroll speed" VerticalAlignment="Center" Margin="14,0,0,0" />
+                                <ComboBox ItemsSource="{Binding ScrollSpeedOptions}" SelectedItem="{Binding PriceScrollSpeed}"
+                                          Width="104" FontSize="15" FontWeight="SemiBold" />
+                                <TextBlock Classes="caption" Text="px/sec" VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Row="1" Classes="lbl" Text="News display" VerticalAlignment="Center" />
+                            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                                <TextBlock Classes="caption" Text="Rows" VerticalAlignment="Center" />
+                                <ComboBox ItemsSource="{Binding RowCountOptions}" SelectedItem="{Binding NewsRowCount}"
+                                          Width="88" FontSize="15" FontWeight="SemiBold" />
+                                <TextBlock Classes="caption" Text="Scroll speed" VerticalAlignment="Center" Margin="14,0,0,0" />
+                                <ComboBox ItemsSource="{Binding ScrollSpeedOptions}" SelectedItem="{Binding NewsScrollSpeed}"
+                                          Width="104" FontSize="15" FontWeight="SemiBold" />
+                                <TextBlock Classes="caption" Text="px/sec" VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Row="2" Classes="lbl" Text="Refresh every" VerticalAlignment="Center" />
+                            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                                <TextBlock Classes="caption" Text="Prices" VerticalAlignment="Center" />
+                                <NumericUpDown Value="{Binding PriceRefreshSeconds}" Minimum="30" Maximum="300" Increment="15"
+                                               FormatString="0" Width="126" FontSize="15" FontWeight="SemiBold"
+                                               HorizontalContentAlignment="Center" />
+                                <TextBlock Classes="caption" Text="sec" VerticalAlignment="Center" />
+                                <TextBlock Classes="caption" Text="News" VerticalAlignment="Center" Margin="14,0,0,0" />
+                                <NumericUpDown Value="{Binding NewsRefreshSeconds}" Minimum="30" Maximum="300" Increment="15"
+                                               FormatString="0" Width="126" FontSize="15" FontWeight="SemiBold"
+                                               HorizontalContentAlignment="Center" />
+                                <TextBlock Classes="caption" Text="sec" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Grid>
                     </StackPanel>
-                    <TextBlock Grid.Row="1" Text="News display" VerticalAlignment="Center" />
-                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="12">
-                        <TextBlock Text="Rows" VerticalAlignment="Center" />
-                        <ComboBox ItemsSource="{Binding RowCountOptions}" SelectedItem="{Binding NewsRowCount}"
-                                  Width="88" MinHeight="38" FontSize="16" FontWeight="SemiBold"
-                                  Background="#202A38" Foreground="#FFFFFF" />
-                        <TextBlock Text="Scroll speed" VerticalAlignment="Center" Margin="12,0,0,0" />
-                        <ComboBox ItemsSource="{Binding ScrollSpeedOptions}" SelectedItem="{Binding NewsScrollSpeed}"
-                                  Width="104" MinHeight="38" FontSize="16" FontWeight="SemiBold"
-                                  Background="#202A38" Foreground="#FFFFFF" />
-                        <TextBlock Text="px/sec" VerticalAlignment="Center" Opacity="0.75" />
-                    </StackPanel>
-                    <TextBlock Grid.Row="2" Text="Refresh every" VerticalAlignment="Center" />
-                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="12">
-                        <TextBlock Text="Prices" VerticalAlignment="Center" />
-                        <NumericUpDown Value="{Binding PriceRefreshSeconds}" Minimum="30" Maximum="300" Increment="15"
-                                       FormatString="0" Width="126" MinHeight="38" FontSize="16" FontWeight="SemiBold"
-                                       HorizontalContentAlignment="Center"
-                                       Background="#202A38" Foreground="#FFFFFF" />
-                        <TextBlock Text="sec" VerticalAlignment="Center" Opacity="0.75" />
-                        <TextBlock Text="News" VerticalAlignment="Center" Margin="12,0,0,0" />
-                        <NumericUpDown Value="{Binding NewsRefreshSeconds}" Minimum="30" Maximum="300" Increment="15"
-                                       FormatString="0" Width="126" MinHeight="38" FontSize="16" FontWeight="SemiBold"
-                                       HorizontalContentAlignment="Center"
-                                       Background="#202A38" Foreground="#FFFFFF" />
-                        <TextBlock Text="sec" VerticalAlignment="Center" Opacity="0.75" />
-                    </StackPanel>
-                    <TextBlock Grid.Row="3" Text="Colors" VerticalAlignment="Center" />
-                    <WrapPanel Grid.Row="3" Grid.Column="1">
-                        <StackPanel Spacing="3" Margin="0,0,10,6">
-                            <TextBlock Text="Background" FontSize="12" Opacity="0.75" />
-                            <ColorPicker Width="104" HorizontalAlignment="Left"
-                                         Color="{Binding BackgroundColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
-                            <TextBox Text="{Binding BackgroundColorHex}" Width="104" MinHeight="38" FontSize="15"
-                                     Background="#202A38" Foreground="#FFFFFF" />
-                        </StackPanel>
-                        <StackPanel Spacing="3" Margin="0,0,10,6">
-                            <TextBlock Text="Quote name" FontSize="12" Opacity="0.75" />
-                            <ColorPicker Width="104" HorizontalAlignment="Left"
-                                         Color="{Binding SymbolColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
-                            <TextBox Text="{Binding SymbolColorHex}" Width="104" MinHeight="38" FontSize="15"
-                                     Background="#202A38" Foreground="#FFFFFF" />
-                        </StackPanel>
-                        <StackPanel Spacing="3" Margin="0,0,10,6">
-                            <TextBlock Text="Close price" FontSize="12" Opacity="0.75" />
-                            <ColorPicker Width="104" HorizontalAlignment="Left"
-                                         Color="{Binding PriceColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
-                            <TextBox Text="{Binding PriceColorHex}" Width="104" MinHeight="38" FontSize="15"
-                                     Background="#202A38" Foreground="#FFFFFF" />
-                        </StackPanel>
-                        <StackPanel Spacing="3" Margin="0,0,10,6">
-                            <TextBlock Text="After hours" FontSize="12" Opacity="0.75" />
-                            <ColorPicker Width="104" HorizontalAlignment="Left"
-                                         Color="{Binding ExtendedPriceColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
-                            <TextBox Text="{Binding ExtendedPriceColorHex}" Width="104" MinHeight="38" FontSize="15"
-                                     Background="#202A38" Foreground="#FFFFFF" />
-                        </StackPanel>
-                        <StackPanel Spacing="3" Margin="0,0,10,6">
-                            <TextBlock Text="News" FontSize="12" Opacity="0.75" />
-                            <ColorPicker Width="104" HorizontalAlignment="Left"
-                                         Color="{Binding NewsColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
-                            <TextBox Text="{Binding NewsColorHex}" Width="104" MinHeight="38" FontSize="15"
-                                     Background="#202A38" Foreground="#FFFFFF" />
-                        </StackPanel>
-                        <StackPanel Spacing="3" Margin="0,0,10,6">
-                            <TextBlock Text="Change up" FontSize="12" Opacity="0.75" />
-                            <ColorPicker Width="104" HorizontalAlignment="Left"
-                                         Color="{Binding PriceUpColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
-                            <TextBox Text="{Binding PriceUpColorHex}" Width="104" MinHeight="38" FontSize="15"
-                                     Background="#202A38" Foreground="#FFFFFF" />
-                        </StackPanel>
-                        <StackPanel Spacing="3" Margin="0,0,10,6">
-                            <TextBlock Text="Change down" FontSize="12" Opacity="0.75" />
-                            <ColorPicker Width="104" HorizontalAlignment="Left"
-                                         Color="{Binding PriceDownColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
-                            <TextBox Text="{Binding PriceDownColorHex}" Width="104" MinHeight="38" FontSize="15"
-                                     Background="#202A38" Foreground="#FFFFFF" />
-                        </StackPanel>
-                        <Button Content="Reset" Command="{Binding ResetColorsCommand}" Padding="14,8"
-                                Margin="0,0,0,6" VerticalAlignment="Bottom" />
-                    </WrapPanel>
-                    <TextBlock Grid.Row="4" Text="Backup" VerticalAlignment="Center" />
-                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                        <Button Content="Export settings…" Click="ExportSettings" Padding="18,8" />
-                        <Button Content="Import settings…" Click="ImportSettings" Padding="18,8" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="5" Grid.Column="1" Spacing="8" IsVisible="{Binding HasImportStatus}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="{Binding ImportStatusIcon}" FontSize="18" FontWeight="Bold"
-                                       Foreground="{Binding ImportStatusColor}" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding ImportStatusMessage}" TextWrapping="Wrap"
-                                       Foreground="{Binding ImportStatusColor}" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <Border Background="#182230" CornerRadius="4" Padding="12"
-                                IsVisible="{Binding HasImportProblems}">
-                            <ScrollViewer MaxHeight="150">
-                                <ItemsControl ItemsSource="{Binding ImportProblems}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,8" />
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
+                </Border>
+
+                <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
+                    <StackPanel Spacing="14">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Classes="section" Text="Appearance" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Content="Reset to defaults" Command="{Binding ResetColorsCommand}"
+                                    Padding="14,7" />
+                        </Grid>
+                        <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6" Padding="14">
+                            <StackPanel Spacing="6" Width="260" HorizontalAlignment="Left"
+                                        ToolTip.Tip="Lets the desktop show through the ticker background. Text stays fully opaque.">
+                                <TextBlock Classes="lbl" Text="Window transparency" />
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <Slider Value="{Binding BackgroundOpacity, Mode=TwoWay}"
+                                            Minimum="0.2" Maximum="1.0" SmallChange="0.05" LargeChange="0.1"
+                                            TickFrequency="0.05" IsSnapToTickEnabled="True" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding BackgroundOpacityText}" FontSize="15"
+                                               FontWeight="SemiBold" Foreground="#E6EDF3" VerticalAlignment="Center"
+                                               MinWidth="46" TextAlignment="Right" />
+                                </Grid>
+                            </StackPanel>
                         </Border>
+                        <WrapPanel>
+                            <StackPanel Spacing="4" Margin="0,0,12,10">
+                                <TextBlock Classes="lbl" Text="Background" />
+                                <ColorPicker Width="112" HorizontalAlignment="Left"
+                                             Color="{Binding BackgroundColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
+                                <TextBox Text="{Binding BackgroundColorHex}" Width="112" FontSize="14" />
+                            </StackPanel>
+                            <StackPanel Spacing="4" Margin="0,0,12,10">
+                                <TextBlock Classes="lbl" Text="Quote name" />
+                                <ColorPicker Width="112" HorizontalAlignment="Left"
+                                             Color="{Binding SymbolColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
+                                <TextBox Text="{Binding SymbolColorHex}" Width="112" FontSize="14" />
+                            </StackPanel>
+                            <StackPanel Spacing="4" Margin="0,0,12,10">
+                                <TextBlock Classes="lbl" Text="Close price" />
+                                <ColorPicker Width="112" HorizontalAlignment="Left"
+                                             Color="{Binding PriceColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
+                                <TextBox Text="{Binding PriceColorHex}" Width="112" FontSize="14" />
+                            </StackPanel>
+                            <StackPanel Spacing="4" Margin="0,0,12,10">
+                                <TextBlock Classes="lbl" Text="After hours" />
+                                <ColorPicker Width="112" HorizontalAlignment="Left"
+                                             Color="{Binding ExtendedPriceColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
+                                <TextBox Text="{Binding ExtendedPriceColorHex}" Width="112" FontSize="14" />
+                            </StackPanel>
+                            <StackPanel Spacing="4" Margin="0,0,12,10">
+                                <TextBlock Classes="lbl" Text="News 1st" ToolTip.Tip="Headlines 1, 5, 9 …" />
+                                <ColorPicker Width="112" HorizontalAlignment="Left"
+                                             Color="{Binding NewsColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
+                                <TextBox Text="{Binding NewsColorHex}" Width="112" FontSize="14" />
+                            </StackPanel>
+                            <StackPanel Spacing="4" Margin="0,0,12,10">
+                                <TextBlock Classes="lbl" Text="News 2nd" ToolTip.Tip="Headlines 2, 6, 10 …" />
+                                <ColorPicker Width="112" HorizontalAlignment="Left"
+                                             Color="{Binding NewsColor2Hex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
+                                <TextBox Text="{Binding NewsColor2Hex}" Width="112" FontSize="14" />
+                            </StackPanel>
+                            <StackPanel Spacing="4" Margin="0,0,12,10">
+                                <TextBlock Classes="lbl" Text="News 3rd" ToolTip.Tip="Headlines 3, 7, 11 …" />
+                                <ColorPicker Width="112" HorizontalAlignment="Left"
+                                             Color="{Binding NewsColor3Hex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
+                                <TextBox Text="{Binding NewsColor3Hex}" Width="112" FontSize="14" />
+                            </StackPanel>
+                            <StackPanel Spacing="4" Margin="0,0,12,10">
+                                <TextBlock Classes="lbl" Text="News 4th" ToolTip.Tip="Headlines 4, 8, 12 …" />
+                                <ColorPicker Width="112" HorizontalAlignment="Left"
+                                             Color="{Binding NewsColor4Hex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
+                                <TextBox Text="{Binding NewsColor4Hex}" Width="112" FontSize="14" />
+                            </StackPanel>
+                            <StackPanel Spacing="4" Margin="0,0,12,10">
+                                <TextBlock Classes="lbl" Text="Change up" Foreground="#3FB950" />
+                                <ColorPicker Width="112" HorizontalAlignment="Left"
+                                             Color="{Binding PriceUpColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
+                                <TextBox Text="{Binding PriceUpColorHex}" Width="112" FontSize="14" />
+                            </StackPanel>
+                            <StackPanel Spacing="4" Margin="0,0,12,10">
+                                <TextBlock Classes="lbl" Text="Change down" Foreground="#F85149" />
+                                <ColorPicker Width="112" HorizontalAlignment="Left"
+                                             Color="{Binding PriceDownColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
+                                <TextBox Text="{Binding PriceDownColorHex}" Width="112" FontSize="14" />
+                            </StackPanel>
+                        </WrapPanel>
                     </StackPanel>
-                </Grid>
-            </Border>
+                </Border>
+
+                <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
+                    <StackPanel Spacing="12">
+                        <TextBlock Classes="section" Text="Backup" />
+                        <TextBlock Classes="caption" TextWrapping="Wrap"
+                                   Text="Importing replaces every configured entry and appearance setting." />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Export settings…" Click="ExportSettings" Padding="18,8" />
+                            <Button Content="Import settings…" Click="ImportSettings" Padding="18,8" />
+                        </StackPanel>
+                        <StackPanel Spacing="8" IsVisible="{Binding HasImportStatus}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="{Binding ImportStatusIcon}" FontSize="18" FontWeight="Bold"
+                                           Foreground="{Binding ImportStatusColor}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding ImportStatusMessage}" TextWrapping="Wrap"
+                                           Foreground="{Binding ImportStatusColor}" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <Border Background="#0D1117" BorderBrush="#30363D" BorderThickness="1" CornerRadius="6" Padding="12"
+                                    IsVisible="{Binding HasImportProblems}">
+                                <ScrollViewer MaxHeight="150">
+                                    <ItemsControl ItemsSource="{Binding ImportProblems}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                                           FontSize="12" Foreground="#F85149" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
         </ScrollViewer>
 
-        <TextBlock Grid.Row="2" Text="{Binding EntryMessage}" TextWrapping="Wrap" />
+        <TextBlock Grid.Row="2" Text="{Binding EntryMessage}" TextWrapping="Wrap" Foreground="#8B949E" />
     </Grid>
 </Window>
