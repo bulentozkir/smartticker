@@ -10,12 +10,11 @@ pwsh -NoProfile -File windows/packaging/Build-Release.ps1 -Version 1.0.0
 
 Expected layout:
 
-- `portable/` — self-contained x64 and ARM64 ZIP archives
+- `publish/<runtime>/` — self-contained build output used as packaging input
 - `msix/layout/<runtime>/` — staged MSIX payload plus generated `AppxManifest.xml`
-- `msix/` — architecture-specific signed or unsigned development MSIX packages
-- `store/` — Microsoft Store submission bundles
+- `msix/` — architecture-specific MSIX packages and the combined `.msixbundle` for Partner Center
+- `msi/` — architecture-specific MSI installers
 - `checksums/SHA256SUMS.txt` — SHA-256 hashes
-- `symbols/` — optional debugging symbols
 
 Packing `.msix` files requires `makeappx.exe` from the Windows SDK. When the SDK is absent the
 script still stages the layout and reports the remaining command, so packing can be finished on a

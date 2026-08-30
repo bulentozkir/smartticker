@@ -3,11 +3,11 @@
     Builds SmartTicker release artifacts under releases/windows/<version>/.
 
 .DESCRIPTION
-    Publishes self-contained builds, produces portable ZIP archives, stages a Microsoft Store
-    compatible MSIX layout, builds an MSI installer, and writes SHA-256 checksums. MSIX packing
-    requires makeappx.exe from the Windows SDK and the MSI requires the WiX CLI
-    (dotnet tool install --global wix); when either is unavailable the rest of the artifacts are
-    still produced.
+    Publishes self-contained builds, stages a Microsoft Store compatible MSIX layout, packs
+    per-architecture MSIX packages and a combined .msixbundle, builds an MSI installer, and
+    writes SHA-256 checksums. MSIX packing requires makeappx.exe from the Windows SDK and the
+    MSI requires the WiX CLI (dotnet tool install --global wix); when either is unavailable the
+    rest of the artifacts are still produced.
 
 .EXAMPLE
     ./Build-Release.ps1 -Version 1.0.0
@@ -95,11 +95,10 @@ function Initialize-PackagingAssets {
     }
 }
 
-$portableDirectory = Join-Path $releaseRoot 'portable'
 $msixDirectory = Join-Path $releaseRoot 'msix'
 $msiDirectory = Join-Path $releaseRoot 'msi'
 $checksumDirectory = Join-Path $releaseRoot 'checksums'
-foreach ($directory in @($portableDirectory, $msixDirectory, $msiDirectory, $checksumDirectory)) {
+foreach ($directory in @($msixDirectory, $msiDirectory, $checksumDirectory)) {
     if ($PSCmdlet.ShouldProcess($directory, 'Create release directory')) {
         New-Item -ItemType Directory -Path $directory -Force | Out-Null
     }
@@ -123,12 +122,6 @@ foreach ($identifier in $Runtime) {
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet publish failed for ${identifier} with exit code ${LASTEXITCODE}."
         }
-    }
-
-    $archivePath = Join-Path $portableDirectory "SmartTicker-$Version-$identifier.zip"
-    if ($PSCmdlet.ShouldProcess($archivePath, 'Create portable archive')) {
-        Compress-Archive -Path (Join-Path $publishDirectory '*') -DestinationPath $archivePath -Force
-        $artifacts.Add($archivePath)
     }
 
     $layout = Join-Path $msixDirectory "layout/$identifier"
@@ -184,6 +177,33 @@ if ($makeAppx) {
             }
 
             $artifacts.Add($packagePath)
+        }
+    }
+
+    # One bundle serves both architectures in a single submission. makeappx rejects any
+    # non-package file in the input folder, so the packages are staged on their own first.
+    $packedMsix = @($artifacts | Where-Object { $_ -like '*.msix' })
+    if ($packedMsix.Count -gt 1) {
+        $bundleInput = Join-Path $msixDirectory 'bundle-input'
+        $bundlePath = Join-Path $msixDirectory "SmartTicker-$Version.msixbundle"
+        if ($PSCmdlet.ShouldProcess($bundlePath, 'Pack MSIX bundle')) {
+            if (Test-Path $bundleInput) {
+                Remove-Item -Path $bundleInput -Recurse -Force
+            }
+
+            New-Item -ItemType Directory -Path $bundleInput -Force | Out-Null
+            foreach ($package in $packedMsix) {
+                Copy-Item -Path $package -Destination $bundleInput -Force
+            }
+
+            # Without /bv the bundle version is 0.0.0.0, which the Store rejects.
+            & $makeAppx bundle /d $bundleInput /p $bundlePath /bv "$Version.0" /o
+            if ($LASTEXITCODE -ne 0) {
+                throw "makeappx bundle failed with exit code ${LASTEXITCODE}."
+            }
+
+            Remove-Item -Path $bundleInput -Recurse -Force
+            $artifacts.Add($bundlePath)
         }
     }
 }
