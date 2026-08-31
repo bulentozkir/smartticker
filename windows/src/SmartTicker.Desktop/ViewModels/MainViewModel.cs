@@ -178,6 +178,17 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public partial bool IsValidating { get; set; }
 
     [ObservableProperty]
+    public partial bool IsValidatingAllSources { get; set; }
+
+    [ObservableProperty]
+    public partial string SourceValidationStatus { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool HasSourceValidationProblems { get; set; }
+
+    public ObservableCollection<string> SourceValidationProblems { get; } = [];
+
+    [ObservableProperty]
     public partial string Language { get; set; } = AppLanguages.Default;
 
     [ObservableProperty]
@@ -234,6 +245,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public partial bool LaunchAtLogin { get; set; }
 
     public bool IsLaunchAtLoginSupported => _startupRegistration?.IsSupported ?? false;
+
+    [ObservableProperty]
+    public partial bool AllowWebsiteCookiesAndCrossHostRedirects { get; set; }
 
     [ObservableProperty]
     public partial string BackgroundColorHex { get; set; } = SmartTickerSettings.DefaultBackgroundColor;
@@ -358,6 +372,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly IAlertStore? _alertStore;
     private readonly IAlertSound? _alertSound;
     private readonly IStartupRegistration? _startupRegistration;
+    private readonly WebsiteAccessPolicy _websiteAccessPolicy;
     private readonly DispatcherTimer _blinkTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly Dictionary<Guid, DateTimeOffset> _blinkingUntil = [];
     private readonly AlertArmingState _arming = new();
@@ -384,11 +399,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         IStarterSettingsSource? starterSettings = null,
         IAlertStore? alertStore = null,
         IAlertSound? alertSound = null,
-        IStartupRegistration? startupRegistration = null)
+        IStartupRegistration? startupRegistration = null,
+        WebsiteAccessPolicy? websiteAccessPolicy = null)
     {
         _alertStore = alertStore;
         _alertSound = alertSound;
         _startupRegistration = startupRegistration;
+        _websiteAccessPolicy = websiteAccessPolicy ?? new WebsiteAccessPolicy();
         _starterSettings = starterSettings;
         _selectorDiscovery = selectorDiscovery;
         _quoteFetcher = quoteFetcher;
@@ -416,7 +433,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public string? CurrentSourceHost => SourceAcknowledgementLedger.HostOf(NewSourceUrl);
 
     public bool RequiresAcknowledgement =>
-        CurrentSourceHost is not null && !_acknowledgements.IsAcknowledged(NewSourceUrl);
+        !AllowWebsiteCookiesAndCrossHostRedirects &&
+        CurrentSourceHost is not null &&
+        !_acknowledgements.IsAcknowledged(NewSourceUrl);
 
     public string AcknowledgementText => CurrentSourceHost is null
         ? string.Empty
@@ -646,7 +665,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         try
         {
-            var priceSubscriptions = Subscriptions.Where(item => item.CollectPrice).ToArray();
+            var priceSubscriptions = Subscriptions
+                .Where(item => item.CollectPrice && CanAccessSource(item.SourceUri))
+                .ToArray();
             foreach (var subscription in priceSubscriptions)
             {
                 var snapshot = await _quoteFetcher.FetchAsync(subscription, _lifetimeCancellation.Token);
@@ -682,7 +703,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         try
         {
-            var newsSubscriptions = Subscriptions.Where(item => item.CollectNews).ToArray();
+            var newsSubscriptions = Subscriptions
+                .Where(item => item.CollectNews && CanAccessSource(item.SourceUri))
+                .ToArray();
             foreach (var subscription in newsSubscriptions)
             {
                 var snapshot = await _newsFetcher.FetchAsync(subscription, _lifetimeCancellation.Token);
@@ -755,6 +778,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        if (!CanAccessSource(uri))
+        {
+            DiscoveryMessage = "Approve this website before requesting selector discovery.";
+            return;
+        }
+
         try
         {
             IsDiscovering = true;
@@ -824,6 +853,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        if (!CanAccessSource(uri))
+        {
+            NewsDiscoveryMessage = "Approve this website before requesting news selector discovery.";
+            return;
+        }
+
         try
         {
             IsDiscoveringNews = true;
@@ -880,6 +915,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        if (!CanAccessSource(probe!.SourceUri))
+        {
+            ValidationMessage = "Approve this website before validating it.";
+            return;
+        }
+
         try
         {
             IsValidating = true;
@@ -917,6 +958,126 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         finally
         {
             IsValidating = false;
+        }
+    }
+
+    public IReadOnlyList<SourcePermissionReview> GetPendingSourcePermissionReviews() =>
+        AllowWebsiteCookiesAndCrossHostRedirects
+            ? []
+            : [.. Subscriptions
+            .GroupBy(item => item.SourceUri.Host, StringComparer.OrdinalIgnoreCase)
+            .Where(group => !_acknowledgements.IsAcknowledged(group.First().SourceUri.AbsoluteUri))
+            .Select(group =>
+            {
+                var first = group.First();
+                var preset = KnownSourceCatalog.All.FirstOrDefault(item =>
+                    item.HomePage is not null &&
+                    string.Equals(item.HomePage.Host, group.Key, StringComparison.OrdinalIgnoreCase));
+                return new SourcePermissionReview(
+                    first.SourceUri,
+                    group.Key,
+                    string.Join(", ", group.Select(item => item.SourceName).Distinct(StringComparer.OrdinalIgnoreCase)),
+                    string.Join(", ", group.Select(item => item.Symbol).Distinct(StringComparer.OrdinalIgnoreCase)),
+                    preset?.PolicySummary ?? "Review required",
+                    preset?.Guidance ?? "Review this website's terms, privacy policy, robots rules, and automated-access policy.");
+            })];
+
+    public void ApproveSourcePermission(SourcePermissionReview review)
+    {
+        if (_acknowledgements.Acknowledge(review.SourceUri.AbsoluteUri))
+        {
+            RaiseAcknowledgementChanged();
+            SaveSettings();
+        }
+    }
+
+    public async Task ValidateAllSourcesAsync()
+    {
+        if (IsValidatingAllSources)
+        {
+            return;
+        }
+
+        var subscriptions = Subscriptions.ToArray();
+        SourceValidationProblems.Clear();
+        HasSourceValidationProblems = false;
+        if (subscriptions.Length == 0)
+        {
+            SourceValidationStatus = "There are no configured sources to validate.";
+            return;
+        }
+
+        var passed = 0;
+        var failed = 0;
+        var skipped = 0;
+        try
+        {
+            IsValidatingAllSources = true;
+            for (var index = 0; index < subscriptions.Length; index++)
+            {
+                var subscription = subscriptions[index];
+                SourceValidationStatus = $"Validating {index + 1} of {subscriptions.Length}: {subscription.Symbol}…";
+                if (!CanAccessSource(subscription.SourceUri))
+                {
+                    skipped++;
+                    SourceValidationProblems.Add($"{subscription.Symbol}: source permission was not approved.");
+                    continue;
+                }
+
+                var problems = new List<string>();
+                if (subscription.CollectPrice)
+                {
+                    if (_quoteFetcher is null)
+                    {
+                        problems.Add("price validation is unavailable");
+                    }
+                    else
+                    {
+                        var quote = await _quoteFetcher.FetchAsync(subscription, _lifetimeCancellation.Token);
+                        if (!quote.Success || quote.Price is null)
+                        {
+                            problems.Add($"price: {quote.Status}");
+                        }
+                    }
+                }
+
+                if (subscription.CollectNews)
+                {
+                    if (_newsFetcher is null)
+                    {
+                        problems.Add("news validation is unavailable");
+                    }
+                    else
+                    {
+                        var news = await _newsFetcher.FetchAsync(subscription, _lifetimeCancellation.Token);
+                        if (!news.Success || news.Headlines.Count == 0)
+                        {
+                            problems.Add($"news: {news.Status}");
+                        }
+                    }
+                }
+
+                if (problems.Count == 0)
+                {
+                    passed++;
+                }
+                else
+                {
+                    failed++;
+                    SourceValidationProblems.Add($"{subscription.Symbol}: {string.Join("; ", problems)}");
+                }
+            }
+
+            HasSourceValidationProblems = SourceValidationProblems.Count > 0;
+            SourceValidationStatus = $"Validation complete: {passed} passed, {failed} failed, {skipped} skipped.";
+        }
+        catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
+        {
+            SourceValidationStatus = "Source validation was cancelled because SmartTicker is closing.";
+        }
+        finally
+        {
+            IsValidatingAllSources = false;
         }
     }
 
@@ -1068,6 +1229,37 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             _isApplyingSettings = false;
         }
     }
+
+    partial void OnAllowWebsiteCookiesAndCrossHostRedirectsChanged(bool value)
+    {
+        _websiteAccessPolicy.AllowCookiesAndCrossHostRedirects = value;
+        RaiseAcknowledgementChanged();
+        if (!value)
+        {
+            var inaccessible = Subscriptions
+                .Where(item => !_acknowledgements.IsAcknowledged(item.SourceUri.AbsoluteUri))
+                .Select(item => item.Id)
+                .ToHashSet();
+            foreach (var quote in LatestQuotes.Where(item => inaccessible.Contains(item.SubscriptionId)).ToArray())
+            {
+                LatestQuotes.Remove(quote);
+            }
+
+            foreach (var news in LatestNews.Where(item => inaccessible.Contains(item.SubscriptionId)).ToArray())
+            {
+                LatestNews.Remove(news);
+            }
+
+            UpdatePriceRows();
+            UpdateNewsRows();
+        }
+
+        SaveSettings();
+    }
+
+    private bool CanAccessSource(Uri sourceUri) =>
+        AllowWebsiteCookiesAndCrossHostRedirects ||
+        _acknowledgements.IsAcknowledged(sourceUri.AbsoluteUri);
 
     partial void OnBackgroundColorHexChanged(string value) => ApplyColorChange(nameof(BackgroundBrush));
 
@@ -1834,6 +2026,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             ShowNewsLine = settings.ShowNewsLine;
             // The OS wins: the user may have switched autostart off outside the app.
             LaunchAtLogin = _startupRegistration?.IsEnabled ?? settings.LaunchAtLogin;
+            AllowWebsiteCookiesAndCrossHostRedirects = settings.AllowWebsiteCookiesAndCrossHostRedirects;
             BackgroundColorHex = settings.BackgroundColor;
             BackgroundOpacity = settings.BackgroundOpacity;
             SymbolColorHex = settings.SymbolColor;
@@ -1867,6 +2060,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         ShowPriceLine = ShowPriceLine,
         ShowNewsLine = ShowNewsLine,
         LaunchAtLogin = LaunchAtLogin,
+        AllowWebsiteCookiesAndCrossHostRedirects = AllowWebsiteCookiesAndCrossHostRedirects,
         BackgroundColor = BackgroundColorHex,
         BackgroundOpacity = BackgroundOpacity,
         SymbolColor = SymbolColorHex,

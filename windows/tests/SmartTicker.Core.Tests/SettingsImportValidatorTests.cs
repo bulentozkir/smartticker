@@ -262,6 +262,7 @@ public class SettingsImportValidatorTests
             PriceRowCount = 3,
             NewsScrollSpeed = 120,
             PriceRefreshSeconds = 45,
+            AllowWebsiteCookiesAndCrossHostRedirects = true,
         };
 
         var result = SettingsImportValidator.Validate(SettingsJson.Serialize(original));
@@ -270,5 +271,6 @@ public class SettingsImportValidatorTests
         Assert.Equal(3, result.Settings!.PriceRowCount);
         Assert.Equal(120, result.Settings.NewsScrollSpeed);
         Assert.Equal(45, result.Settings.PriceRefreshSeconds);
+        Assert.True(result.Settings.AllowWebsiteCookiesAndCrossHostRedirects);
     }
 }

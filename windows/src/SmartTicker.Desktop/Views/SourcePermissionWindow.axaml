@@ -1,0 +1,49 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SmartTicker.Desktop.ViewModels"
+        x:Class="SmartTicker.Desktop.Views.SourcePermissionWindow"
+        x:DataType="vm:SourcePermissionReview"
+        Icon="/Assets/SmartTicker.ico"
+        Title="Review source access"
+        Width="640"
+        SizeToContent="Height"
+        MinHeight="380"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="#0D1117">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="24" RowSpacing="16">
+        <StackPanel Grid.Row="0" Spacing="5">
+            <TextBlock Text="Review source access" FontSize="24" FontWeight="SemiBold" Foreground="#E6EDF3" />
+            <TextBlock Text="{Binding Host}" FontSize="16" Foreground="#79C0FF" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Background="#1A2430" BorderBrush="#30363D" BorderThickness="1"
+                CornerRadius="6" Padding="14">
+            <StackPanel Spacing="6">
+                <TextBlock Text="{Binding PolicySummary}" Foreground="#F2B84B" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Guidance}" TextWrapping="Wrap" Foreground="#E6EDF3" />
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnDefinitions="110,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="7">
+            <TextBlock Grid.Row="0" Text="Sources" Foreground="#8B949E" />
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SourceNames}" TextWrapping="Wrap" />
+            <TextBlock Grid.Row="1" Text="Entries" Foreground="#8B949E" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Symbols}" TextWrapping="Wrap" />
+        </Grid>
+
+        <CheckBox Grid.Row="3" x:Name="ApprovalCheckBox">
+            <TextBlock Text="I have reviewed this website's terms, robots rules, and automated-access policy, and I am permitted to collect from this source."
+                       TextWrapping="Wrap" />
+        </CheckBox>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Content="Cancel validation" Click="Cancel" Padding="14,7" />
+            <Button Content="Skip this source" Click="Skip" Padding="14,7" />
+                <Button Content="Approve this source" Click="Approve"
+                    IsEnabled="{Binding #ApprovalCheckBox.IsChecked}"
+                    Classes="primary" Padding="14,7" />
+        </StackPanel>
+    </Grid>
+</Window>

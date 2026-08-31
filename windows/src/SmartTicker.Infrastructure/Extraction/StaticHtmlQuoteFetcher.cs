@@ -6,9 +6,14 @@ namespace SmartTicker.Infrastructure.Extraction;
 
 public sealed class StaticHtmlQuoteFetcher : IQuoteFetcher, IDisposable
 {
-    private readonly PublicHtmlClient _client = new();
+    private readonly PublicHtmlClient _client;
     private readonly StaticHtmlPriceExtractor _extractor = new();
     private readonly StaticHtmlChangeExtractor _changeExtractor = new();
+
+    public StaticHtmlQuoteFetcher(WebsiteAccessPolicy? accessPolicy = null)
+    {
+        _client = new PublicHtmlClient(accessPolicy);
+    }
 
     public async Task<QuoteSnapshot> FetchAsync(
         TickerSubscription subscription,

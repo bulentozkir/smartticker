@@ -38,6 +38,7 @@ public static class SettingsImportValidator
         "showPriceLine",
         "showNewsLine",
         "launchAtLogin",
+        "allowWebsiteCookiesAndCrossHostRedirects",
         "backgroundColor",
         "symbolColor",
         "priceColor",
@@ -125,6 +126,12 @@ public static class SettingsImportValidator
                 ShowPriceLine = ReadBool(root, string.Empty, "showPriceLine", true, errors),
                 ShowNewsLine = ReadBool(root, string.Empty, "showNewsLine", true, errors),
                 LaunchAtLogin = ReadBool(root, string.Empty, "launchAtLogin", false, errors),
+                AllowWebsiteCookiesAndCrossHostRedirects = ReadBool(
+                    root,
+                    string.Empty,
+                    "allowWebsiteCookiesAndCrossHostRedirects",
+                    false,
+                    errors),
                 BackgroundColor = ReadColor(root, "backgroundColor", SmartTickerSettings.DefaultBackgroundColor, errors),
                 BackgroundOpacity = ReadFraction(
                     root,

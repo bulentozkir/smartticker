@@ -6,8 +6,13 @@ namespace SmartTicker.Infrastructure.Extraction;
 
 public sealed class StaticHtmlPriceSelectorDiscovery : IPriceSelectorDiscovery, IDisposable
 {
-    private readonly PublicHtmlClient _client = new();
+    private readonly PublicHtmlClient _client;
     private readonly StaticHtmlSelectorAnalyzer _analyzer = new();
+
+    public StaticHtmlPriceSelectorDiscovery(WebsiteAccessPolicy? accessPolicy = null)
+    {
+        _client = new PublicHtmlClient(accessPolicy);
+    }
 
     public async Task<IReadOnlyList<CssSelectorSuggestion>> DiscoverAsync(
         Uri pageUri,

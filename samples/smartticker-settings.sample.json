@@ -8,6 +8,7 @@
   "newsRefreshSeconds": 300,
   "showPriceLine": true,
   "showNewsLine": true,
+  "allowWebsiteCookiesAndCrossHostRedirects": true,
   "backgroundColor": "#10151D",
   "symbolColor": "#79C0FF",
   "priceColor": "#FFA657",
@@ -18,10 +19,7 @@
   "newsColor4": "#79C0FF",
   "priceUpColor": "#3FB950",
   "priceDownColor": "#F85149",
-  "acknowledgedSources": [
-    "finance.yahoo.com",
-    "tradingeconomics.com"
-  ],
+  "acknowledgedSources": [],
   "subscriptions": [
     {
       "id": "1a2b3c4d-0001-4a00-9000-000000000001",

@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Text;
+using SmartTicker.Core.Services;
 
 namespace SmartTicker.Infrastructure.Networking;
 
@@ -15,22 +16,23 @@ internal sealed class PublicHtmlClient : IDisposable
 
     private static readonly string TooLargeMessage =
         $"The HTML document exceeds the {MaximumResponseBytes / (1024 * 1024)} MB limit.";
-    private readonly HttpClient _httpClient;
+    private readonly WebsiteAccessPolicy _accessPolicy;
+    private readonly HttpClient _cookieFreeHttpClient;
+    private readonly HttpClient _cookieHttpClient;
 
-    public PublicHtmlClient()
+    public PublicHtmlClient(WebsiteAccessPolicy? accessPolicy = null)
+        : this(accessPolicy, CreateHandler(useCookies: false), CreateHandler(useCookies: true))
     {
-        _httpClient = new HttpClient(new HttpClientHandler
-        {
-            AllowAutoRedirect = false,
-            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
-            UseCookies = false,
-            Credentials = null,
-        })
-        {
-            Timeout = TimeSpan.FromSeconds(20),
-        };
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("SmartTicker/0.1 (+local desktop public HTML reader)");
-        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
+    }
+
+    internal PublicHtmlClient(
+        WebsiteAccessPolicy? accessPolicy,
+        HttpMessageHandler cookieFreeHandler,
+        HttpMessageHandler cookieHandler)
+    {
+        _accessPolicy = accessPolicy ?? new WebsiteAccessPolicy();
+        _cookieFreeHttpClient = CreateClient(cookieFreeHandler);
+        _cookieHttpClient = CreateClient(cookieHandler);
     }
 
     public Task<string> GetStringAsync(Uri pageUri, CancellationToken cancellationToken) =>
@@ -46,6 +48,8 @@ internal sealed class PublicHtmlClient : IDisposable
         string acceptHeader,
         CancellationToken cancellationToken)
     {
+        var allowCookiesAndCrossHostRedirects = _accessPolicy.AllowCookiesAndCrossHostRedirects;
+        var httpClient = allowCookiesAndCrossHostRedirects ? _cookieHttpClient : _cookieFreeHttpClient;
         var currentUri = pageUri;
         for (var redirect = 0; redirect <= 3; redirect++)
         {
@@ -53,7 +57,7 @@ internal sealed class PublicHtmlClient : IDisposable
             using var request = new HttpRequestMessage(HttpMethod.Get, currentUri);
             request.Headers.Accept.Clear();
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(acceptHeader));
-            using var response = await _httpClient.SendAsync(
+            using var response = await httpClient.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
@@ -65,9 +69,17 @@ internal sealed class PublicHtmlClient : IDisposable
                     throw new HttpRequestException("The source exceeded the safe redirect limit.");
                 }
 
-                currentUri = response.Headers.Location.IsAbsoluteUri
+                var nextUri = response.Headers.Location.IsAbsoluteUri
                     ? response.Headers.Location
                     : new Uri(currentUri, response.Headers.Location);
+                if (!allowCookiesAndCrossHostRedirects &&
+                    !string.Equals(pageUri.IdnHost, nextUri.IdnHost, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new HttpRequestException(
+                        "The source redirected to a different website. Enable website cookies and cross-host redirects to continue.");
+                }
+
+                currentUri = nextUri;
                 continue;
             }
 
@@ -85,7 +97,31 @@ internal sealed class PublicHtmlClient : IDisposable
         throw new HttpRequestException("The source could not be reached.");
     }
 
-    public void Dispose() => _httpClient.Dispose();
+    public void Dispose()
+    {
+        _cookieFreeHttpClient.Dispose();
+        _cookieHttpClient.Dispose();
+    }
+
+    internal static HttpClientHandler CreateHandler(bool useCookies) => new()
+    {
+        AllowAutoRedirect = false,
+        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
+        UseCookies = useCookies,
+        CookieContainer = new CookieContainer(),
+        Credentials = null,
+    };
+
+    private static HttpClient CreateClient(HttpMessageHandler handler)
+    {
+        var client = new HttpClient(handler)
+        {
+            Timeout = TimeSpan.FromSeconds(20),
+        };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("SmartTicker/0.1 (+local desktop public HTML reader)");
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
+        return client;
+    }
 
     private static async Task ValidatePublicUriAsync(Uri uri, CancellationToken cancellationToken)
     {

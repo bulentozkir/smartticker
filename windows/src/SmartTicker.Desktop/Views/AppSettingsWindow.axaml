@@ -84,6 +84,34 @@
                 </Border>
 
                 <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
+                    <StackPanel Spacing="10">
+                        <TextBlock Classes="section" Text="Website access" />
+                        <CheckBox Content="Allow website cookies and cross-host redirects"
+                                  IsChecked="{Binding AllowWebsiteCookiesAndCrossHostRedirects}" />
+                        <TextBlock Classes="caption" TextWrapping="Wrap"
+                                   Text="When enabled, SmartTicker skips its per-source approval step, stores website cookies in memory until exit, and follows redirects to other hosts. It never submits website consent or sign-in forms and does not use browser cookies." />
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Content="Validate all sources" Click="ValidateAllSources" Padding="14,7" />
+                            <TextBlock Text="{Binding SourceValidationStatus}" TextWrapping="Wrap"
+                                       VerticalAlignment="Center" Foreground="#8B949E" />
+                        </StackPanel>
+                        <Border Background="#0D1117" BorderBrush="#30363D" BorderThickness="1" CornerRadius="6"
+                                Padding="12" IsVisible="{Binding HasSourceValidationProblems}">
+                            <ScrollViewer MaxHeight="150">
+                                <ItemsControl ItemsSource="{Binding SourceValidationProblems}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,7"
+                                                       FontSize="12" Foreground="#F2B84B" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
                     <StackPanel Spacing="14">
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Classes="section" Text="Appearance" VerticalAlignment="Center" />

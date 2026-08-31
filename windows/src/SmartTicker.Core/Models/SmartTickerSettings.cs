@@ -52,6 +52,8 @@ public sealed record SmartTickerSettings(
     /// <summary>Mirrors the OS registration; the OS remains authoritative if the two disagree.</summary>
     public bool LaunchAtLogin { get; init; }
 
+    public bool AllowWebsiteCookiesAndCrossHostRedirects { get; init; }
+
     public string BackgroundColor { get; init; } = DefaultBackgroundColor;
 
     public string SymbolColor { get; init; } = DefaultSymbolColor;

@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using SmartTicker.Core.Services;
 using SmartTicker.Desktop.ViewModels;
 using SmartTicker.Desktop.Views;
 using SmartTicker.Infrastructure.Audio;
@@ -22,19 +23,21 @@ public partial class App : Avalonia.Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            var websiteAccessPolicy = new WebsiteAccessPolicy();
             desktop.MainWindow = new MainWindow
             {
                 DataContext = new MainViewModel(
-                    new StaticHtmlPriceSelectorDiscovery(),
-                    new StaticHtmlQuoteFetcher(),
-                    new StaticHtmlNewsSelectorDiscovery(),
+                    new StaticHtmlPriceSelectorDiscovery(websiteAccessPolicy),
+                    new StaticHtmlQuoteFetcher(websiteAccessPolicy),
+                    new StaticHtmlNewsSelectorDiscovery(websiteAccessPolicy),
                     new LocalJsonSettingsStore(),
-                    new StaticHtmlNewsFetcher(),
+                    new StaticHtmlNewsFetcher(websiteAccessPolicy),
                     new DefaultBrowserLinkLauncher(),
-                    new GitHubStarterSettingsSource(),
+                    new GitHubStarterSettingsSource(websiteAccessPolicy),
                     new LocalJsonAlertStore(),
                     new SystemAlertSound(),
-                    StartupRegistrationFactory.Create()),
+                    StartupRegistrationFactory.Create(),
+                    websiteAccessPolicy),
             };
         }
 

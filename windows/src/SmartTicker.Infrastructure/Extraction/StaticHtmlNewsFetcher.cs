@@ -6,8 +6,13 @@ namespace SmartTicker.Infrastructure.Extraction;
 
 public sealed class StaticHtmlNewsFetcher : INewsFetcher, IDisposable
 {
-    private readonly PublicHtmlClient _client = new();
+    private readonly PublicHtmlClient _client;
     private readonly StaticHtmlNewsExtractor _extractor = new();
+
+    public StaticHtmlNewsFetcher(WebsiteAccessPolicy? accessPolicy = null)
+    {
+        _client = new PublicHtmlClient(accessPolicy);
+    }
 
     public async Task<NewsSnapshot> FetchAsync(
         TickerSubscription subscription,

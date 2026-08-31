@@ -5,7 +5,12 @@ namespace SmartTicker.Infrastructure.Persistence;
 
 public sealed class GitHubStarterSettingsSource : IStarterSettingsSource, IDisposable
 {
-    private readonly PublicHtmlClient _client = new();
+    private readonly PublicHtmlClient _client;
+
+    public GitHubStarterSettingsSource(WebsiteAccessPolicy? accessPolicy = null)
+    {
+        _client = new PublicHtmlClient(accessPolicy);
+    }
 
     public Uri Location { get; } = new(
         "https://raw.githubusercontent.com/bulentozkir/smartticker/refs/heads/main/samples/smartticker-settings.sample.json");

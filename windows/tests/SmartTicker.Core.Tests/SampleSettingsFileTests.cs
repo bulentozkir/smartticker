@@ -28,6 +28,8 @@ public sealed class SampleSettingsFileTests
         Assert.Equal(20, result.Settings.Subscriptions.Select(item => item.Id).Distinct().Count());
         Assert.All(result.Settings.Subscriptions, item => Assert.False(string.IsNullOrWhiteSpace(item.CssSelector)));
         Assert.All(result.Settings.Subscriptions, item => Assert.False(string.IsNullOrWhiteSpace(item.NewsCssSelector)));
+        Assert.True(result.Settings.AllowWebsiteCookiesAndCrossHostRedirects);
+        Assert.Empty(result.Settings.AcknowledgedSources);
     }
 
     // A colour pinned here overrides the app default on import, so the sample must not fall behind.

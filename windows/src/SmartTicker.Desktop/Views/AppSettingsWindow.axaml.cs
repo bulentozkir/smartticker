@@ -20,9 +20,62 @@ public partial class AppSettingsWindow : Window
         MimeTypes = ["application/json"],
     };
 
+    private bool _sourceValidationRunning;
+
     public AppSettingsWindow()
     {
         InitializeComponent();
+    }
+
+    private async void ValidateAllSources(object? sender, RoutedEventArgs e)
+    {
+        if (_sourceValidationRunning || DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        _sourceValidationRunning = true;
+        var button = sender as Button;
+        if (button is not null)
+        {
+            button.IsEnabled = false;
+        }
+
+        try
+        {
+            var reviews = viewModel.GetPendingSourcePermissionReviews();
+            for (var index = 0; index < reviews.Count; index++)
+            {
+                var review = reviews[index];
+                var dialog = new SourcePermissionWindow
+                {
+                    DataContext = review,
+                    Title = $"Review source {index + 1} of {reviews.Count}",
+                };
+                var decision = await dialog.ShowDialog<SourcePermissionDecision>(this);
+                if (decision == SourcePermissionDecision.Cancel)
+                {
+                    viewModel.SourceValidationStatus = "Source validation cancelled.";
+                    return;
+                }
+
+                if (decision == SourcePermissionDecision.Approve)
+                {
+                    viewModel.ApproveSourcePermission(review);
+                }
+            }
+
+            await viewModel.ValidateAllSourcesAsync();
+        }
+        finally
+        {
+            if (button is not null)
+            {
+                button.IsEnabled = true;
+            }
+
+            _sourceValidationRunning = false;
+        }
     }
 
     private async void ExportSettings(object? sender, RoutedEventArgs e)
