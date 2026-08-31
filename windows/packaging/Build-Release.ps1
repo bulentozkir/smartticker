@@ -10,7 +10,7 @@
     rest of the artifacts are still produced.
 
 .EXAMPLE
-    ./Build-Release.ps1 -Version 1.0.0
+    ./Build-Release.ps1 -Version 1.0.1
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
@@ -139,10 +139,10 @@ foreach ($identifier in $Runtime) {
 
         $architecture = if ($identifier -eq 'win-x64') { 'x64' } else { 'arm64' }
         $manifestPath = Join-Path $layout 'AppxManifest.xml'
-        $manifest = Get-Content -Path (Join-Path $packagingRoot 'Package.appxmanifest') -Raw
-        $manifest = $manifest.Replace('Version="1.0.0.0"', "Version=""$Version.0""")
-        $manifest = $manifest.Replace('ProcessorArchitecture="x64"', "ProcessorArchitecture=""$architecture""")
-        Set-Content -Path $manifestPath -Value $manifest -Encoding UTF8
+        [xml]$manifest = Get-Content -Path (Join-Path $packagingRoot 'Package.appxmanifest') -Raw
+        $manifest.Package.Identity.Version = "$Version.0"
+        $manifest.Package.Identity.ProcessorArchitecture = $architecture
+        $manifest.Save($manifestPath)
     }
 }
 

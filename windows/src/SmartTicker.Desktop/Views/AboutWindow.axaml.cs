@@ -22,7 +22,7 @@ public partial class AboutWindow : Window
         var assembly = Assembly.GetExecutingAssembly();
         return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? assembly.GetName().Version?.ToString()
-            ?? "1.0.0";
+            ?? "1.0.1";
     }
 
     private void OpenLicense(object? sender, RoutedEventArgs e) =>

@@ -8,6 +8,29 @@ Unlike apps tied to a single data provider, SmartTicker lets you point each entr
 
 Built with C# on .NET 10 and Avalonia UI, so the Windows, Linux and macOS builds share the same portable application layers.
 
+## Install from GitHub Releases
+
+Open the [SmartTicker Releases](https://github.com/bulentozkir/smartticker/releases) page and expand **Assets** under the latest release. The packages are self-contained, so a separate .NET installation is not required.
+
+**Windows**
+
+- Most Windows PCs: download `SmartTicker-1.0.1-win-x64.msi`.
+- Windows on ARM devices: download `SmartTicker-1.0.1-win-arm64.msi`.
+- Run the downloaded MSI and follow the installer. The installer is currently unsigned, so Windows may display an unknown-publisher or SmartScreen warning.
+- The `.msixbundle` is intended for Microsoft Store submission. Direct sideloading requires the bundle to be signed with a certificate trusted by the target computer.
+
+After installation, open **SmartTicker** from the Start menu. Right-click the ticker to configure quotes, alerts and app settings.
+
+**Debian and Ubuntu**
+
+Download `smartticker_1.0.1_amd64.deb`, open a terminal in the download directory, and run:
+
+```bash
+sudo apt install ./smartticker_1.0.1_amd64.deb
+```
+
+Launch SmartTicker from the desktop application menu or by running `smartticker`. Only `amd64` Linux systems are currently packaged; no macOS package is available yet.
+
 ## Features
 
 **Quotes and news**

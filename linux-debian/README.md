@@ -10,7 +10,7 @@ The publish step runs on Windows and `dpkg-deb` runs inside WSL, so a WSL distri
 with `dpkg-deb` available is required.
 
 ```powershell
-./Build-Deb.ps1 -Version 1.0.0
+./Build-Deb.ps1 -Version 1.0.1
 ```
 
 Pass `-Distribution` if your WSL distribution is not named `Debian`. The finished package
@@ -24,9 +24,9 @@ script directly:
 ```bash
 dotnet publish ../windows/src/SmartTicker.Desktop/SmartTicker.Desktop.csproj \
   --configuration Release --runtime linux-x64 --self-contained true \
-  -p:Version=1.0.0 --output ./publish
+  -p:Version=1.0.1 --output ./publish
 
-bash build-deb.sh 1.0.0 "$PWD/publish" "$PWD/out" ../windows/packaging/Assets/AppIcon256.png
+bash build-deb.sh 1.0.1 "$PWD/publish" "$PWD/out" ../windows/packaging/Assets/AppIcon256.png
 ```
 
 ## What the package installs
@@ -46,7 +46,7 @@ is self-contained.
 Installing:
 
 ```bash
-sudo apt install ./smartticker_1.0.0_amd64.deb
+sudo apt install ./smartticker_1.0.1_amd64.deb
 ```
 
 ## Known limits

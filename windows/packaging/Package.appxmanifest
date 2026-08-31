@@ -12,7 +12,7 @@
   <Identity
     Name="BulentOzkir.SmartTicker"
     Publisher="CN=06D08AF4-6BB1-40DF-9B96-5DF27BEE0635"
-    Version="1.0.0.0"
+    Version="1.0.1.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
