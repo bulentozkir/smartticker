@@ -16,8 +16,9 @@
         MinHeight="50"
         MaxHeight="900"
         CanResize="True"
-        WindowDecorations="BorderOnly"
+        WindowDecorations="None"
         Topmost="True"
+        ShowActivated="False"
         ShowInTaskbar="True"
         Background="Transparent"
         TransparencyLevelHint="Transparent">
@@ -28,6 +29,7 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
+    <Grid>
     <Border Background="{Binding BackgroundBrush}" BorderBrush="#2D3748" BorderThickness="1" CornerRadius="4">
         <Border.ContextMenu>
             <ContextMenu>
@@ -95,9 +97,21 @@
             </ContextMenu>
         </Border.ContextMenu>
 
-        <Grid ColumnDefinitions="18,*" RowDefinitions="Auto,Auto">
+        <Grid ColumnDefinitions="24,*" RowDefinitions="Auto,Auto">
             <Border Grid.RowSpan="2" Background="#182230" BorderBrush="#2D3748" BorderThickness="0,0,1,0">
-                <Button Command="{Binding TogglePauseCommand}"
+            <Grid RowDefinitions="22,*">
+                    <Border Grid.Row="0"
+                            Cursor="SizeAll"
+                            PointerPressed="BeginWindowDrag"
+                            ToolTip.Tip="Drag to move SmartTicker">
+                        <TextBlock Text="⋮"
+                                   FontSize="10"
+                                   Foreground="#8B949E"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <Button Grid.Row="1"
+                        Command="{Binding TogglePauseCommand}"
                         Background="Transparent"
                         BorderThickness="0"
                         Padding="0"
@@ -107,12 +121,14 @@
                         VerticalAlignment="Stretch"
                         HorizontalContentAlignment="Center"
                         VerticalContentAlignment="Center"
+                        Focusable="False"
                         ToolTip.Tip="{Binding StatusText}">
-                    <TextBlock Text="{Binding StatusGlyph}"
-                               Foreground="{Binding StatusColor}"
-                               FontSize="10"
-                               FontWeight="Bold" />
-                </Button>
+                        <TextBlock Text="{Binding StatusGlyph}"
+                                   Foreground="{Binding StatusColor}"
+                                   FontSize="10"
+                                   FontWeight="Bold" />
+                    </Button>
+                </Grid>
             </Border>
             <Border Grid.Row="0" Grid.Column="1" Background="{Binding BackgroundBrush}" Padding="4,4,4,1"
                     IsVisible="{Binding IsPriceVisible}">
@@ -151,5 +167,27 @@
             </Border>
         </Grid>
     </Border>
+
+        <Border Tag="North" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Top"
+            Background="Transparent" Cursor="TopSide" PointerPressed="BeginWindowResize" />
+        <Border Tag="South" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Bottom"
+            Background="Transparent" Cursor="BottomSide" PointerPressed="BeginWindowResize" />
+        <Border Tag="West" Width="5" HorizontalAlignment="Left" VerticalAlignment="Stretch"
+            Background="Transparent" Cursor="LeftSide" PointerPressed="BeginWindowResize" />
+        <Border Tag="East" Width="5" HorizontalAlignment="Right" VerticalAlignment="Stretch"
+            Background="Transparent" Cursor="RightSide" PointerPressed="BeginWindowResize" />
+        <Border Tag="NorthWest" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Top"
+            Background="Transparent" Cursor="TopLeftCorner" PointerPressed="BeginWindowResize" />
+        <Border Tag="NorthEast" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Top"
+            Background="Transparent" Cursor="TopRightCorner" PointerPressed="BeginWindowResize" />
+        <Border Tag="SouthWest" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+            Background="Transparent" Cursor="BottomLeftCorner" PointerPressed="BeginWindowResize" />
+        <Border Tag="SouthEast" Width="12" Height="12" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+            Background="Transparent" Cursor="BottomRightCorner" PointerPressed="BeginWindowResize"
+            ToolTip.Tip="Drag to resize SmartTicker">
+            <TextBlock Text="◢" FontSize="8" Foreground="#8B949E"
+                   HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+        </Border>
+        </Grid>
 
 </Window>

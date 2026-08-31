@@ -32,14 +32,20 @@ public partial class MainWindow : Window
             }
         };
         DataContextChanged += (_, _) => ConfigureFlowTimers();
-        // A fresh install shows an empty bar with no obvious next step, so the starter offer comes to the user.
-        Opened += (_, _) => Dispatcher.UIThread.Post(() =>
+        Opened += (_, _) =>
         {
-            if (ViewModel is { ShowStarterPrompt: true })
+            ConfigurePassiveWindow();
+            // A fresh install shows an empty bar with no obvious next step, so the starter offer comes to the user.
+            Dispatcher.UIThread.Post(() =>
             {
-                new SettingsWindow { DataContext = DataContext }.Show(this);
-            }
-        });
+                if (ViewModel is { ShowStarterPrompt: true })
+                {
+                    new SettingsWindow { DataContext = DataContext }.Show(this);
+                }
+            });
+        };
+        Deactivated += (_, _) => ReleasePointerCapture();
+        PointerReleased += (_, _) => ReleasePointerCapture();
         SizeChanged += (_, e) =>
         {
             if (ViewModel is { } viewModel)
@@ -49,6 +55,7 @@ public partial class MainWindow : Window
         };
         Closed += (_, _) =>
         {
+            ReleasePointerCapture();
             StopFlowTimers();
             ViewModel?.Dispose();
         };
@@ -56,13 +63,41 @@ public partial class MainWindow : Window
 
     private MainViewModel? ViewModel => DataContext as MainViewModel;
 
-    // Without a title bar the ticker background is the only drag surface; links mark the event handled.
-    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    private void BeginWindowDrag(object? sender, PointerPressedEventArgs e)
     {
-        base.OnPointerPressed(e);
-        if (!e.Handled && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
+            e.Handled = true;
+            ReleasePointerCapture();
             BeginMoveDrag(e);
+        }
+    }
+
+    private void BeginWindowResize(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Control { Tag: string edgeName } &&
+            e.GetCurrentPoint(this).Properties.IsLeftButtonPressed &&
+            Enum.TryParse<WindowEdge>(edgeName, out var edge))
+        {
+            e.Handled = true;
+            ReleasePointerCapture();
+            BeginResizeDrag(edge, e);
+        }
+    }
+
+    private void ConfigurePassiveWindow()
+    {
+        if (OperatingSystem.IsWindows() && TryGetPlatformHandle() is { } handle)
+        {
+            WindowsPassiveWindow.MakeNonActivating(handle.Handle);
+        }
+    }
+
+    private static void ReleasePointerCapture()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            WindowsPassiveWindow.ReleasePointerCapture();
         }
     }
 

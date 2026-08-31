@@ -242,9 +242,13 @@ public sealed class MarqueeText : UserControl
         content.Cursor = _handCursor;
         ToolTip.SetTip(content, $"Double-click to open {link.AbsoluteUri}");
 
-        // Handling press stops a window drag starting, which would otherwise swallow the second click.
         content.PointerPressed += (_, args) =>
         {
+            if (!args.GetCurrentPoint(content).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
             args.Handled = true;
             if (args.ClickCount == 2 && LinkCommand?.CanExecute(link) == true)
             {
