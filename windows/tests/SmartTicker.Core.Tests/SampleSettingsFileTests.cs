@@ -37,6 +37,8 @@ public sealed class SampleSettingsFileTests
         Assert.Equal(15, yahoo.Length);
         Assert.All(yahoo, item =>
         {
+            Assert.Equal("[data-testid=\"qsp-price\"]", item.CssSelector);
+            Assert.Equal("section.primary span[data-testid=\"qsp-price-change-percent\"]", item.ChangeCssSelector);
             Assert.Equal("section.secondary span[data-testid=\"qsp-pre-price\"]", item.PreMarketCssSelector);
             Assert.Equal("section.secondary span[data-testid=\"qsp-pre-price-change-percent\"]", item.PreMarketChangeCssSelector);
             Assert.Equal("section.secondary span[data-testid=\"qsp-post-price\"]", item.ExtendedCssSelector);
