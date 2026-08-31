@@ -30,6 +30,30 @@ public sealed class SampleSettingsFileTests
         Assert.All(result.Settings.Subscriptions, item => Assert.False(string.IsNullOrWhiteSpace(item.NewsCssSelector)));
         Assert.True(result.Settings.AllowWebsiteCookiesAndCrossHostRedirects);
         Assert.Empty(result.Settings.AcknowledgedSources);
+
+        var yahoo = result.Settings.Subscriptions
+            .Where(item => item.SourceName == "Yahoo Finance")
+            .ToArray();
+        Assert.Equal(15, yahoo.Length);
+        Assert.All(yahoo, item =>
+        {
+            Assert.Equal("section.secondary span[data-testid=\"qsp-pre-price\"]", item.PreMarketCssSelector);
+            Assert.Equal("section.secondary span[data-testid=\"qsp-pre-price-change-percent\"]", item.PreMarketChangeCssSelector);
+            Assert.Equal("section.secondary span[data-testid=\"qsp-post-price\"]", item.ExtendedCssSelector);
+            Assert.Equal("section.secondary span[data-testid=\"qsp-post-price-change-percent\"]", item.ExtendedChangeCssSelector);
+        });
+
+        var tradingEconomics = result.Settings.Subscriptions
+            .Where(item => item.SourceName == "Trading Economics")
+            .ToArray();
+        Assert.Equal(5, tradingEconomics.Length);
+        Assert.All(tradingEconomics, item =>
+        {
+            Assert.Null(item.PreMarketCssSelector);
+            Assert.Null(item.PreMarketChangeCssSelector);
+            Assert.Null(item.ExtendedCssSelector);
+            Assert.Null(item.ExtendedChangeCssSelector);
+        });
     }
 
     // A colour pinned here overrides the app default on import, so the sample must not fall behind.

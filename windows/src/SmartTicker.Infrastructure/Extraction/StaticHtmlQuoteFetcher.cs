@@ -22,25 +22,7 @@ public sealed class StaticHtmlQuoteFetcher : IQuoteFetcher, IDisposable
         try
         {
             var html = await _client.GetStringAsync(subscription.SourceUri, cancellationToken);
-            var source = new TickerSource(
-                subscription.Symbol,
-                subscription.Symbol,
-                subscription.SourceUri,
-                subscription.CssSelector);
-            var extraction = _extractor.Extract(html, source);
-            var extended = ExtractExtended(html, subscription);
-            return new QuoteSnapshot(
-                subscription.Id,
-                subscription.Symbol,
-                subscription.SourceName,
-                extraction.Price,
-                extraction.Currency,
-                DateTimeOffset.UtcNow,
-                extraction.Success,
-                extraction.Message,
-                extraction.Success ? ExtractChange(html, subscription) : null,
-                extended.Price,
-                extended.ChangePercent);
+            return ExtractSnapshot(subscription, html, DateTimeOffset.UtcNow);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -62,14 +44,55 @@ public sealed class StaticHtmlQuoteFetcher : IQuoteFetcher, IDisposable
 
     public void Dispose() => _client.Dispose();
 
+    internal QuoteSnapshot ExtractSnapshot(
+        TickerSubscription subscription,
+        string html,
+        DateTimeOffset observedAt)
+    {
+        var source = new TickerSource(
+            subscription.Symbol,
+            subscription.Symbol,
+            subscription.SourceUri,
+            subscription.CssSelector);
+        var extraction = _extractor.Extract(html, source);
+        var preMarket = ExtractSession(
+            html,
+            subscription,
+            subscription.PreMarketCssSelector,
+            subscription.PreMarketChangeCssSelector);
+        var extended = ExtractSession(
+            html,
+            subscription,
+            subscription.ExtendedCssSelector,
+            subscription.ExtendedChangeCssSelector);
+        return new QuoteSnapshot(
+            subscription.Id,
+            subscription.Symbol,
+            subscription.SourceName,
+            extraction.Price,
+            extraction.Currency,
+            observedAt,
+            extraction.Success,
+            extraction.Message,
+            extraction.Success ? ExtractChange(html, subscription) : null,
+            extended.Price,
+            extended.ChangePercent,
+            preMarket.Price,
+            preMarket.ChangePercent);
+    }
+
     private decimal? ExtractChange(string html, TickerSubscription subscription) =>
         string.IsNullOrWhiteSpace(subscription.ChangeCssSelector)
             ? _changeExtractor.Extract(html)
             : _changeExtractor.Extract(html, subscription.ChangeCssSelector);
 
-    private (decimal? Price, decimal? ChangePercent) ExtractExtended(string html, TickerSubscription subscription)
+    private (decimal? Price, decimal? ChangePercent) ExtractSession(
+        string html,
+        TickerSubscription subscription,
+        string? priceSelector,
+        string? changeSelector)
     {
-        if (string.IsNullOrWhiteSpace(subscription.ExtendedCssSelector))
+        if (string.IsNullOrWhiteSpace(priceSelector))
         {
             return (null, null);
         }
@@ -78,16 +101,16 @@ public sealed class StaticHtmlQuoteFetcher : IQuoteFetcher, IDisposable
             subscription.Symbol,
             subscription.Symbol,
             subscription.SourceUri,
-            subscription.ExtendedCssSelector);
+            priceSelector);
         var extraction = _extractor.Extract(html, source);
         if (!extraction.Success)
         {
             return (null, null);
         }
 
-        var change = string.IsNullOrWhiteSpace(subscription.ExtendedChangeCssSelector)
+        var change = string.IsNullOrWhiteSpace(changeSelector)
             ? null
-            : _changeExtractor.Extract(html, subscription.ExtendedChangeCssSelector);
+            : _changeExtractor.Extract(html, changeSelector);
         return (extraction.Price, change);
     }
 }

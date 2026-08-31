@@ -72,7 +72,7 @@
             </StackPanel>
         </Border>
         <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
-            <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="14">
+            <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="14">
                 <TextBlock Grid.Row="0" Classes="lbl" Text="Ticker" VerticalAlignment="Center" />
                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding NewSymbol}" PlaceholderText="MSFT" />
                 <TextBlock Grid.Row="1" Classes="lbl" Text="Source" VerticalAlignment="Center" />
@@ -156,38 +156,68 @@
                              ItemTemplate="{StaticResource SuggestionTemplate}" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="7" Classes="lbl" Text="After-hours selector" VerticalAlignment="Center" />
+                <TextBlock Grid.Row="7" Classes="lbl" Text="Pre-market selector" VerticalAlignment="Center" />
                 <Grid Grid.Row="7" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBox Text="{Binding NewPreMarketCssSelector}"
+                             PlaceholderText="Optional CSS selector for the pre-market price"
+                             ToolTip.Tip="Yahoo: section.secondary span[data-testid=&quot;qsp-pre-price&quot;]" />
+                    <Button Grid.Column="1" Content="Discover pre-market" Command="{Binding DiscoverPreMarketSelectorsCommand}" />
+                </Grid>
+                <TextBlock Grid.Row="8" Classes="lbl" Text="Pre-market matches" VerticalAlignment="Top"
+                           IsVisible="{Binding ShowPreMarketMatches}" />
+                <StackPanel Grid.Row="8" Grid.Column="1" Spacing="6" IsVisible="{Binding ShowPreMarketMatches}">
+                    <TextBlock Text="{Binding DiscoveryMessage}" TextWrapping="Wrap" Foreground="#8B949E" />
+                    <ListBox ItemsSource="{Binding SelectorSuggestions}" MaxHeight="120"
+                             ItemTemplate="{StaticResource SuggestionTemplate}" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="9" Classes="lbl" Text="Pre-market change" VerticalAlignment="Center" />
+                <Grid Grid.Row="9" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBox Text="{Binding NewPreMarketChangeCssSelector}"
+                             PlaceholderText="Optional CSS selector for the pre-market change percent"
+                             ToolTip.Tip="Yahoo: section.secondary span[data-testid=&quot;qsp-pre-price-change-percent&quot;]" />
+                    <Button Grid.Column="1" Content="Discover pre-market change" Command="{Binding DiscoverPreMarketChangeSelectorsCommand}" />
+                </Grid>
+                <TextBlock Grid.Row="10" Classes="lbl" Text="Pre-market change matches" VerticalAlignment="Top"
+                           IsVisible="{Binding ShowPreMarketChangeMatches}" />
+                <StackPanel Grid.Row="10" Grid.Column="1" Spacing="6" IsVisible="{Binding ShowPreMarketChangeMatches}">
+                    <TextBlock Text="{Binding DiscoveryMessage}" TextWrapping="Wrap" Foreground="#8B949E" />
+                    <ListBox ItemsSource="{Binding SelectorSuggestions}" MaxHeight="120"
+                             ItemTemplate="{StaticResource SuggestionTemplate}" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="11" Classes="lbl" Text="After-hours selector" VerticalAlignment="Center" />
+                <Grid Grid.Row="11" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <TextBox Text="{Binding NewExtendedCssSelector}"
                              PlaceholderText="Optional CSS selector for the post-market price"
-                             ToolTip.Tip="Yahoo: [data-testid=&quot;qsp-post-price&quot;]   CNBC: .QuoteStrip-extendedDataContainer .QuoteStrip-lastPrice" />
+                             ToolTip.Tip="Yahoo: section.secondary span[data-testid=&quot;qsp-post-price&quot;]   CNBC: .QuoteStrip-extendedDataContainer .QuoteStrip-lastPrice" />
                     <Button Grid.Column="1" Content="Discover after-hours" Command="{Binding DiscoverExtendedSelectorsCommand}" />
                 </Grid>
-                <TextBlock Grid.Row="8" Classes="lbl" Text="After-hours matches" VerticalAlignment="Top"
+                <TextBlock Grid.Row="12" Classes="lbl" Text="After-hours matches" VerticalAlignment="Top"
                            IsVisible="{Binding ShowExtendedMatches}" />
-                <StackPanel Grid.Row="8" Grid.Column="1" Spacing="6" IsVisible="{Binding ShowExtendedMatches}">
+                <StackPanel Grid.Row="12" Grid.Column="1" Spacing="6" IsVisible="{Binding ShowExtendedMatches}">
                     <TextBlock Text="{Binding DiscoveryMessage}" TextWrapping="Wrap" Foreground="#8B949E" />
                     <ListBox ItemsSource="{Binding SelectorSuggestions}" MaxHeight="120"
                              ItemTemplate="{StaticResource SuggestionTemplate}" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="9" Classes="lbl" Text="After-hours change" VerticalAlignment="Center" />
-                <Grid Grid.Row="9" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock Grid.Row="13" Classes="lbl" Text="After-hours change" VerticalAlignment="Center" />
+                <Grid Grid.Row="13" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <TextBox Text="{Binding NewExtendedChangeCssSelector}"
                              PlaceholderText="Optional CSS selector for the post-market change percent"
-                             ToolTip.Tip="CNBC: .QuoteStrip-extendedDataContainer [class*=changeUp],.QuoteStrip-extendedDataContainer [class*=changeDown]" />
+                             ToolTip.Tip="Yahoo: section.secondary span[data-testid=&quot;qsp-post-price-change-percent&quot;]   CNBC: .QuoteStrip-extendedDataContainer [class*=changeUp],.QuoteStrip-extendedDataContainer [class*=changeDown]" />
                     <Button Grid.Column="1" Content="Discover after-hours change" Command="{Binding DiscoverExtendedChangeSelectorsCommand}" />
                 </Grid>
-                <TextBlock Grid.Row="10" Classes="lbl" Text="After-hours change matches" VerticalAlignment="Top"
+                <TextBlock Grid.Row="14" Classes="lbl" Text="After-hours change matches" VerticalAlignment="Top"
                            IsVisible="{Binding ShowExtendedChangeMatches}" />
-                <StackPanel Grid.Row="10" Grid.Column="1" Spacing="6" IsVisible="{Binding ShowExtendedChangeMatches}">
+                <StackPanel Grid.Row="14" Grid.Column="1" Spacing="6" IsVisible="{Binding ShowExtendedChangeMatches}">
                     <TextBlock Text="{Binding DiscoveryMessage}" TextWrapping="Wrap" Foreground="#8B949E" />
                     <ListBox ItemsSource="{Binding SelectorSuggestions}" MaxHeight="120"
                              ItemTemplate="{StaticResource SuggestionTemplate}" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="11" Classes="lbl" Text="News selector" VerticalAlignment="Center" />
-                <Grid Grid.Row="11" Grid.Column="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <TextBlock Grid.Row="15" Classes="lbl" Text="News selector" VerticalAlignment="Center" />
+                <Grid Grid.Row="15" Grid.Column="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                     <TextBox Text="{Binding NewNewsCssSelector}" PlaceholderText="Optional CSS selector for headline links" />
                     <Button Grid.Column="1" Content="Discover news" Command="{Binding DiscoverNewsSelectorsCommand}" />
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6"
@@ -200,8 +230,8 @@
                         <TextBlock Text="times" VerticalAlignment="Center" Opacity="0.75" />
                     </StackPanel>
                 </Grid>
-                <TextBlock Grid.Row="12" Classes="lbl" Text="News matches" VerticalAlignment="Top" />
-                <StackPanel Grid.Row="12" Grid.Column="1" Spacing="6">
+                <TextBlock Grid.Row="16" Classes="lbl" Text="News matches" VerticalAlignment="Top" />
+                <StackPanel Grid.Row="16" Grid.Column="1" Spacing="6">
                     <TextBlock Text="{Binding NewsDiscoveryMessage}" TextWrapping="Wrap" Opacity="0.8" />
                     <ListBox ItemsSource="{Binding NewsSelectorSuggestions}" MaxHeight="85">
                         <ListBox.ItemTemplate>
@@ -218,12 +248,12 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
                 </StackPanel>
-                <TextBlock Grid.Row="13" Classes="lbl" Text="Collect" VerticalAlignment="Center" />
-                <StackPanel Grid.Row="13" Grid.Column="1" Orientation="Horizontal" Spacing="18">
+                <TextBlock Grid.Row="17" Classes="lbl" Text="Collect" VerticalAlignment="Center" />
+                <StackPanel Grid.Row="17" Grid.Column="1" Orientation="Horizontal" Spacing="18">
                     <CheckBox Content="Price" IsChecked="{Binding NewCollectPrice}" />
                     <CheckBox Content="News" IsChecked="{Binding NewCollectNews}" />
                 </StackPanel>
-                <StackPanel Grid.Row="14" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <StackPanel Grid.Row="18" Grid.Column="1" Orientation="Horizontal" Spacing="8">
                     <Button Content="{Binding EntryActionText}" Classes="primary" Command="{Binding AddSubscriptionCommand}" Padding="18,8" />
                     <Button Content="Cancel edit" Command="{Binding CancelEditCommand}" IsVisible="{Binding IsEditing}" Padding="18,8" />
                 </StackPanel>

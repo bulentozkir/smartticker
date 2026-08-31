@@ -11,4 +11,6 @@ public sealed record QuoteSnapshot(
     string Status,
     decimal? ChangePercent = null,
     decimal? ExtendedPrice = null,
-    decimal? ExtendedChangePercent = null);
+    decimal? ExtendedChangePercent = null,
+    decimal? PreMarketPrice = null,
+    decimal? PreMarketChangePercent = null);

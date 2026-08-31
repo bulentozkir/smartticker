@@ -61,6 +61,8 @@ public static class SettingsImportValidator
         "collectPrice",
         "collectNews",
         "cssSelector",
+        "preMarketCssSelector",
+        "preMarketChangeCssSelector",
         "extendedCssSelector",
         "extendedChangeCssSelector",
         "changeCssSelector",
@@ -261,6 +263,8 @@ public static class SettingsImportValidator
         var collectPrice = ReadBool(map, path, "collectPrice", false, errors);
         var collectNews = ReadBool(map, path, "collectNews", false, errors);
         var cssSelector = ReadString(map, path, "cssSelector", errors);
+        var preMarketCssSelector = ReadString(map, path, "preMarketCssSelector", errors);
+        var preMarketChangeCssSelector = ReadString(map, path, "preMarketChangeCssSelector", errors);
         var extendedCssSelector = ReadString(map, path, "extendedCssSelector", errors);
         var extendedChangeCssSelector = ReadString(map, path, "extendedChangeCssSelector", errors);
         var changeCssSelector = ReadString(map, path, "changeCssSelector", errors);
@@ -295,6 +299,8 @@ public static class SettingsImportValidator
             string.IsNullOrWhiteSpace(newsCssSelector) ? null : newsCssSelector.Trim())
         {
             NewsRepeatLimit = repeatLimit,
+            PreMarketCssSelector = string.IsNullOrWhiteSpace(preMarketCssSelector) ? null : preMarketCssSelector.Trim(),
+            PreMarketChangeCssSelector = string.IsNullOrWhiteSpace(preMarketChangeCssSelector) ? null : preMarketChangeCssSelector.Trim(),
             ExtendedCssSelector = string.IsNullOrWhiteSpace(extendedCssSelector) ? null : extendedCssSelector.Trim(),
             ExtendedChangeCssSelector = string.IsNullOrWhiteSpace(extendedChangeCssSelector) ? null : extendedChangeCssSelector.Trim(),
             ChangeCssSelector = string.IsNullOrWhiteSpace(changeCssSelector) ? null : changeCssSelector.Trim(),

@@ -66,4 +66,43 @@ public sealed class ExtendedPriceExtractionTests
         Assert.Equal(513.53m, extractor.Extract(html, Source("[data-testid=\"qsp-price\"]")).Price);
         Assert.Equal(513.06m, extractor.Extract(html, Source("[data-testid=\"qsp-post-price\"]")).Price);
     }
+
+    [Fact]
+    public void YahooSnapshotIncludesClosePreMarketAndPostMarketValues()
+    {
+        const string html = """
+            <section class="primary">
+              <span data-testid="qsp-price">513.53</span>
+            </section>
+            <section class="secondary">
+              <span data-testid="qsp-pre-price">516.20</span>
+              <span data-testid="qsp-pre-price-change-percent">(+0.52%)</span>
+              <span data-testid="qsp-post-price">513.06</span>
+              <span data-testid="qsp-post-price-change-percent">(-0.09%)</span>
+            </section>
+            """;
+        var subscription = new TickerSubscription(
+            Guid.NewGuid(),
+            "MSFT",
+            "Yahoo Finance",
+            new Uri("https://finance.yahoo.com/quote/MSFT/"),
+            true,
+            false,
+            "[data-testid=\"qsp-price\"]")
+        {
+            PreMarketCssSelector = "section.secondary span[data-testid=\"qsp-pre-price\"]",
+            PreMarketChangeCssSelector = "section.secondary span[data-testid=\"qsp-pre-price-change-percent\"]",
+            ExtendedCssSelector = "section.secondary span[data-testid=\"qsp-post-price\"]",
+            ExtendedChangeCssSelector = "section.secondary span[data-testid=\"qsp-post-price-change-percent\"]",
+        };
+        using var fetcher = new StaticHtmlQuoteFetcher();
+
+        var snapshot = fetcher.ExtractSnapshot(subscription, html, DateTimeOffset.UtcNow);
+
+        Assert.Equal(513.53m, snapshot.Price);
+        Assert.Equal(516.20m, snapshot.PreMarketPrice);
+        Assert.Equal(0.52m, snapshot.PreMarketChangePercent);
+        Assert.Equal(513.06m, snapshot.ExtendedPrice);
+        Assert.Equal(-0.09m, snapshot.ExtendedChangePercent);
+    }
 }

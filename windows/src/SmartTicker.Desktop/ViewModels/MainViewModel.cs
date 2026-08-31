@@ -57,6 +57,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public partial string NewNewsCssSelector { get; set; } = string.Empty;
 
     [ObservableProperty]
+    public partial string NewPreMarketCssSelector { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string NewPreMarketChangeCssSelector { get; set; } = string.Empty;
+
+    [ObservableProperty]
     public partial string NewExtendedCssSelector { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -263,6 +269,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public bool ShowChangeMatches => DiscoveryTarget == SelectorKind.Change;
 
+    public bool ShowPreMarketMatches => DiscoveryTarget == SelectorKind.PreMarketPrice;
+
+    public bool ShowPreMarketChangeMatches => DiscoveryTarget == SelectorKind.PreMarketChange;
+
     public bool ShowExtendedMatches => DiscoveryTarget == SelectorKind.ExtendedPrice;
 
     public bool ShowExtendedChangeMatches => DiscoveryTarget == SelectorKind.ExtendedChange;
@@ -271,6 +281,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         OnPropertyChanged(nameof(ShowPriceMatches));
         OnPropertyChanged(nameof(ShowChangeMatches));
+        OnPropertyChanged(nameof(ShowPreMarketMatches));
+        OnPropertyChanged(nameof(ShowPreMarketChangeMatches));
         OnPropertyChanged(nameof(ShowExtendedMatches));
         OnPropertyChanged(nameof(ShowExtendedChangeMatches));
     }
@@ -512,6 +524,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         subscription = subscription! with
         {
+            PreMarketCssSelector = string.IsNullOrWhiteSpace(NewPreMarketCssSelector) ? null : NewPreMarketCssSelector.Trim(),
+            PreMarketChangeCssSelector = string.IsNullOrWhiteSpace(NewPreMarketChangeCssSelector)
+                ? null
+                : NewPreMarketChangeCssSelector.Trim(),
             ExtendedCssSelector = string.IsNullOrWhiteSpace(NewExtendedCssSelector) ? null : NewExtendedCssSelector.Trim(),
             ExtendedChangeCssSelector = string.IsNullOrWhiteSpace(NewExtendedChangeCssSelector)
                 ? null
@@ -573,6 +589,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             NewSourceUrlSuffix = suffix;
         }
         NewCssSelector = subscription.CssSelector ?? string.Empty;
+        NewPreMarketCssSelector = subscription.PreMarketCssSelector ?? string.Empty;
+        NewPreMarketChangeCssSelector = subscription.PreMarketChangeCssSelector ?? string.Empty;
         NewExtendedCssSelector = subscription.ExtendedCssSelector ?? string.Empty;
         NewExtendedChangeCssSelector = subscription.ExtendedChangeCssSelector ?? string.Empty;
         NewChangeCssSelector = subscription.ChangeCssSelector ?? string.Empty;
@@ -749,6 +767,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private Task DiscoverChangeSelectorsAsync() => DiscoverForAsync(SelectorKind.Change);
 
     [RelayCommand]
+    private Task DiscoverPreMarketSelectorsAsync() => DiscoverForAsync(SelectorKind.PreMarketPrice);
+
+    [RelayCommand]
+    private Task DiscoverPreMarketChangeSelectorsAsync() => DiscoverForAsync(SelectorKind.PreMarketChange);
+
+    [RelayCommand]
     private Task DiscoverExtendedSelectorsAsync() => DiscoverForAsync(SelectorKind.ExtendedPrice);
 
     [RelayCommand]
@@ -757,6 +781,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private static string DescribeKind(SelectorKind kind) => kind switch
     {
         SelectorKind.Change => "price change",
+        SelectorKind.PreMarketPrice => "pre-market price",
+        SelectorKind.PreMarketChange => "pre-market change",
         SelectorKind.ExtendedPrice => "after-hours price",
         SelectorKind.ExtendedChange => "after-hours change",
         _ => "price",
@@ -823,6 +849,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             case SelectorKind.Change:
                 NewChangeCssSelector = suggestion.Selector;
+                break;
+            case SelectorKind.PreMarketPrice:
+                NewPreMarketCssSelector = suggestion.Selector;
+                break;
+            case SelectorKind.PreMarketChange:
+                NewPreMarketChangeCssSelector = suggestion.Selector;
                 break;
             case SelectorKind.ExtendedPrice:
                 NewExtendedCssSelector = suggestion.Selector;
@@ -1429,6 +1461,17 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                         percent < 0 ? PriceDownBrush : PriceUpBrush));
                 }
 
+                if (quote is { Success: true, PreMarketPrice: { } preMarket })
+                {
+                    runs.Add(new($"  {preMarket:N2}{FormatCurrency(quote.Currency)}", ExtendedPriceBrush));
+                    if (quote.PreMarketChangePercent is { } preMarketPercent)
+                    {
+                        runs.Add(new(
+                            $" ({preMarketPercent:+0.00;-0.00;0.00}%)",
+                            preMarketPercent < 0 ? PriceDownBrush : PriceUpBrush));
+                    }
+                }
+
                 if (quote is { Success: true, ExtendedPrice: { } extended })
                 {
                     runs.Add(new($"  {extended:N2}{FormatCurrency(quote.Currency)}", ExtendedPriceBrush));
@@ -1971,6 +2014,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         SelectedSource = SourceAlternatives[0];
         NewSourceUrlSuffix = string.Empty;
         NewCssSelector = string.Empty;
+        NewPreMarketCssSelector = string.Empty;
+        NewPreMarketChangeCssSelector = string.Empty;
         NewNewsCssSelector = string.Empty;
         NewExtendedCssSelector = string.Empty;
         NewExtendedChangeCssSelector = string.Empty;

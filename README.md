@@ -69,9 +69,9 @@ Settings and alert rules can be exported and imported independently.
 
 ![Backup section with export and import buttons](docs/screenshots/backup.png)
 
-## Release 1.0.0
+## Release 1.0.1
 
-First public release, available as an MSIX bundle and MSI installers for Windows (x64 and arm64), and a `.deb` for Debian-based Linux. See [releases](releases/README.md).
+Available as an MSIX bundle and MSI installers for Windows (x64 and arm64), and a `.deb` for Debian-based Linux. See [releases](releases/README.md).
 
 Website policies, robots directives, crawl delays, and server-requested backoff take precedence over configured refresh intervals. JavaScript-only pages and pages that prohibit automated access may not be supported.
 

@@ -14,6 +14,11 @@ public sealed partial class StaticHtmlSelectorAnalyzer
         "postmarket", "post-market", "post-price", "post-trade", "posttrade", "qsp-post",
     ];
 
+    private static readonly string[] PreMarketMarkers =
+    [
+        "premarket", "pre-market", "pre-price", "pre-trade", "pretrade", "qsp-pre",
+    ];
+
     public IReadOnlyList<CssSelectorSuggestion> Analyze(string html, int maximumSuggestions = 5)
     {
         if (string.IsNullOrWhiteSpace(html) || maximumSuggestions < 1)
@@ -179,7 +184,8 @@ public sealed partial class StaticHtmlSelectorAnalyzer
         }
 
         var document = new HtmlParser().ParseDocument(html);
-        var wantsPercent = kind is SelectorKind.Change or SelectorKind.ExtendedChange;
+        var wantsPercent = kind is SelectorKind.Change or SelectorKind.PreMarketChange or SelectorKind.ExtendedChange;
+        var wantsPreMarket = kind is SelectorKind.PreMarketPrice or SelectorKind.PreMarketChange;
         var wantsExtended = kind is SelectorKind.ExtendedPrice or SelectorKind.ExtendedChange;
         var suggestions = new List<CssSelectorSuggestion>();
 
@@ -203,8 +209,11 @@ public sealed partial class StaticHtmlSelectorAnalyzer
                 continue;
             }
 
-            var scope = FindExtendedScope(element);
-            if ((scope is not null) != wantsExtended)
+            var preMarketScope = FindMarketScope(element, PreMarketMarkers);
+            var extendedScope = FindMarketScope(element, ExtendedMarkers);
+            if (wantsPreMarket ? preMarketScope is null
+                : wantsExtended ? extendedScope is null
+                : preMarketScope is not null || extendedScope is not null)
             {
                 continue;
             }
@@ -217,9 +226,10 @@ public sealed partial class StaticHtmlSelectorAnalyzer
 
             var selector = candidate.Selector;
             var matches = candidate.Matches;
+            var scope = wantsPreMarket ? preMarketScope : wantsExtended ? extendedScope : null;
 
-            // The after-hours value often shares its class with the close price, so the container disambiguates it.
-            if (wantsExtended && scope is not null && !ReferenceEquals(scope, element) &&
+            // Extended-session values often share a class with the close price, so their container disambiguates them.
+            if (scope is not null && !ReferenceEquals(scope, element) &&
                 CreateSelector(scope, document) is { } container)
             {
                 var scoped = $"{container.Selector} {candidate.Selector}";
@@ -247,13 +257,13 @@ public sealed partial class StaticHtmlSelectorAnalyzer
             .ToArray();
     }
 
-    private static IElement? FindExtendedScope(IElement element)
+    private static IElement? FindMarketScope(IElement element, IReadOnlyList<string> markers)
     {
         var current = element;
         for (var depth = 0; depth < 5 && current is not null; depth++)
         {
             var identity = Identity(current);
-            if (ExtendedMarkers.Any(marker => identity.Contains(marker, StringComparison.OrdinalIgnoreCase)))
+            if (markers.Any(marker => identity.Contains(marker, StringComparison.OrdinalIgnoreCase)))
             {
                 return current;
             }
@@ -267,7 +277,7 @@ public sealed partial class StaticHtmlSelectorAnalyzer
     private static (int Score, string Reason) ScoreFor(SelectorKind kind, IElement element)
     {
         var identity = Identity(element);
-        if (kind is SelectorKind.Change or SelectorKind.ExtendedChange)
+        if (kind is SelectorKind.Change or SelectorKind.PreMarketChange or SelectorKind.ExtendedChange)
         {
             if (identity.Contains("changepercent", StringComparison.OrdinalIgnoreCase) ||
                 identity.Contains("change-percent", StringComparison.OrdinalIgnoreCase) ||

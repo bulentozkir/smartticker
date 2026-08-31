@@ -15,6 +15,10 @@ public sealed record TickerSubscription(
     public const int DefaultNewsRepeatLimit = 5;
 
     // Extended-hours markup differs per site, so the selectors are supplied rather than guessed.
+    public string? PreMarketCssSelector { get; init; }
+
+    public string? PreMarketChangeCssSelector { get; init; }
+
     public string? ExtendedCssSelector { get; init; }
 
     public string? ExtendedChangeCssSelector { get; init; }

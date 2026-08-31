@@ -69,6 +69,27 @@ public sealed class SelectorKindDiscoveryTests
         Assert.Contains("QuoteStrip-extendedDataContainer", match.Selector, StringComparison.Ordinal);
     }
 
+      [Fact]
+      public void PreMarketKinds_DoNotReturnPostMarketValues()
+      {
+        const string html = """
+          <section class="secondary">
+            <span data-testid="qsp-pre-price">516.20</span>
+            <span data-testid="qsp-pre-price-change-percent">+0.52%</span>
+            <span data-testid="qsp-post-price">513.06</span>
+            <span data-testid="qsp-post-price-change-percent">-0.09%</span>
+          </section>
+          """;
+
+        var prices = _analyzer.Analyze(html, SelectorKind.PreMarketPrice);
+        var changes = _analyzer.Analyze(html, SelectorKind.PreMarketChange);
+
+        Assert.Contains(prices, item => item.SampleValue == "516.20");
+        Assert.DoesNotContain(prices, item => item.SampleValue == "513.06");
+        Assert.Contains(changes, item => item.SampleValue == "+0.52%");
+        Assert.DoesNotContain(changes, item => item.SampleValue == "-0.09%");
+      }
+
     [Fact]
     public void Price_KeepsItsOriginalBehaviour()
     {

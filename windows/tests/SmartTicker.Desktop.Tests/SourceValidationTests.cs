@@ -116,6 +116,29 @@ public sealed class SourceValidationTests
         Assert.Empty(viewModel.GetPendingSourcePermissionReviews());
     }
 
+    [Fact]
+    public async Task RefreshPrices_RendersPreMarketBeforePostMarket()
+    {
+        var subscription = Subscription("MSFT", "Yahoo Finance", "https://finance.yahoo.com/quote/MSFT/") with
+        {
+            CollectNews = false,
+        };
+        var settings = SmartTickerSettings.Default with
+        {
+            Subscriptions = [subscription],
+            AcknowledgedSources = ["finance.yahoo.com"],
+        };
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: new SessionQuoteFetcher(),
+            settingsStore: new TestSettingsStore(settings));
+
+        await viewModel.RefreshPricesAsync();
+
+        var text = string.Concat(viewModel.VisiblePriceRows[0].Segments[0].Runs.Select(run => run.Text));
+        Assert.Equal("⊗ MSFT 100.00 USD (+1.00%)  101.00 USD (+0.50%)  99.00 USD (-0.25%)", text);
+    }
+
     private static TickerSubscription Subscription(string symbol, string sourceName, string sourceUri) =>
         new(
             Guid.NewGuid(),
@@ -157,6 +180,27 @@ public sealed class SourceValidationTests
                 true,
                 "ok"));
         }
+    }
+
+    private sealed class SessionQuoteFetcher : IQuoteFetcher
+    {
+        public Task<QuoteSnapshot> FetchAsync(
+            TickerSubscription subscription,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new QuoteSnapshot(
+                subscription.Id,
+                subscription.Symbol,
+                subscription.SourceName,
+                100m,
+                "USD",
+                DateTimeOffset.UtcNow,
+                true,
+                "ok",
+                ChangePercent: 1m,
+                ExtendedPrice: 99m,
+                ExtendedChangePercent: -0.25m,
+                PreMarketPrice: 101m,
+                PreMarketChangePercent: 0.5m));
     }
 
     private sealed class SuccessfulNewsFetcher : INewsFetcher
