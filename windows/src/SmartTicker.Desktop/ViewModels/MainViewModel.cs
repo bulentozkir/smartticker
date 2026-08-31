@@ -463,6 +463,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         if (_acknowledgements.Acknowledge(NewSourceUrl))
         {
+            SyncApprovedSourceHosts();
             EntryMessage = $"Access to {CurrentSourceHost} confirmed. This is remembered for that site.";
             RaiseAcknowledgementChanged();
             SaveSettings();
@@ -986,6 +987,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         if (_acknowledgements.Acknowledge(review.SourceUri.AbsoluteUri))
         {
+            SyncApprovedSourceHosts();
             RaiseAcknowledgementChanged();
             SaveSettings();
         }
@@ -1260,6 +1262,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private bool CanAccessSource(Uri sourceUri) =>
         AllowWebsiteCookiesAndCrossHostRedirects ||
         _acknowledgements.IsAcknowledged(sourceUri.AbsoluteUri);
+
+    private void SyncApprovedSourceHosts() =>
+        _websiteAccessPolicy.ReplaceApprovedHosts(_acknowledgements.ToArray());
 
     partial void OnBackgroundColorHexChanged(string value) => ApplyColorChange(nameof(BackgroundBrush));
 
@@ -2012,6 +2017,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             _isApplyingSettings = true;
             _acknowledgements = new SourceAcknowledgementLedger(settings.AcknowledgedSources);
+            SyncApprovedSourceHosts();
             Subscriptions.Clear();
             foreach (var subscription in settings.Subscriptions)
             {

@@ -24,21 +24,26 @@ public partial class App : Avalonia.Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var websiteAccessPolicy = new WebsiteAccessPolicy();
-            desktop.MainWindow = new MainWindow
+            var mainWindow = new MainWindow();
+            websiteAccessPolicy.ConsentPrompt = (request, cancellationToken) =>
             {
-                DataContext = new MainViewModel(
-                    new StaticHtmlPriceSelectorDiscovery(websiteAccessPolicy),
-                    new StaticHtmlQuoteFetcher(websiteAccessPolicy),
-                    new StaticHtmlNewsSelectorDiscovery(websiteAccessPolicy),
-                    new LocalJsonSettingsStore(),
-                    new StaticHtmlNewsFetcher(websiteAccessPolicy),
-                    new DefaultBrowserLinkLauncher(),
-                    new GitHubStarterSettingsSource(websiteAccessPolicy),
-                    new LocalJsonAlertStore(),
-                    new SystemAlertSound(),
-                    StartupRegistrationFactory.Create(),
-                    websiteAccessPolicy),
+                cancellationToken.ThrowIfCancellationRequested();
+                var dialog = new WebsiteConsentWindow { DataContext = request };
+                return dialog.ShowDialog<WebsiteConsentDecision>(mainWindow);
             };
+            mainWindow.DataContext = new MainViewModel(
+                new StaticHtmlPriceSelectorDiscovery(websiteAccessPolicy),
+                new StaticHtmlQuoteFetcher(websiteAccessPolicy),
+                new StaticHtmlNewsSelectorDiscovery(websiteAccessPolicy),
+                new LocalJsonSettingsStore(),
+                new StaticHtmlNewsFetcher(websiteAccessPolicy),
+                new DefaultBrowserLinkLauncher(),
+                new GitHubStarterSettingsSource(websiteAccessPolicy),
+                new LocalJsonAlertStore(),
+                new SystemAlertSound(),
+                StartupRegistrationFactory.Create(),
+                websiteAccessPolicy);
+            desktop.MainWindow = mainWindow;
         }
 
         base.OnFrameworkInitializationCompleted();

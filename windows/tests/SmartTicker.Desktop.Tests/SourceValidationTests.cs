@@ -42,10 +42,12 @@ public sealed class SourceValidationTests
             ],
             AcknowledgedSources = ["tradingeconomics.com"],
         };
+        var policy = new WebsiteAccessPolicy();
         using var viewModel = new MainViewModel(
             selectorDiscovery: null,
             quoteFetcher: null,
-            settingsStore: new TestSettingsStore(settings));
+            settingsStore: new TestSettingsStore(settings),
+            websiteAccessPolicy: policy);
 
         var review = Assert.Single(viewModel.GetPendingSourcePermissionReviews());
 
@@ -53,6 +55,12 @@ public sealed class SourceValidationTests
         Assert.Contains("MSFT", review.Symbols);
         Assert.Contains("AAPL", review.Symbols);
         Assert.Equal("Written permission required", review.PolicySummary);
+        Assert.True(policy.AllowsWebsiteSession(new Uri("https://tradingeconomics.com/commodity/gold")));
+        Assert.False(policy.AllowsWebsiteSession(review.SourceUri));
+
+        viewModel.ApproveSourcePermission(review);
+
+        Assert.True(policy.AllowsWebsiteSession(review.SourceUri));
     }
 
     [Fact]

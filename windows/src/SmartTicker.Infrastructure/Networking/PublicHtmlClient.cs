@@ -21,8 +21,10 @@ internal sealed class PublicHtmlClient : IDisposable
     private readonly HttpClient _cookieHttpClient;
 
     public PublicHtmlClient(WebsiteAccessPolicy? accessPolicy = null)
-        : this(accessPolicy, CreateHandler(useCookies: false), CreateHandler(useCookies: true))
     {
+        _accessPolicy = accessPolicy ?? new WebsiteAccessPolicy();
+        _cookieFreeHttpClient = CreateClient(CreateHandler(useCookies: false));
+        _cookieHttpClient = CreateClient(CreateHandler(useCookies: true, _accessPolicy.SessionCookies));
     }
 
     internal PublicHtmlClient(
@@ -48,8 +50,8 @@ internal sealed class PublicHtmlClient : IDisposable
         string acceptHeader,
         CancellationToken cancellationToken)
     {
-        var allowCookiesAndCrossHostRedirects = _accessPolicy.AllowCookiesAndCrossHostRedirects;
-        var httpClient = allowCookiesAndCrossHostRedirects ? _cookieHttpClient : _cookieFreeHttpClient;
+        var allowWebsiteSession = _accessPolicy.AllowsWebsiteSession(pageUri);
+        var httpClient = allowWebsiteSession ? _cookieHttpClient : _cookieFreeHttpClient;
         var currentUri = pageUri;
         for (var redirect = 0; redirect <= 3; redirect++)
         {
@@ -72,7 +74,7 @@ internal sealed class PublicHtmlClient : IDisposable
                 var nextUri = response.Headers.Location.IsAbsoluteUri
                     ? response.Headers.Location
                     : new Uri(currentUri, response.Headers.Location);
-                if (!allowCookiesAndCrossHostRedirects &&
+                if (!allowWebsiteSession &&
                     !string.Equals(pageUri.IdnHost, nextUri.IdnHost, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new HttpRequestException(
@@ -91,7 +93,25 @@ internal sealed class PublicHtmlClient : IDisposable
                     $"The URL returned {mediaType} instead of {string.Join(" or ", allowedMediaTypes)}.");
             }
 
-            return await ReadLimitedHtmlAsync(response.Content, cancellationToken);
+            var content = await ReadLimitedHtmlAsync(response.Content, cancellationToken);
+            if (acceptHeader == "text/html" &&
+                WebsiteConsentForm.TryParse(currentUri, content, out var consentForm))
+            {
+                if (!allowWebsiteSession)
+                {
+                    throw new HttpRequestException(
+                        "The website requires a privacy choice. Approve the source or enable website cookies and cross-host redirects first.");
+                }
+
+                return await SubmitConsentAsync(
+                    pageUri,
+                    currentUri,
+                    consentForm!,
+                    allowedMediaTypes,
+                    cancellationToken);
+            }
+
+            return content;
         }
 
         throw new HttpRequestException("The source could not be reached.");
@@ -103,14 +123,111 @@ internal sealed class PublicHtmlClient : IDisposable
         _cookieHttpClient.Dispose();
     }
 
-    internal static HttpClientHandler CreateHandler(bool useCookies) => new()
+    internal static HttpClientHandler CreateHandler(
+        bool useCookies,
+        CookieContainer? cookieContainer = null) => new()
     {
         AllowAutoRedirect = false,
         AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
         UseCookies = useCookies,
-        CookieContainer = new CookieContainer(),
+        CookieContainer = cookieContainer ?? new CookieContainer(),
         Credentials = null,
     };
+
+    private async Task<string> SubmitConsentAsync(
+        Uri sourceUri,
+        Uri consentUri,
+        WebsiteConsentForm consentForm,
+        string[] allowedMediaTypes,
+        CancellationToken cancellationToken)
+    {
+        var requestDetails = new WebsiteConsentRequest(
+            sourceUri,
+            consentUri,
+            consentForm.Title,
+            consentForm.Summary,
+            consentForm.Accept.Label,
+            consentForm.Reject.Label);
+        var decision = await _accessPolicy.RequestConsentAsync(requestDetails, cancellationToken);
+        if (decision == WebsiteConsentDecision.Cancel)
+        {
+            throw new HttpRequestException($"No privacy choice was submitted to {consentUri.Host}.");
+        }
+
+        await ValidatePublicUriAsync(consentForm.ActionUri, cancellationToken);
+        using var request = new HttpRequestMessage(HttpMethod.Post, consentForm.ActionUri)
+        {
+            Content = new FormUrlEncodedContent(consentForm.CreatePayload(decision)),
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
+        request.Headers.Referrer = consentUri;
+        var response = await _cookieHttpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        return await FollowConsentResponseAsync(
+            response,
+            consentForm.ActionUri,
+            allowedMediaTypes,
+            cancellationToken);
+    }
+
+    private async Task<string> FollowConsentResponseAsync(
+        HttpResponseMessage response,
+        Uri responseUri,
+        string[] allowedMediaTypes,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            for (var redirect = 0; redirect <= 5; redirect++)
+            {
+                if (IsRedirect(response.StatusCode))
+                {
+                    if (redirect == 5 || response.Headers.Location is null)
+                    {
+                        throw new HttpRequestException("The consent response exceeded the safe redirect limit.");
+                    }
+
+                    var nextUri = response.Headers.Location.IsAbsoluteUri
+                        ? response.Headers.Location
+                        : new Uri(responseUri, response.Headers.Location);
+                    await ValidatePublicUriAsync(nextUri, cancellationToken);
+                    response.Dispose();
+                    responseUri = nextUri;
+                    using var request = new HttpRequestMessage(HttpMethod.Get, nextUri);
+                    request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
+                    response = await _cookieHttpClient.SendAsync(
+                        request,
+                        HttpCompletionOption.ResponseHeadersRead,
+                        cancellationToken);
+                    continue;
+                }
+
+                response.EnsureSuccessStatusCode();
+                if (response.Content.Headers.ContentType?.MediaType is { } mediaType &&
+                    !allowedMediaTypes.Contains(mediaType, StringComparer.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        $"The consent response returned {mediaType} instead of {string.Join(" or ", allowedMediaTypes)}.");
+                }
+
+                var content = await ReadLimitedHtmlAsync(response.Content, cancellationToken);
+                if (WebsiteConsentForm.TryParse(responseUri, content, out _))
+                {
+                    throw new HttpRequestException($"The privacy choice was not accepted by {responseUri.Host}.");
+                }
+
+                return content;
+            }
+        }
+        finally
+        {
+            response.Dispose();
+        }
+
+        throw new HttpRequestException("The consent response could not be completed.");
+    }
 
     private static HttpClient CreateClient(HttpMessageHandler handler)
     {

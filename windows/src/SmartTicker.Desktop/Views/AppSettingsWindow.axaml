@@ -89,7 +89,7 @@
                         <CheckBox Content="Allow website cookies and cross-host redirects"
                                   IsChecked="{Binding AllowWebsiteCookiesAndCrossHostRedirects}" />
                         <TextBlock Classes="caption" TextWrapping="Wrap"
-                                   Text="When enabled, SmartTicker skips its per-source approval step, stores website cookies in memory until exit, and follows redirects to other hosts. It never submits website consent or sign-in forms and does not use browser cookies." />
+                                   Text="When enabled, SmartTicker skips its per-source approval step, stores website cookies in memory until exit, and follows redirects to other hosts. If a website returns a recognized privacy form, SmartTicker shows it and submits only the Accept or Reject choice you click. It never uses browser cookies or submits sign-in forms." />
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <Button Content="Validate all sources" Click="ValidateAllSources" Padding="14,7" />
                             <TextBlock Text="{Binding SourceValidationStatus}" TextWrapping="Wrap"
