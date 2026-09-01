@@ -24,6 +24,14 @@ public partial class SettingsWindow : Window
 
     private void OpenQuoteGroups(object? sender, RoutedEventArgs e) => QuoteGroupsWindow.Open(this, DataContext);
 
+    private async void ImportSampleConfig(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+        {
+            await SampleConfigImportWorkflow.RunAsync(this, viewModel);
+        }
+    }
+
     private Task<bool> ConfirmAlertRemovalAsync(string symbol, int count) =>
         ConfirmDialog.ShowAsync(
             this,

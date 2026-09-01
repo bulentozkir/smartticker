@@ -56,13 +56,12 @@ SmartTicker offers four mutually exclusive display modes. Right-click the ticker
 | **Static view: Prices with News** | Responsive price tiles plus a separate static **SmartTicker News** window. |
 
 Settings files created before these choices were added map to the matching combination
-of their saved scrolling/static and news settings. The **Static grouped tables (no
-scrolling)** checkbox under **App Settings... > Quote view** changes only the
-scrolling/static half and preserves the current News choice.
+of their saved scrolling/static and news settings. Display mode is managed only from
+the ticker's right-click **View** menu.
 
-- When clear, prices use the original horizontal marquee and the configured price row
+- In either scrolling mode, prices use the horizontal marquee and the configured price row
 	count and scroll speed.
-- When checked, groups appear as responsive tiles laid out from left to right. Tiles
+- In either static mode, groups appear as responsive tiles laid out from left to right. Tiles
   wrap onto another row only when the window is too narrow. Prices do not move
   automatically.
 - Every quote tile has its own aligned **Symbol**, **Last**, **Chg**, and **Chg%**
@@ -86,8 +85,10 @@ scrolling/static half and preserves the current News choice.
 - Within each News group, headlines are interleaved by quote: one headline from the
 	first quote, then one from the next quote, continuing in rounds. A quote with many
 	headlines therefore cannot occupy the whole top of its group.
-- Use **Quote filter** at the top of a News tile to show **All quotes** or one symbol.
-	The filter is remembered across refreshes for the current SmartTicker session.
+- Under **Show news for**, check or clear each quote independently. Any combination of
+	quotes can be visible, including all or none. Labels include the quote and source so
+	duplicate symbols remain independent. Selections are remembered across refreshes for
+	the current SmartTicker session.
 - Drag the dotted handle beside any quote or news tile heading and drop it on the left
 	or right half of another tile. The order changes in both windows and is saved by
 	reordering the underlying configured entries.
@@ -159,6 +160,18 @@ This downloads the repository sample and replaces the current application settin
 Review every imported URL and each website's current terms before using it. You can
 edit or remove any sample entry afterward.
 
+**Import Sample Quotes Config** at the top of both the Quotes and App Settings windows
+does the same thing at any time, behind a confirmation:
+
+- SmartTicker asks **Are you sure?** and warns that the download replaces your existing
+	quotes, quote groups, source approvals, view, appearance, and other app settings.
+	Alert rules live in their own file and are not deleted.
+- **Export existing config...** is optional. It saves your current configuration to a
+	local JSON file, then returns to the same confirmation.
+- **Import Sample Quotes Config** downloads the sample from the internet and replaces
+	your configuration.
+- **Cancel** changes nothing.
+
 ### Add a quote or news entry
 
 1. Enter the **Ticker** label, such as `MSFT`. SmartTicker trims it and stores it in
@@ -183,8 +196,8 @@ category, so you can organize entries by market, asset type, strategy, portfolio
 region, or any other scheme. Names are trimmed, may use Unicode, and may contain up to
 80 characters. Each quote can belong to at most one group.
 
-Use **Manage groups** beside the Group field, in App Settings, or select
-**Quote groups...** from the ticker menu. The window has three working areas:
+Use **Manage groups** beside the Group field, or select **Quote groups...** from the
+ticker's right-click menu. The window has three working areas:
 
 - On the left, enter a **Group name**, then choose **Create**. Select an existing group,
 	edit its name, and choose **Update**, or choose **Delete**. Empty groups are retained.
@@ -592,8 +605,7 @@ accordance with the website's terms, license, robots directives, and applicable 
 - Validate the source and run **Discover news**.
 - Ensure the selector returns links with visible headline text.
 - A headline disappears after reaching its configured repeat limit for this session.
-- In static News, confirm the tile's **Quote filter** is set to **All quotes** or the
-	intended symbol.
+- In static News, confirm the intended quote is checked under **Show news for**.
 
 ### Selector discovery finds nothing
 

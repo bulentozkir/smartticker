@@ -345,20 +345,28 @@ public sealed class SourceValidationTests
         await viewModel.RefreshNewsAsync();
 
         var group = Assert.Single(viewModel.StaticNewsGroups);
-        Assert.Equal(["All quotes", "MSFT", "AAPL"], group.FilterOptions);
+        Assert.Equal(["MSFT · Example", "AAPL · Example"], group.QuoteFilters.Select(filter => filter.Label));
+        Assert.All(group.QuoteFilters, filter => Assert.True(filter.IsShown));
         Assert.Equal(
             ["MSFT", "AAPL", "MSFT", "AAPL", "MSFT", "AAPL"],
             group.Rows.Select(row => row.Symbol));
 
-        group.SelectedQuote = "AAPL";
+        group.QuoteFilters.Single(filter => filter.SubscriptionId == microsoft.Id).IsShown = false;
 
         Assert.All(group.Rows, row => Assert.Equal("AAPL", row.Symbol));
         Assert.Equal("3 of 6 headlines", group.CountText);
 
+        group.QuoteFilters.Single(filter => filter.SubscriptionId == apple.Id).IsShown = false;
+        Assert.Empty(group.Rows);
+
+        group.QuoteFilters.Single(filter => filter.SubscriptionId == apple.Id).IsShown = true;
+        Assert.All(group.Rows, row => Assert.Equal("AAPL", row.Symbol));
+
         await viewModel.RefreshNewsAsync();
 
         var refreshed = Assert.Single(viewModel.StaticNewsGroups);
-        Assert.Equal("AAPL", refreshed.SelectedQuote);
+        Assert.False(refreshed.QuoteFilters.Single(filter => filter.SubscriptionId == microsoft.Id).IsShown);
+        Assert.True(refreshed.QuoteFilters.Single(filter => filter.SubscriptionId == apple.Id).IsShown);
         Assert.All(refreshed.Rows, row => Assert.Equal("AAPL", row.Symbol));
     }
 

@@ -65,13 +65,23 @@
                                     </Grid>
                                 </Expander.Header>
                                 <Grid RowDefinitions="Auto,Auto,*">
-                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="12,6,12,4">
-                                        <TextBlock Text="Quote filter" FontSize="10" Foreground="#8B949E"
-                                                   VerticalAlignment="Center" />
-                                        <ComboBox Grid.Column="1" ItemsSource="{Binding FilterOptions}"
-                                                  SelectedItem="{Binding SelectedQuote, Mode=TwoWay}"
-                                                  MinWidth="150" HorizontalAlignment="Left" />
-                                    </Grid>
+                                    <StackPanel Margin="12,6,12,4" Spacing="5">
+                                        <TextBlock Text="Show news for" FontSize="10" Foreground="#8B949E" />
+                                        <ItemsControl ItemsSource="{Binding QuoteFilters}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:StaticNewsQuoteFilter">
+                                                    <CheckBox Content="{Binding Label}"
+                                                              IsChecked="{Binding IsShown, Mode=TwoWay}"
+                                                              Margin="0,0,14,5" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
                                     <Grid Grid.Row="1" ColumnDefinitions="100,*" ColumnSpacing="10" Margin="12,6,12,7">
                                         <TextBlock Text="Symbol" FontSize="10" Foreground="#8B949E" />
                                         <TextBlock Grid.Column="1" Text="Headline" FontSize="10" Foreground="#8B949E" />

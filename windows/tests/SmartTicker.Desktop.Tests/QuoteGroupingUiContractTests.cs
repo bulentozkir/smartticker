@@ -23,12 +23,42 @@ public sealed class QuoteGroupingUiContractTests
     }
 
     [Fact]
-    public void AppSettings_ExposesStaticGroupedViewMode()
+    public void AppSettings_DoesNotDuplicateViewOrGroupManagementCommands()
     {
         var document = LoadView("AppSettingsWindow.axaml");
 
-        Assert.Contains(document.Descendants(), element =>
+        Assert.DoesNotContain(document.Descendants(), element =>
             (string?)element.Attribute("IsChecked") == "{Binding UseStaticGroupedView}");
+        Assert.DoesNotContain(document.Descendants(), element =>
+            (string?)element.Attribute("Click") == "OpenQuoteGroups");
+    }
+
+    [Fact]
+    public void SampleConfigImport_IsOfferedFromBothWindowsBehindAnExportFirstConfirmation()
+    {
+        foreach (var windowName in new[] { "SettingsWindow", "AppSettingsWindow" })
+        {
+            var document = LoadView($"{windowName}.axaml");
+            var button = Assert.Single(document.Descendants(), element =>
+                (string?)element.Attribute("Click") == "ImportSampleConfig");
+
+            Assert.Equal("Import Sample Quotes Config", (string?)button.Attribute("Content"));
+            Assert.Equal("{Binding !IsLoadingStarter}", (string?)button.Attribute("IsEnabled"));
+            Assert.Contains(
+                "SampleConfigImportWorkflow.RunAsync(this, viewModel)",
+                File.ReadAllText(ViewPath($"{windowName}.axaml.cs")));
+        }
+
+        var workflow = File.ReadAllText(ViewPath("SampleConfigImportWorkflow.cs"));
+
+        Assert.Contains("Are you sure?", workflow);
+        Assert.Contains("downloads the published sample config from the internet", workflow);
+        Assert.Contains("replaces your existing quotes", workflow);
+        Assert.Contains("Export existing config...", workflow);
+        Assert.Contains("Import Sample Quotes Config", workflow);
+        Assert.Contains("Cancel", workflow);
+        Assert.Contains("ExportSettingsJson()", workflow);
+        Assert.Contains("LoadStarterQuotesCommand.ExecuteAsync(null)", workflow);
     }
 
     [Fact]
@@ -119,9 +149,10 @@ public sealed class QuoteGroupingUiContractTests
         Assert.Contains(newsWindow.Descendants(), element =>
             (string?)element.Attribute("ItemsSource") == "{Binding StaticNewsGroups}");
         Assert.Contains(newsWindow.Descendants(), element =>
-            (string?)element.Attribute("ItemsSource") == "{Binding FilterOptions}");
+            (string?)element.Attribute("ItemsSource") == "{Binding QuoteFilters}");
         Assert.Contains(newsWindow.Descendants(), element =>
-            (string?)element.Attribute("SelectedItem") == "{Binding SelectedQuote, Mode=TwoWay}");
+            element.Name.LocalName == "CheckBox" &&
+            (string?)element.Attribute("IsChecked") == "{Binding IsShown, Mode=TwoWay}");
         Assert.DoesNotContain(newsWindow.Descendants(), element =>
             (string?)element.Attribute("Click") == "ShowHelp");
         Assert.Contains(mainWindow.Descendants(), element =>

@@ -456,7 +456,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly SemaphoreSlim _priceRefreshGate = new(1, 1);
     private readonly SemaphoreSlim _newsRefreshGate = new(1, 1);
     private readonly NewsRepeatFilter _newsRepeatFilter = new();
-    private readonly Dictionary<string, string> _staticNewsFilters = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, HashSet<Guid>> _staticNewsHiddenQuotes = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<string> _quoteGroupNames = [];
     private SourceAcknowledgementLedger _acknowledgements = new();
     private readonly CancellationTokenSource _lifetimeCancellation = new();
@@ -665,10 +665,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         _quoteGroupNames[definitionIndex] = replacement;
-        if (_staticNewsFilters.Remove(selected.Name, out var selectedFilter) &&
-            !_staticNewsFilters.ContainsKey(replacement))
+        if (_staticNewsHiddenQuotes.Remove(selected.Name, out var hiddenQuotes) &&
+            !_staticNewsHiddenQuotes.ContainsKey(replacement))
         {
-            _staticNewsFilters[replacement] = selectedFilter;
+            _staticNewsHiddenQuotes[replacement] = hiddenQuotes;
         }
 
         for (var index = 0; index < Subscriptions.Count; index++)
@@ -697,7 +697,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         _quoteGroupNames.RemoveAll(name =>
             string.Equals(name, selected.Name, StringComparison.OrdinalIgnoreCase));
-        _staticNewsFilters.Remove(selected.Name);
+        _staticNewsHiddenQuotes.Remove(selected.Name);
         var changed = 0;
         for (var index = 0; index < Subscriptions.Count; index++)
         {
@@ -2176,8 +2176,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                     HeadlineForeground = NewsBrushCycle[colorIndex++ % NewsBrushCycle.Count],
                 })
                 .ToArray();
-            _staticNewsFilters.TryGetValue(group.Key, out var selectedQuote);
-            groups.Add(new StaticNewsGroup(group.Key, rows, selectedQuote, SetStaticNewsFilter));
+            _staticNewsHiddenQuotes.TryGetValue(group.Key, out var hiddenQuotes);
+            groups.Add(new StaticNewsGroup(
+                group.Key,
+                rows,
+                hiddenQuotes,
+                SetStaticNewsQuoteVisibility));
         }
 
         StaticNewsGroups.Clear();
@@ -2198,7 +2202,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             foreach (var headline in news.Headlines)
             {
                 rows.Add(new StaticNewsRow(
+                    subscription.Id,
                     subscription.Symbol,
+                    subscription.SourceName,
                     headline.Title,
                     news.Status,
                     headline.Url ?? subscription.SourceUri,
@@ -2213,7 +2219,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         return
         [
             new StaticNewsRow(
+                subscription.Id,
                 subscription.Symbol,
+                subscription.SourceName,
                 status,
                 status,
                 subscription.SourceUri,
@@ -2222,15 +2230,28 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         ];
     }
 
-    private void SetStaticNewsFilter(string groupName, string selectedQuote)
+    private void SetStaticNewsQuoteVisibility(string groupName, Guid subscriptionId, bool isShown)
     {
-        if (selectedQuote == StaticNewsGroup.AllQuotesFilter)
+        if (isShown)
         {
-            _staticNewsFilters.Remove(groupName);
+            if (_staticNewsHiddenQuotes.TryGetValue(groupName, out var hiddenQuotes))
+            {
+                hiddenQuotes.Remove(subscriptionId);
+                if (hiddenQuotes.Count == 0)
+                {
+                    _staticNewsHiddenQuotes.Remove(groupName);
+                }
+            }
         }
         else
         {
-            _staticNewsFilters[groupName] = selectedQuote;
+            if (!_staticNewsHiddenQuotes.TryGetValue(groupName, out var hiddenQuotes))
+            {
+                hiddenQuotes = [];
+                _staticNewsHiddenQuotes[groupName] = hiddenQuotes;
+            }
+
+            hiddenQuotes.Add(subscriptionId);
         }
     }
 

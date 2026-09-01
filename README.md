@@ -44,8 +44,9 @@ immediately and remembered:
 
 The News window starts compact and is placed on another monitor when available, or in
 a non-overlapping position around Prices on a single monitor. Within every news group,
-headlines are interleaved one per quote per round. A **Quote filter** can show All
-quotes or one symbol and remains selected across refreshes for the current session.
+headlines are interleaved one per quote per round. Under **Show news for**, each quote
+can be shown or hidden independently, and those choices remain selected across refreshes
+for the current session.
 
 To organize the static table, open **Quote groups...** from the right-click menu. Create,
 update, or delete groups on the left; select a quote on the right; then use **Associate**

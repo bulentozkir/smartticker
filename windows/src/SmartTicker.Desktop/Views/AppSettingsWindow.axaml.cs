@@ -29,7 +29,13 @@ public partial class AppSettingsWindow : Window
 
     private void ShowHelp(object? sender, RoutedEventArgs e) => HelpWindow.Open(this);
 
-    private void OpenQuoteGroups(object? sender, RoutedEventArgs e) => QuoteGroupsWindow.Open(this, DataContext);
+    private async void ImportSampleConfig(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+        {
+            await SampleConfigImportWorkflow.RunAsync(this, viewModel);
+        }
+    }
 
     private async void ValidateAllSources(object? sender, RoutedEventArgs e)
     {

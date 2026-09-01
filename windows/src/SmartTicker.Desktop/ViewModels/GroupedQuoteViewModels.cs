@@ -28,69 +28,107 @@ public sealed record StaticQuoteGroup(string Name, IReadOnlyList<StaticQuoteRow>
 }
 
 public sealed record StaticNewsRow(
+    Guid SubscriptionId,
     string Symbol,
+    string SourceName,
     string Headline,
     string StatusText,
     Uri? SourceUri,
     IBrush SymbolForeground,
     IBrush HeadlineForeground);
 
+public sealed class StaticNewsQuoteFilter : ObservableObject
+{
+    private readonly Action<bool> _visibilityChanged;
+    private bool _isShown;
+
+    public StaticNewsQuoteFilter(
+        Guid subscriptionId,
+        string symbol,
+        string sourceName,
+        bool isShown,
+        Action<bool> visibilityChanged)
+    {
+        SubscriptionId = subscriptionId;
+        Label = $"{symbol} · {sourceName}";
+        _isShown = isShown;
+        _visibilityChanged = visibilityChanged;
+    }
+
+    public Guid SubscriptionId { get; }
+
+    public string Label { get; }
+
+    public bool IsShown
+    {
+        get => _isShown;
+        set
+        {
+            if (SetProperty(ref _isShown, value))
+            {
+                _visibilityChanged(value);
+            }
+        }
+    }
+}
+
 public sealed class StaticNewsGroup : ObservableObject
 {
-    public const string AllQuotesFilter = "All quotes";
-
     private readonly IReadOnlyList<StaticNewsRow> _allRows;
-    private readonly Action<string, string> _filterChanged;
-    private string _selectedQuote;
+    private readonly Action<string, Guid, bool> _filterChanged;
 
     public StaticNewsGroup(
         string name,
         IReadOnlyList<StaticNewsRow> rows,
-        string? selectedQuote,
-        Action<string, string> filterChanged)
+        IReadOnlySet<Guid>? hiddenQuotes,
+        Action<string, Guid, bool> filterChanged)
     {
         Name = name;
         _allRows = rows;
         _filterChanged = filterChanged;
-        FilterOptions =
-        [
-            AllQuotesFilter,
-            .. rows.Select(row => row.Symbol).Distinct(StringComparer.OrdinalIgnoreCase),
-        ];
-        _selectedQuote = FilterOptions.FirstOrDefault(option =>
-            string.Equals(option, selectedQuote, StringComparison.OrdinalIgnoreCase)) ?? AllQuotesFilter;
+        QuoteFilters = rows
+            .GroupBy(row => row.SubscriptionId)
+            .Select(group =>
+            {
+                var row = group.First();
+                return new StaticNewsQuoteFilter(
+                    row.SubscriptionId,
+                    row.Symbol,
+                    row.SourceName,
+                    hiddenQuotes?.Contains(row.SubscriptionId) != true,
+                    isShown => OnQuoteVisibilityChanged(row.SubscriptionId, isShown));
+            })
+            .ToArray();
     }
 
     public string Name { get; }
 
     public string DisplayName => string.IsNullOrEmpty(Name) ? "UNGROUPED" : Name.ToUpperInvariant();
 
-    public IReadOnlyList<string> FilterOptions { get; }
+    public IReadOnlyList<StaticNewsQuoteFilter> QuoteFilters { get; }
 
-    public string SelectedQuote
+    public IReadOnlyList<StaticNewsRow> Rows
     {
-        get => _selectedQuote;
-        set
+        get
         {
-            var normalized = FilterOptions.FirstOrDefault(option =>
-                string.Equals(option, value, StringComparison.OrdinalIgnoreCase)) ?? AllQuotesFilter;
-            if (SetProperty(ref _selectedQuote, normalized))
-            {
-                OnPropertyChanged(nameof(Rows));
-                OnPropertyChanged(nameof(CountText));
-                _filterChanged(Name, normalized);
-            }
+            var shown = QuoteFilters
+                .Where(filter => filter.IsShown)
+                .Select(filter => filter.SubscriptionId)
+                .ToHashSet();
+            return _allRows.Where(row => shown.Contains(row.SubscriptionId)).ToArray();
         }
     }
-
-    public IReadOnlyList<StaticNewsRow> Rows => SelectedQuote == AllQuotesFilter
-        ? _allRows
-        : _allRows.Where(row =>
-            string.Equals(row.Symbol, SelectedQuote, StringComparison.OrdinalIgnoreCase)).ToArray();
 
     public string CountText => Rows.Count == _allRows.Count
         ? $"{_allRows.Count} headline{(_allRows.Count == 1 ? string.Empty : "s")}"
         : $"{Rows.Count} of {_allRows.Count} headlines";
+
+    private void OnQuoteVisibilityChanged(Guid subscriptionId, bool isShown)
+    {
+        OnPropertyChanged(nameof(Rows));
+        OnPropertyChanged(nameof(CountText));
+        _filterChanged(Name, subscriptionId, isShown);
+    }
 }
 
 public sealed record QuoteGroupSummary(string Name, int QuoteCount, string Symbols)
