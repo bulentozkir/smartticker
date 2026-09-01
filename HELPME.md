@@ -14,7 +14,7 @@ wrong. Verify important financial information with an authoritative source.
 | Getting started | [Open Help and configuration windows](#open-help-and-configuration-windows) |
 | Main ticker | [Controls](#main-ticker-controls) · [Scrolling or static view](#choose-scrolling-or-static-quote-view) · [Move](#move-the-ticker) · [Resize](#resize-the-ticker) · [Pause](#pause-and-resume) · [Menu reference](#main-menu-reference) |
 | Quotes and news | [Quotes](#quotes) · [Add an entry](#add-a-quote-or-news-entry) · [Group quotes](#group-quotes) · [Source URLs](#source-presets-and-urls) · [Selectors](#selector-field-reference) · [Discovery](#discover-selectors) · [Validation](#validate-a-source) |
-| Application preferences | [App Settings](#app-settings) · [Rows and speed](#ticker-rows-and-speed) · [Startup](#start-smartticker-when-signing-in) · [Website access](#website-access) · [Appearance](#appearance) · [Backup and restore](#backup-and-restore) |
+| Application preferences | [App Settings](#app-settings) · [Rows and speed](#ticker-rows-and-speed) · [Startup](#start-smartticker-when-signing-in) · [Website access](#website-access) · [Appearance](#appearance) · [Backup and restore](#backup-and-restore) · [Edit config files](#edit-the-configuration-files-in-place) |
 | Price alerts | [Alert rules](#alert-rules) · [Create a rule](#create-a-rule) · [Firing behavior](#when-a-rule-fires) · [Alert output](#alert-output-settings) · [Manage rules](#manage-configured-rules) |
 | Data and support | [Local files and privacy](#local-files-and-privacy) · [Troubleshooting](#troubleshooting) · [Support](#support) |
 
@@ -456,16 +456,18 @@ provides separate buttons for each backup type.
 
 #### Export and import settings
 
-- **Export settings...** writes configured entries, group assignments, entry order,
-  selectors, the scrolling/static quote-view choice, approved
-	hosts, line visibility, rows, speeds, refresh intervals, startup preference, website
-	access option, colors, transparency, and language.
+- **Export settings...** writes configured entries, group assignments, group definitions,
+	hidden news quotes, entry order, selectors, the scrolling/static quote-view choice,
+	approved hosts, line visibility, rows, speeds, refresh intervals, startup preference,
+	website access option, colors including the alert blink colour, transparency, and
+	language.
 - **Import settings...** validates the entire file before changing anything. A rejected
 	file leaves current settings unchanged.
 - A successful import replaces every configured entry and application preference. It
 	does not replace the separate alert-rules file.
-- Groups are included as quote assignments in the settings file. There is no separate
-	group-only export or import file.
+- Groups are included as quote assignments in the settings file, alongside the group
+	definitions themselves, so a group with no quotes also survives a backup. There is no
+	separate group-only export or import file.
 - The startup preference is present in a settings backup, but importing it does not
 	silently change OS startup registration. The operating system remains authoritative;
 	use the Startup checkbox to change registration on the current computer.
@@ -485,6 +487,32 @@ provides separate buttons for each backup type.
 For a transfer to another computer, import application settings first and alert rules
 second. Importing alerts second allows rules to reconnect to the new subscription IDs
 by symbol.
+
+### Edit the configuration files in place
+
+**Edit Current App Config** and **Edit Current Alert Rules** in App Settings open the
+live JSON file in whatever text editor your system associates with `.json`. This is for
+advanced users; the windows in SmartTicker cover the same settings without risk.
+
+Both buttons first show a confirmation that asks you to export the current file. Take
+that export: hand-editing can break the file, and there is no undo.
+
+- **Export existing config...** saves the current file, then returns to the same prompt.
+- **Open in text editor** opens the live file.
+- **Cancel** changes nothing.
+
+SmartTicker watches the file and reloads it as soon as your editor saves:
+
+- A valid file is applied immediately, and the ticker updates without a restart.
+- Malformed JSON, a schema violation, or any other validation error is rejected. Your
+	running configuration is left untouched and the App Settings window reports the
+	problem.
+- After a rejected edit, correct the file, or restore a valid export with
+	**Import settings...** or **Import alert rules...**.
+- A file that stays locked by another program is retried briefly and then reported.
+
+Editing the alert-rules file follows the same rules and does not affect application
+settings, because the two files are separate.
 
 ## Alert rules
 

@@ -37,6 +37,8 @@ public sealed class HelpContentContractTests
         Assert.Contains("headlines are interleaved by quote", guide);
         Assert.Contains("Show news for", guide);
         Assert.Contains("### Change highlights", guide);
+        Assert.Contains("### Edit the configuration files in place", guide);
+        Assert.Contains("Edit Current App Config", guide);
         Assert.Contains("responsive tiles laid out from left to right", guide);
         Assert.Contains("Drag the dotted handle", guide);
         Assert.Contains("## Quotes", guide);

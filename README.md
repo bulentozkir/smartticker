@@ -44,23 +44,27 @@ immediately and remembered:
 
 The News window starts compact and is placed on another monitor when available, or in
 a non-overlapping position around Prices on a single monitor. Within every news group,
-headlines are interleaved one per quote per round. Under **Show news for**, each quote
-can be shown or hidden independently, and those choices remain selected across refreshes
-for the current session.
+headlines are interleaved one per quote per round. The one-line **Show news for**
+dropdown lets you show or hide each quote independently; those choices are saved in your
+settings file and travel with a settings backup.
+
+After every refresh, a quote whose price changed and any headline that is new since the
+last sync blink on a brown background for three seconds.
 
 To organize the static table, open **Quote groups...** from the right-click menu. Create,
 update, or delete groups on the left; select a quote on the right; then use **Associate**
 in the middle. Each quote belongs to at most one group, and re-associating it moves it
 from the previous group. Deleting a group returns its quotes to **Ungrouped** without
 deleting them. Settings export and import carry group definitions and assignments. The
-published sample assigns all 28
-entries to six example groups but keep the scrolling ticker selected by default.
+published sample assigns all 28 entries to six example groups while keeping the scrolling
+ticker selected by default.
 
 In static mode, drag the dotted handle on any quote or news tile and drop it on the
-left or right half of another tile. The saved order is shared by both windows. Every
-tile uses one column grid for its header and rows, so values stay aligned as tiles
-resize. The Quotes and News windows can be placed on different monitors. If News is
-closed, reopen it from **View > Open static news window**.
+left or right half of another tile. The saved order is shared by both windows. Tiles
+fill the available width and pack under the shortest column, so no empty space is left
+between groups. Every tile uses one column grid for its header and rows, so values stay
+aligned as tiles resize. The Quotes and News windows can be placed on different monitors.
+If News is closed, reopen it from **View > Open static news window**.
 
 See [HELPME.md](HELPME.md) for the complete configuration guide, including selectors,
 source validation, group ordering, backups, static-table behavior, and alert rules.
@@ -73,7 +77,8 @@ source validation, group ordering, backups, static-table behavior, and alert rul
 - Optional tiled static quote view with collapsible, user-defined groups and Last/Chg/Chg% columns
 - Separate tiled static news window with cross-monitor placement and group ordering shared with quotes
 - Four mutually exclusive price/news and scrolling/static combinations in the right-click **View** menu
-- Round-robin static headlines with an All-quotes/per-symbol filter in every news group
+- Round-robin static headlines with a one-line multi-select **Show news for** dropdown per group, saved with your settings
+- Brown three-second highlight on any price that changed, and on every headline that is new since the last refresh
 - Track any quote from a public web page you choose yourself
 - Automatic value detection, or pick an exact element with a CSS selector
 - After-hours prices and daily change percentages
@@ -92,6 +97,7 @@ source validation, group ordering, backups, static-table behavior, and alert rul
 
 - One to eight rows per line, with adjustable scrolling speed
 - Quote groups with explicit create, update, delete, associate, and ungroup actions
+- Gapless static tiles that fill the available width and pack under the shortest column
 - Adjustable window transparency
 - Configurable colours for the background, quote names, prices, after-hours values, rising and falling changes, alert blinking, and four separate news colours
 
@@ -100,6 +106,8 @@ source validation, group ordering, backups, static-table behavior, and alert rul
 - Available in 16 languages, switchable from the right-click menu
 - Optional automatic start when you sign in
 - Export and import for both settings and alert rules
+- One-click **Import Sample Quotes Config**, behind a confirmation that offers to export your current config first
+- Advanced: open the live settings or alert-rules JSON in your text editor; a saved edit reloads immediately, and malformed JSON or a schema error is rejected with your current configuration kept
 - No accounts, no sign-in, no cloud sync
 - No telemetry, analytics or crash reporting; configuration is stored locally as ordinary JSON
 - Formatted in-app Markdown help with a section navigator and offline fallback
@@ -111,6 +119,10 @@ See [PRIVACY.md](PRIVACY.md) for exactly what is stored and what leaves your com
 The ticker itself: two rows of prices above two rows of headlines. The highlighted quote is a fired price alert.
 
 ![SmartTicker ticker window](docs/screenshots/ticker.png)
+
+The static view: grouped quote tiles, the **View** menu with the four display modes, and the separate News window with its per-quote **Show news for** filter.
+
+![Static grouped quotes, the View menu, and the separate News window](docs/screenshots/static-view.png)
 
 Everything is reachable from the right-click menu, including the language picker.
 
