@@ -1,6 +1,6 @@
 # SmartTicker Help
 
-This guide applies to SmartTicker 1.0.1. It explains the main ticker, App Settings,
+This guide applies to SmartTicker 1.0.2. It explains the main ticker, App Settings,
 Quotes, alert rules, website permissions, backups, and common problems.
 
 SmartTicker reads public static HTML from webpages that you configure. It does not

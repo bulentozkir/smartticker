@@ -141,7 +141,7 @@ public partial class HelpWindow : Window
             Timeout = TimeSpan.FromSeconds(15),
             MaxResponseContentBufferSize = MaximumHelpBytes,
         };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("SmartTicker/1.0.1");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("SmartTicker/1.0.2");
         return client;
     }
 }
