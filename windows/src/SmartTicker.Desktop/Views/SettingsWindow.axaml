@@ -77,7 +77,13 @@
         <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
             <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="14">
                 <TextBlock Grid.Row="0" Classes="lbl" Text="Ticker" VerticalAlignment="Center" />
-                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding NewSymbol}" PlaceholderText="MSFT" />
+                <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="160,Auto,*,Auto" ColumnSpacing="10">
+                    <TextBox Text="{Binding NewSymbol}" PlaceholderText="MSFT" />
+                    <TextBlock Grid.Column="1" Text="Group" Classes="lbl" VerticalAlignment="Center" />
+                    <TextBox Grid.Column="2" Text="{Binding NewGroupName}" MaxLength="80"
+                             PlaceholderText="Optional, for example Mag 7" />
+                    <Button Grid.Column="3" Content="Manage groups" Click="OpenQuoteGroups" Padding="14,6" />
+                </Grid>
                 <TextBlock Grid.Row="1" Classes="lbl" Text="Source" VerticalAlignment="Center" />
                 <ComboBox Grid.Row="1" Grid.Column="1"
                           ItemsSource="{Binding SourceAlternatives}"
@@ -288,6 +294,9 @@
                                     Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MoveSubscriptionDownCommand}"
                                     CommandParameter="{Binding}" />
                             <StackPanel Grid.Row="1" Grid.ColumnSpan="9" Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Group:" FontWeight="SemiBold" Foreground="#6E7681" />
+                                <TextBlock Text="{Binding GroupNameDisplay}" MaxWidth="160"
+                                           TextTrimming="CharacterEllipsis" Foreground="#D2A8FF" />
                                 <TextBlock Text="Price CSS:" FontWeight="SemiBold" Foreground="#6E7681" />
                                 <TextBlock Text="{Binding PriceSelectorDisplay}" MaxWidth="230" TextTrimming="CharacterEllipsis" Foreground="#A5D6FF" />
                                 <TextBlock Text="News CSS:" FontWeight="SemiBold" Foreground="#6E7681" Margin="12,0,0,0" />

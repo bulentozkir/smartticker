@@ -31,11 +31,42 @@ sudo apt install ./smartticker_1.0.1_amd64.deb
 
 Launch SmartTicker from the desktop application menu or by running `smartticker`. Only `amd64` Linux systems are currently packaged; no macOS package is available yet.
 
+## Choose a ticker view
+
+Right-click SmartTicker and open **View**. The two choices are mutually exclusive and
+the selected style is applied immediately and remembered:
+
+- **Left-to-right scrolling ticker** is the default. It uses the original horizontal
+	price marquee, configured price rows, and scroll speed.
+- **Static table ticker** lays out collapsible group tiles from left to right and wraps
+	them only as the window narrows. Quote tiles have aligned **Symbol**, **Last**,
+	**Chg**, and **Chg%** columns. Static **Symbol / Headline** news tiles open in a
+	separate movable and resizable **SmartTicker News** window. Nothing moves
+	automatically.
+
+To organize the static table, open **Quotes...** and enter any free-form **Group** name
+while adding or editing a quote. Open **Quote groups...** from the right-click menu to
+rename or merge a group, or to clear its assignments without deleting quotes. Blank
+group names appear under **Ungrouped**. The published sample settings assign all 20
+entries to six example groups but keep the scrolling ticker selected by default.
+
+In static mode, drag the dotted handle on any quote or news tile and drop it on the
+left or right half of another tile. The saved order is shared by both windows. Every
+tile uses one column grid for its header and rows, so values stay aligned as tiles
+resize. The Quotes and News windows can be placed on different monitors. If News is
+closed, reopen it from **View > Open static news window**.
+
+See [HELPME.md](HELPME.md) for the complete configuration guide, including selectors,
+source validation, group ordering, backups, static-table behavior, and alert rules.
+
 ## Features
 
 **Quotes and news**
 
 - Always-on-top window with separate scrolling lines for prices and news
+- Optional tiled static quote view with collapsible, user-defined groups and Last/Chg/Chg% columns
+- Separate tiled static news window with cross-monitor placement and group ordering shared with quotes
+- Mutually exclusive ticker styles selectable immediately from **View** in the right-click menu; scrolling remains the default
 - Track any quote from a public web page you choose yourself
 - Automatic value detection, or pick an exact element with a CSS selector
 - After-hours prices and daily change percentages
@@ -53,6 +84,7 @@ Launch SmartTicker from the desktop application menu or by running `smartticker`
 **Appearance**
 
 - One to eight rows per line, with adjustable scrolling speed
+- Free-form quote groups that can be renamed, merged, or cleared without deleting quotes
 - Adjustable window transparency
 - Configurable colours for the background, quote names, prices, after-hours values, rising and falling changes, and four separate news colours
 
@@ -63,6 +95,7 @@ Launch SmartTicker from the desktop application menu or by running `smartticker`
 - Export and import for both settings and alert rules
 - No accounts, no sign-in, no cloud sync
 - No telemetry, analytics or crash reporting; configuration is stored locally as ordinary JSON
+- Formatted in-app Markdown help with a section navigator and offline fallback
 
 See [PRIVACY.md](PRIVACY.md) for exactly what is stored and what leaves your computer.
 

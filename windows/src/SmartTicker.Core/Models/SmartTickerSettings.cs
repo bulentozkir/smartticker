@@ -49,6 +49,8 @@ public sealed record SmartTickerSettings(
 
     public bool ShowNewsLine { get; init; } = true;
 
+    public bool UseStaticGroupedView { get; init; }
+
     /// <summary>Mirrors the OS registration; the OS remains authoritative if the two disagree.</summary>
     public bool LaunchAtLogin { get; init; }
 

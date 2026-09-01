@@ -13,6 +13,8 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _priceRefreshTimer = new();
     private readonly DispatcherTimer _newsRefreshTimer = new();
     private MainViewModel? _observedViewModel;
+    private string? _draggedGroupName;
+    private StaticNewsWindow? _staticNewsWindow;
 
     public MainWindow()
     {
@@ -31,10 +33,18 @@ public partial class MainWindow : Window
                 await viewModel.RefreshNewsAsync();
             }
         };
-        DataContextChanged += (_, _) => ConfigureFlowTimers();
+        DataContextChanged += (_, _) =>
+        {
+            ConfigureFlowTimers();
+            if (IsVisible)
+            {
+                SyncStaticNewsWindow();
+            }
+        };
         Opened += (_, _) =>
         {
             ConfigurePassiveWindow();
+            SyncStaticNewsWindow();
             // A fresh install shows an empty bar with no obvious next step, so the starter offer comes to the user.
             Dispatcher.UIThread.Post(() =>
             {
@@ -55,6 +65,7 @@ public partial class MainWindow : Window
         };
         Closed += (_, _) =>
         {
+            CloseStaticNewsWindow();
             ReleasePointerCapture();
             StopFlowTimers();
             ViewModel?.Dispose();
@@ -85,6 +96,74 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OpenStaticQuote(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Border { DataContext: StaticQuoteRow row } &&
+            e.ClickCount == 2 &&
+            e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            e.Handled = true;
+            ViewModel?.OpenLinkCommand.Execute(row.SourceUri);
+        }
+    }
+
+    private async void BeginGroupDrag(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Control control &&
+            e.GetCurrentPoint(control).Properties.IsLeftButtonPressed &&
+            TryGetGroupName(control.DataContext, out var groupName))
+        {
+            _draggedGroupName = groupName;
+            e.Handled = true;
+            var data = new DataTransfer();
+            data.Add(DataTransferItem.CreateText(groupName));
+            try
+            {
+                await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
+            }
+            finally
+            {
+                _draggedGroupName = null;
+            }
+        }
+    }
+
+    private void GroupDragOver(object? sender, DragEventArgs e)
+    {
+        var canMove = sender is Control control &&
+            _draggedGroupName is not null &&
+            TryGetGroupName(control.DataContext, out var targetName) &&
+            !string.Equals(_draggedGroupName, targetName, StringComparison.OrdinalIgnoreCase);
+        e.DragEffects = canMove ? DragDropEffects.Move : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void GroupDrop(object? sender, DragEventArgs e)
+    {
+        if (sender is Control control &&
+            _draggedGroupName is { } sourceName &&
+            TryGetGroupName(control.DataContext, out var targetName) &&
+            !string.Equals(sourceName, targetName, StringComparison.OrdinalIgnoreCase))
+        {
+            var placeAfter = e.GetPosition(control).X >= control.Bounds.Width / 2;
+            ViewModel?.MoveQuoteGroup(sourceName, targetName, placeAfter);
+            e.DragEffects = DragDropEffects.Move;
+        }
+
+        e.Handled = true;
+    }
+
+    private static bool TryGetGroupName(object? value, out string groupName)
+    {
+        groupName = value switch
+        {
+            StaticQuoteGroup quoteGroup => quoteGroup.Name,
+            StaticNewsGroup newsGroup => newsGroup.Name,
+            _ => null!,
+        };
+        return groupName is not null;
+    }
+
     private void ConfigurePassiveWindow()
     {
         if (OperatingSystem.IsWindows() && TryGetPlatformHandle() is { } handle)
@@ -112,6 +191,10 @@ public partial class MainWindow : Window
         var settings = new SettingsWindow { DataContext = DataContext };
         settings.Show(this);
     }
+
+    private void OpenQuoteGroups(object? sender, RoutedEventArgs e) => QuoteGroupsWindow.Open(this, DataContext);
+
+    private void OpenStaticNewsWindow(object? sender, RoutedEventArgs e) => ShowStaticNewsWindow();
 
     private void OpenAppSettings(object? sender, RoutedEventArgs e)
     {
@@ -155,6 +238,11 @@ public partial class MainWindow : Window
         {
             ApplyRefreshIntervals();
         }
+
+        if (e.PropertyName is nameof(MainViewModel.UseStaticGroupedView) or nameof(MainViewModel.ShowNewsLine))
+        {
+            SyncStaticNewsWindow();
+        }
     }
 
     // Reassigning Interval restarts the countdown, so a running timer picks the new value up immediately.
@@ -178,5 +266,52 @@ public partial class MainWindow : Window
             _observedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
             _observedViewModel = null;
         }
+    }
+
+    private void SyncStaticNewsWindow()
+    {
+        if (ViewModel is { UseStaticGroupedView: true, ShowNewsLine: true })
+        {
+            ShowStaticNewsWindow();
+        }
+        else
+        {
+            CloseStaticNewsWindow();
+        }
+    }
+
+    private void ShowStaticNewsWindow()
+    {
+        if (_staticNewsWindow is not null ||
+            ViewModel is not { UseStaticGroupedView: true, ShowNewsLine: true })
+        {
+            return;
+        }
+
+        try
+        {
+            var newsWindow = new StaticNewsWindow { DataContext = DataContext };
+            newsWindow.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_staticNewsWindow, newsWindow))
+                {
+                    _staticNewsWindow = null;
+                }
+            };
+            _staticNewsWindow = newsWindow;
+            newsWindow.Show();
+        }
+        catch (Exception exception)
+        {
+            _staticNewsWindow = null;
+            ViewModel.EntryMessage = $"Static news window could not open: {exception.Message}";
+        }
+    }
+
+    private void CloseStaticNewsWindow()
+    {
+        var newsWindow = _staticNewsWindow;
+        _staticNewsWindow = null;
+        newsWindow?.Close();
     }
 }

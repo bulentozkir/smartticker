@@ -13,6 +13,9 @@ public sealed record TickerSubscription(
     string? NewsCssSelector = null)
 {
     public const int DefaultNewsRepeatLimit = 5;
+    public const int MaximumGroupNameLength = 80;
+
+    public string? GroupName { get; init; }
 
     // Extended-hours markup differs per site, so the selectors are supplied rather than guessed.
     public string? PreMarketCssSelector { get; init; }
@@ -30,11 +33,40 @@ public sealed record TickerSubscription(
     public TickerSubscription WithNewsRepeatLimit(int limit) =>
         this with { NewsRepeatLimit = Math.Clamp(limit, 1, 100) };
 
+    public static bool TryNormalizeGroupName(string? value, out string? groupName, out string? error)
+    {
+        groupName = null;
+        error = null;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.Length > MaximumGroupNameLength)
+        {
+            error = $"Group names may contain at most {MaximumGroupNameLength} characters.";
+            return false;
+        }
+
+        if (trimmed.Any(char.IsControl))
+        {
+            error = "Group names cannot contain line breaks or control characters.";
+            return false;
+        }
+
+        groupName = trimmed;
+        return true;
+    }
+
     [JsonIgnore]
     public string PriceSelectorDisplay => string.IsNullOrWhiteSpace(CssSelector) ? "Automatic" : CssSelector;
 
     [JsonIgnore]
     public string NewsSelectorDisplay => string.IsNullOrWhiteSpace(NewsCssSelector) ? "Automatic" : NewsCssSelector;
+
+    [JsonIgnore]
+    public string GroupNameDisplay => string.IsNullOrWhiteSpace(GroupName) ? "Ungrouped" : GroupName;
 
     public static bool TryCreate(
         string symbol,

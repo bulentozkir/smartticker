@@ -239,10 +239,24 @@ if ($wix) {
         $msiPath = Join-Path $msiDirectory "SmartTicker-$Version-$identifier.msi"
         $architecture = if ($identifier -eq 'win-x64') { 'x64' } else { 'arm64' }
         if ($PSCmdlet.ShouldProcess($msiPath, 'Build MSI')) {
-            & $wix build $wxs -arch $architecture -o $msiPath `
-                -d "Version=$Version" -d "PublishDir=$publishDirectory"
-            if ($LASTEXITCODE -ne 0) {
-                throw "wix build failed for ${identifier} with exit code ${LASTEXITCODE}."
+            $stagedMsi = Join-Path ([IO.Path]::GetTempPath()) `
+                "SmartTicker-$Version-$identifier-$([Guid]::NewGuid().ToString('N')).msi"
+            $stagedPdb = [IO.Path]::ChangeExtension($stagedMsi, '.wixpdb')
+            try {
+                & $wix build $wxs -arch $architecture -o $stagedMsi `
+                    -d "Version=$Version" -d "PublishDir=$publishDirectory"
+                if ($LASTEXITCODE -ne 0) {
+                    throw "wix build failed for ${identifier} with exit code ${LASTEXITCODE}."
+                }
+
+                Move-Item -Path $stagedMsi -Destination $msiPath -Force
+                if (Test-Path $stagedPdb) {
+                    Move-Item -Path $stagedPdb `
+                        -Destination ([IO.Path]::ChangeExtension($msiPath, '.wixpdb')) -Force
+                }
+            }
+            finally {
+                Remove-Item -Path $stagedMsi, $stagedPdb -Force -ErrorAction SilentlyContinue
             }
 
             $artifacts.Add($msiPath)

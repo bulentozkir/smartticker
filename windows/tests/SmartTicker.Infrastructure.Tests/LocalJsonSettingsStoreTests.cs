@@ -16,8 +16,11 @@ public sealed class LocalJsonSettingsStoreTests
             TickerSubscription.TryCreate(
                 "MSFT", "Example", "https://example.com/quote/MSFT", true, true,
                 ".price", "a.headline", out var subscription, out _);
-            subscription = subscription!.WithNewsRepeatLimit(9);
-            var expected = new SmartTickerSettings(1, [subscription!], 3, 2, 65, 30);
+            subscription = subscription!.WithNewsRepeatLimit(9) with { GroupName = "Mega-Cap Tech" };
+            var expected = new SmartTickerSettings(1, [subscription!], 3, 2, 65, 30)
+            {
+                UseStaticGroupedView = true,
+            };
             var store = new LocalJsonSettingsStore(path);
 
             store.Save(expected);
@@ -27,8 +30,10 @@ public sealed class LocalJsonSettingsStoreTests
             Assert.Equal(2, actual.NewsRowCount);
             Assert.Equal(65, actual.PriceScrollSpeed);
             Assert.Equal(30, actual.NewsScrollSpeed);
+            Assert.True(actual.UseStaticGroupedView);
             var restored = Assert.Single(actual.Subscriptions);
             Assert.Equal(subscription, restored);
+            Assert.Equal("Mega-Cap Tech", restored.GroupName);
             Assert.Equal(9, restored.NewsRepeatLimit);
             Assert.Contains("\"priceScrollSpeed\": 65", File.ReadAllText(path));
         }

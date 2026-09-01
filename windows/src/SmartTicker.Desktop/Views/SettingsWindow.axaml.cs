@@ -22,6 +22,8 @@ public partial class SettingsWindow : Window
 
     private void ShowHelp(object? sender, RoutedEventArgs e) => HelpWindow.Open(this);
 
+    private void OpenQuoteGroups(object? sender, RoutedEventArgs e) => QuoteGroupsWindow.Open(this, DataContext);
+
     private Task<bool> ConfirmAlertRemovalAsync(string symbol, int count) =>
         ConfirmDialog.ShowAsync(
             this,

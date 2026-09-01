@@ -28,8 +28,24 @@ public sealed class SampleSettingsFileTests
         Assert.Equal(20, result.Settings.Subscriptions.Select(item => item.Id).Distinct().Count());
         Assert.All(result.Settings.Subscriptions, item => Assert.False(string.IsNullOrWhiteSpace(item.CssSelector)));
         Assert.All(result.Settings.Subscriptions, item => Assert.False(string.IsNullOrWhiteSpace(item.NewsCssSelector)));
+        Assert.All(result.Settings.Subscriptions, item => Assert.False(string.IsNullOrWhiteSpace(item.GroupName)));
+        Assert.False(result.Settings.UseStaticGroupedView);
         Assert.True(result.Settings.AllowWebsiteCookiesAndCrossHostRedirects);
         Assert.Empty(result.Settings.AcknowledgedSources);
+
+        Assert.Equal(
+            new Dictionary<string, int>
+            {
+                ["Mega-Cap Tech"] = 6,
+                ["Precious Metals"] = 8,
+                ["Industrial Metals"] = 1,
+                ["US Indices"] = 2,
+                ["Rates"] = 1,
+                ["ETFs"] = 2,
+            },
+            result.Settings.Subscriptions
+                .GroupBy(item => item.GroupName!)
+                .ToDictionary(group => group.Key, group => group.Count()));
 
         var yahoo = result.Settings.Subscriptions
             .Where(item => item.SourceName == "Yahoo Finance")

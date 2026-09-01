@@ -12,8 +12,8 @@ wrong. Verify important financial information with an authoritative source.
 | Area | Jump to |
 | --- | --- |
 | Getting started | [Open Help and configuration windows](#open-help-and-configuration-windows) |
-| Main ticker | [Controls](#main-ticker-controls) · [Move](#move-the-ticker) · [Resize](#resize-the-ticker) · [Pause](#pause-and-resume) · [Menu reference](#main-menu-reference) |
-| Quotes and news | [Quotes](#quotes) · [Add an entry](#add-a-quote-or-news-entry) · [Source URLs](#source-presets-and-urls) · [Selectors](#selector-field-reference) · [Discovery](#discover-selectors) · [Validation](#validate-a-source) |
+| Main ticker | [Controls](#main-ticker-controls) · [Scrolling or static view](#choose-scrolling-or-static-quote-view) · [Move](#move-the-ticker) · [Resize](#resize-the-ticker) · [Pause](#pause-and-resume) · [Menu reference](#main-menu-reference) |
+| Quotes and news | [Quotes](#quotes) · [Add an entry](#add-a-quote-or-news-entry) · [Group quotes](#group-quotes) · [Source URLs](#source-presets-and-urls) · [Selectors](#selector-field-reference) · [Discovery](#discover-selectors) · [Validation](#validate-a-source) |
 | Application preferences | [App Settings](#app-settings) · [Rows and speed](#ticker-rows-and-speed) · [Startup](#start-smartticker-when-signing-in) · [Website access](#website-access) · [Appearance](#appearance) · [Backup and restore](#backup-and-restore) |
 | Price alerts | [Alert rules](#alert-rules) · [Create a rule](#create-a-rule) · [Firing behavior](#when-a-rule-fires) · [Alert output](#alert-output-settings) · [Manage rules](#manage-configured-rules) |
 | Data and support | [Local files and privacy](#local-files-and-privacy) · [Troubleshooting](#troubleshooting) · [Support](#support) |
@@ -23,23 +23,70 @@ wrong. Verify important financial information with an authoritative source.
 Right-click the ticker to open its menu. The main configuration commands are:
 
 - **Quotes...**: add, test, edit, order, and remove quote or news sources.
+- **Quote groups...**: rename, merge, or clear existing group assignments.
 - **Alerts**: create and manage price alert rules.
 - **App Settings...**: configure rows, speeds, refresh intervals, startup, website
 	access, colors, transparency, and backups.
+- **View**: select either **Left-to-right scrolling ticker** or
+  **Static table ticker**. The two choices are mutually exclusive.
 - **Help**: open this guide inside SmartTicker.
 - **About SmartTicker**: show the installed version and license notice.
 - **Exit**: close SmartTicker completely.
 
-The Help window checks the following online document whenever you open it or select
-**Reload**:
+The Help window checks the following online document whenever you open it:
 
 <https://raw.githubusercontent.com/bulentozkir/smartticker/refs/heads/main/HELPME.md>
 
-If the online document cannot be downloaded, SmartTicker displays the copy embedded in
-your installed application. **Open online** opens the same raw document in your default
-browser.
+If the online document cannot be downloaded, SmartTicker formats and displays the copy
+embedded in your installed application. Close Help with its normal title-bar close
+control.
 
 ## Main ticker controls
+
+### Choose scrolling or static quote view
+
+SmartTicker offers two mutually exclusive price display modes. Right-click the ticker,
+open **View**, and select **Left-to-right scrolling ticker** or
+**Static table ticker**. The view changes immediately and your choice is saved.
+
+The default is **Left-to-right scrolling ticker**, including for settings files created
+before static tables were added. The **Static grouped tables (no scrolling)**
+checkbox under **App Settings... > Quote view** controls the same saved choice.
+
+- When clear, prices use the original horizontal marquee and the configured price row
+	count and scroll speed.
+- When checked, groups appear as responsive tiles laid out from left to right. Tiles
+  wrap onto another row only when the window is too narrow. Prices do not move
+  automatically.
+- Every quote tile has its own aligned **Symbol**, **Last**, **Chg**, and **Chg%**
+  columns. **Chg** is derived
+	from Last and Chg% because source pages provide a percentage selector rather than a
+	separate absolute-change selector. It displays `—` when either value is unavailable.
+- Select a group header to collapse or expand it. Groups follow the first occurrence
+	of their quotes in the configured-entry order; rows within a group keep that order.
+- Entries without a group appear under **Ungrouped**.
+- Hover over Last to see available pre-market and after-hours values. Double-click a
+	quote row to open its source page.
+- Alert blinking and up/down colors work in both price modes.
+- News opens automatically in a separate **SmartTicker News** window containing static
+	**Symbol / Headline** group tiles. It does not marquee in static mode. The News
+	window has a normal title bar and resize border, so the Quotes and News windows can
+	be moved independently to different monitors. Double-click a headline row to open
+	its source.
+- Drag the dotted handle beside any quote or news tile heading and drop it on the left
+	or right half of another tile. The order changes in both windows and is saved by
+	reordering the underlying configured entries.
+- A group with many rows scrolls inside its own bounded tile. The overall view scrolls
+	vertically only when wrapped tile rows do not fit in the current window height.
+
+Closing **SmartTicker News** does not disable news collection. To reopen it, right-click
+the Quotes window and select **View > Open static news window**. Turning off
+**Show news line** closes it; turning that option on while static mode is selected opens
+it again. Switching back to the scrolling ticker closes the separate News window and
+restores the news marquee in the main ticker.
+
+Switching to static mode expands a short ticker window to a usable table height. You
+can then resize it from any edge or corner.
 
 ### Move the ticker
 
@@ -77,6 +124,9 @@ default browser. SmartTicker does not open links on a single click.
 | **Refresh prices now** | Request all permitted entries that collect prices immediately when SmartTicker is not paused. |
 | **Refresh news now** | Request all permitted entries that collect news immediately when SmartTicker is not paused. |
 | **Pause / Resume** | Toggle refreshing and marquee movement. |
+| **View > Left-to-right scrolling ticker** | Use the original horizontal price marquee. This is the default. |
+| **View > Static table ticker** | Use responsive static quote and news group tiles. |
+| **View > Open static news window** | Reopen the separate News window after closing it. Available in static mode when news is enabled. |
 | **Language** | Choose one of the 16 supported menu/status languages. |
 
 Line visibility, language, and the other configuration values are saved automatically.
@@ -98,16 +148,43 @@ edit or remove any sample entry afterward.
 
 1. Enter the **Ticker** label, such as `MSFT`. SmartTicker trims it and stores it in
 	 uppercase.
-2. Select a **Source** preset.
-3. Enter the **URL suffix**, or a complete URL when using **Custom URL**.
-4. Select **Price**, **News**, or both under **Collect**. At least one is required.
-5. Enter selectors manually, use the discovery buttons, or leave optional selectors
+2. Optionally enter any **Group** name, such as `Nasdaq`, `Precious Metals`, or
+	 `Mag 7`.
+3. Select a **Source** preset.
+4. Enter the **URL suffix**, or a complete URL when using **Custom URL**.
+5. Select **Price**, **News**, or both under **Collect**. At least one is required.
+6. Enter selectors manually, use the discovery buttons, or leave optional selectors
 	 blank to use built-in detection.
-6. Select **Validate URL** to test the regular price and/or headlines.
-7. If SmartTicker requests source approval, review the website and confirm only when
+7. Select **Validate URL** to test the regular price and/or headlines.
+8. If SmartTicker requests source approval, review the website and confirm only when
 	 you are permitted to collect from it.
-8. Select **Add independent entry**. SmartTicker saves the entry and refreshes its
+9. Select **Add independent entry**. SmartTicker saves the entry and refreshes its
 	 enabled data immediately.
+
+### Group quotes
+
+A group is a free-form label stored on each quote. It is not tied to an exchange or a
+built-in category, so you can organize entries by market, asset type, strategy,
+portfolio, region, or any other scheme. Names are trimmed, may use Unicode, and may
+contain up to 80 characters. Leaving Group blank assigns the entry to **Ungrouped**.
+
+Use **Manage groups** beside the Group field, in App Settings, or select
+**Quote groups...** from the ticker menu. The Quote Groups window lists every nonblank
+group with its quote count and symbols.
+
+- Select a group, edit **New name**, then choose **Rename or merge group**. Every quote
+	in that group is updated. Renaming to an existing name merges the assignments.
+- Choose **Ungroup quotes** to clear that group's assignments. Quotes, sources, current
+	data, and alerts are not deleted.
+- Create a new group by typing its name while adding or editing any quote. Empty groups
+	are not stored because groups are inferred from quote assignments.
+- Use the up/down controls in Configured entries to determine group and row order in
+	the static table.
+- In static mode, drag a tile heading to reorder complete groups directly. The same
+	order is used by the separate Quotes and News windows.
+
+The published sample contains six example groups while leaving static mode off by
+default. Enable the static view after importing it to see those groups as a table.
 
 ### Source presets and URLs
 
@@ -201,8 +278,8 @@ current application session. Editing or removing that entry clears its repeat hi
 
 ### Edit, order, and remove entries
 
-The **Configured entries** list shows symbol, source, URL, collection badges, regular
-price selector, news selector, and news repeat limit.
+The **Configured entries** list shows symbol, group, source, URL, collection badges,
+regular price selector, news selector, and news repeat limit.
 
 - **Edit** loads the entry into the form. Select **Save changes** to apply it or
 	**Cancel edit** to discard form changes.
@@ -227,6 +304,10 @@ automatically; there is no Apply button.
 | News scroll speed | 20, 30, 40, 50, 65, 80, 100, or 120 px/sec | 40 | News marquee speed. |
 | Price refresh | 30 through 300 seconds, in 15-second steps | 60 seconds | Automatic regular-price refresh interval. |
 | News refresh | 30 through 300 seconds, in 15-second steps | 300 seconds | Automatic headline refresh interval. |
+
+Price rows and price scroll speed are disabled while static grouped tables are active
+because that mode displays all price entries and never auto-scrolls either window.
+News row and speed settings are retained for the scrolling view.
 
 The website's policy, robots directives, server throttling, and requested backoff take
 priority over a configured interval. Avoid unnecessarily frequent requests.
@@ -330,7 +411,8 @@ provides separate buttons for each backup type.
 
 #### Export and import settings
 
-- **Export settings...** writes configured entries, entry order, selectors, approved
+- **Export settings...** writes configured entries, group assignments, entry order,
+  selectors, the scrolling/static quote-view choice, approved
 	hosts, line visibility, rows, speeds, refresh intervals, startup preference, website
 	access option, colors, transparency, and language.
 - **Import settings...** validates the entire file before changing anything. A rejected
@@ -508,10 +590,32 @@ an authorized documented API through a compatible public page.
 	locate.
 - Ticker content is intentionally not a move surface.
 
+### Static groups or values are not what I expect
+
+- Open **Quotes...** and confirm each entry's Group value.
+- Open **Quote groups...** to rename, merge, or clear assignments globally.
+- Entries with a blank Group appear under **Ungrouped**.
+- **Chg** is calculated from Last and Chg%; it is not independently extracted from the
+	page. It stays `—` when the percentage is unavailable.
+- Reorder entries with the up/down controls to change group and row order.
+- Drag the dotted handle on a tile heading to move the whole group. Drop on the left
+  half of another tile to place it before, or the right half to place it after.
+- Select **Refresh prices now** while SmartTicker is not paused to update the table.
+
+### Help text is not formatted or navigation does not move
+
+- The Help window should show formatted headings, paragraphs, lists, tables, links,
+	and code blocks rather than Markdown punctuation.
+- Use **On this page** on the left to jump to a major section. Links in the Quick
+	navigation table also scroll within the document.
+- Select **Reload** to fetch the current published guide. If that fails, SmartTicker
+	formats the guide embedded in the installed application.
+
 ### Online Help is unavailable or out of date
 
-- Select **Reload** in the Help window.
-- Select **Open online** to test the raw GitHub address in your browser.
+- Close and reopen Help to request the published guide again.
+- Open the raw GitHub address shown near the beginning of this guide in a browser to
+	inspect the published file directly.
 - SmartTicker uses the embedded guide when the request fails or returns an empty file.
 - Online changes appear only after the updated `HELPME.md` is published on the
 	repository's `main` branch.

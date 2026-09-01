@@ -1,0 +1,65 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SmartTicker.Desktop.ViewModels"
+        x:Class="SmartTicker.Desktop.Views.QuoteGroupsWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/SmartTicker.ico"
+        Title="Quote Groups"
+        Width="760"
+        Height="520"
+        MinWidth="620"
+        MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        Background="#0D1117">
+    <Grid Margin="24" RowDefinitions="Auto,*,Auto" RowSpacing="16">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel Spacing="5">
+                <TextBlock Text="Quote Groups" FontSize="24" FontWeight="SemiBold" Foreground="#E6EDF3" />
+                <TextBlock Text="Rename groups globally or return their quotes to Ungrouped. Create a group by entering any name in Quotes."
+                           TextWrapping="Wrap" Foreground="#8B949E" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Help" Click="ShowHelp" Padding="14,7" VerticalAlignment="Top" />
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="5*,4*" ColumnSpacing="18">
+            <Grid RowDefinitions="Auto,*" RowSpacing="8">
+                <TextBlock Text="Groups" Classes="section" />
+                <ListBox Grid.Row="1" ItemsSource="{Binding QuoteGroups}"
+                         SelectedItem="{Binding SelectedQuoteGroup, Mode=TwoWay}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:QuoteGroupSummary">
+                            <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1"
+                                    CornerRadius="6" Padding="12,10">
+                                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="4">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#E6EDF3" />
+                                    <TextBlock Grid.Column="1" Text="{Binding CountText}" Foreground="#8B949E" />
+                                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Symbols}"
+                                               TextWrapping="Wrap" FontSize="12" Foreground="#79C0FF" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+
+            <StackPanel Grid.Column="1" Spacing="12">
+                <TextBlock Text="Selected group" Classes="section" />
+                <TextBlock Text="New name" Classes="lbl" />
+                <TextBox Text="{Binding ManagedGroupName, Mode=TwoWay}"
+                         MaxLength="80" PlaceholderText="Any group name" />
+                <Button Content="Rename or merge group" Command="{Binding RenameQuoteGroupCommand}"
+                        IsEnabled="{Binding HasSelectedQuoteGroup}" Padding="16,8" />
+                <Button Content="Ungroup quotes" Command="{Binding ClearQuoteGroupCommand}"
+                        IsEnabled="{Binding HasSelectedQuoteGroup}" Padding="16,8" />
+                <TextBlock Text="Ungrouping keeps every quote and removes only its group assignment. Renaming to an existing name merges the groups."
+                           TextWrapping="Wrap" FontSize="12" Foreground="#8B949E" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <TextBlock Text="{Binding GroupManagerMessage}" TextWrapping="Wrap"
+                       VerticalAlignment="Center" Foreground="#8B949E" />
+            <Button Grid.Column="1" Content="Close" Click="CloseWindow" Padding="18,7" />
+        </Grid>
+    </Grid>
+</Window>

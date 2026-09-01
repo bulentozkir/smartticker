@@ -1,0 +1,111 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SmartTicker.Desktop.ViewModels"
+        xmlns:controls="using:SmartTicker.Desktop.Controls"
+        x:Class="SmartTicker.Desktop.Views.StaticNewsWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/SmartTicker.ico"
+        Title="SmartTicker News"
+        Width="960"
+        Height="620"
+        MinWidth="520"
+        MinHeight="300"
+        CanResize="True"
+        Topmost="True"
+        ShowInTaskbar="True"
+        WindowStartupLocation="CenterScreen"
+        Background="#10151D">
+    <Grid RowDefinitions="Auto,*" Margin="16" RowSpacing="10">
+        <StackPanel Spacing="3">
+            <TextBlock Text="NEWS" FontSize="18" FontWeight="SemiBold" Foreground="#E6EDF3" />
+            <TextBlock Text="Static grouped headlines · drag tiles to reorder"
+                       FontSize="11" Foreground="#8B949E" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <Grid>
+                <ItemsControl ItemsSource="{Binding StaticNewsGroups}"
+                              IsVisible="{Binding HasStaticNewsGroups}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <controls:ResponsiveTilePanel MinimumTileWidth="380"
+                                                          MaximumTileWidth="560"
+                                                          Spacing="12" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.Styles>
+                        <Style Selector="ContentPresenter">
+                            <Setter Property="HorizontalAlignment" Value="Stretch" />
+                        </Style>
+                    </ItemsControl.Styles>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:StaticNewsGroup">
+                            <Expander IsExpanded="True" Margin="0,0,0,4"
+                                      HorizontalAlignment="Stretch"
+                                      HorizontalContentAlignment="Stretch"
+                                      Background="#05080B"
+                                      BorderBrush="#30363D"
+                                      BorderThickness="1"
+                                      DragDrop.AllowDrop="True"
+                                      DragDrop.DragOver="GroupDragOver"
+                                      DragDrop.Drop="GroupDrop">
+                                <Expander.Header>
+                                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="2,5,12,4">
+                                        <Border Cursor="SizeAll" Padding="8,2" Margin="0,0,4,0"
+                                                PointerPressed="BeginGroupDrag"
+                                                ToolTip.Tip="Drag to reorder this group">
+                                            <TextBlock Text="⠿" FontSize="14" Foreground="#6E7681" />
+                                        </Border>
+                                        <TextBlock Grid.Column="1" Text="{Binding DisplayName}" FontSize="11"
+                                                   Foreground="#8B949E" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="{Binding CountText}" FontSize="10"
+                                                   Foreground="#6E7681" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Expander.Header>
+                                <Grid RowDefinitions="Auto,*">
+                                    <Grid ColumnDefinitions="100,*" ColumnSpacing="10" Margin="12,6,12,7">
+                                        <TextBlock Text="Symbol" FontSize="10" Foreground="#8B949E" />
+                                        <TextBlock Grid.Column="1" Text="Headline" FontSize="10" Foreground="#8B949E" />
+                                    </Grid>
+                                    <ScrollViewer Grid.Row="1" MaxHeight="360"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsControl ItemsSource="{Binding Rows}">
+                                            <ItemsControl.Styles>
+                                                <Style Selector="ContentPresenter">
+                                                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                                                </Style>
+                                            </ItemsControl.Styles>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:StaticNewsRow">
+                                                    <Border BorderBrush="#252B33" BorderThickness="0,0,0,1"
+                                                            PointerPressed="OpenStaticNews"
+                                                            ToolTip.Tip="{Binding StatusText}">
+                                                        <Grid ColumnDefinitions="100,*" ColumnSpacing="10" Margin="12,7">
+                                                            <TextBlock Text="{Binding Symbol}" FontWeight="SemiBold"
+                                                                       Foreground="{Binding SymbolForeground}"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Grid.Column="1" Text="{Binding Headline}"
+                                                                       Foreground="{Binding HeadlineForeground}"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Expander>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="Add a news entry in Quotes to populate this window."
+                           IsVisible="{Binding !HasStaticNewsGroups}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Margin="20" Foreground="#8B949E" TextWrapping="Wrap" />
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</Window>

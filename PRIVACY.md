@@ -22,6 +22,7 @@ SmartTicker saves your configuration locally, in these two files:
 These contain only:
 
 - The web page addresses (URLs) and ticker symbols you choose to track
+- Your quote group names and scrolling/static display preference
 - Optional CSS selectors used to locate values on those pages
 - Your price alert rules, such as threshold values and expiry dates
 - Display preferences: colours, transparency, scroll speed, row counts, refresh intervals, and language
@@ -36,7 +37,7 @@ SmartTicker makes outbound network requests in only three situations:
 
 **2. Downloading the optional starter configuration.** If — and only if — you choose the "download starter quotes" option, SmartTicker retrieves a sample configuration file from `raw.githubusercontent.com`. This is a manual, one-off action that you initiate. No information about you is sent with this request. If you never use this option, this connection never occurs.
 
-**3. Displaying online help.** When you open the Help window or click Reload, SmartTicker requests `HELPME.md` from `raw.githubusercontent.com` so it can display the latest published guide. If the request fails, it displays the copy embedded in the application. Clicking Open online sends the same address to your default browser. No application settings or usage data are included in the request.
+**3. Displaying online help.** When you open the Help window, SmartTicker requests `HELPME.md` from `raw.githubusercontent.com` so it can display the latest published guide. If the request fails, it displays the copy embedded in the application. No application settings or usage data are included in the request.
 
 ## Third-Party Websites
 

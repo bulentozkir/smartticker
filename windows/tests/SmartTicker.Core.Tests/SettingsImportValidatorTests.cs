@@ -12,6 +12,7 @@ public class SettingsImportValidatorTests
         {
           "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
           "symbol": "MSFT",
+          "groupName": "Mega-Cap Tech",
           "sourceName": "Yahoo Finance",
           "sourceUri": "https://finance.yahoo.com/quote/MSFT",
           "collectPrice": true,
@@ -28,6 +29,7 @@ public class SettingsImportValidatorTests
       "acknowledgedSources": ["finance.yahoo.com"],
       "showPriceLine": true,
       "showNewsLine": false,
+    "useStaticGroupedView": true,
       "backgroundColor": "#10151D",
       "priceColor": "#70E1A1",
       "newsColor": "#D8DEE9",
@@ -47,11 +49,13 @@ public class SettingsImportValidatorTests
         var settings = result.Settings!;
         Assert.Equal(2, settings.PriceRowCount);
         Assert.False(settings.ShowNewsLine);
+        Assert.True(settings.UseStaticGroupedView);
         Assert.Equal("#F85149", settings.PriceDownColor);
         Assert.Equal(["finance.yahoo.com"], settings.AcknowledgedSources);
 
         var subscription = Assert.Single(settings.Subscriptions);
         Assert.Equal("MSFT", subscription.Symbol);
+        Assert.Equal("Mega-Cap Tech", subscription.GroupName);
         Assert.Equal("a.titles", subscription.NewsCssSelector);
         Assert.Equal(5, subscription.NewsRepeatLimit);
     }
@@ -254,6 +258,62 @@ public class SettingsImportValidatorTests
         Assert.Contains(tooSlow.Errors, error => error.Contains("'newsRefreshSeconds' is 3600, which is outside the allowed range 30-300"));
     }
 
+        [Fact]
+        public void Validate_RejectsAnOverlongGroupName()
+        {
+                var groupName = new string('x', TickerSubscription.MaximumGroupNameLength + 1);
+                var json = $$"""
+                {
+                    "version": 1,
+                    "subscriptions": [
+                        { "symbol": "X", "groupName": "{{groupName}}", "sourceUri": "https://example.com", "collectPrice": true, "collectNews": false }
+                    ]
+                }
+                """;
+
+                var result = SettingsImportValidator.Validate(json);
+
+                Assert.False(result.Success);
+                Assert.Contains(result.Errors, error => error.Contains("Group names may contain at most"));
+        }
+
+        [Fact]
+        public void Validate_BlankGroupNameMeansUngrouped()
+        {
+                const string json = """
+                {
+                    "version": 1,
+                    "subscriptions": [
+                        { "symbol": "X", "groupName": "   ", "sourceUri": "https://example.com", "collectPrice": true, "collectNews": false }
+                    ]
+                }
+                """;
+
+                var result = SettingsImportValidator.Validate(json);
+
+                Assert.True(result.Success);
+                Assert.Null(Assert.Single(result.Settings!.Subscriptions).GroupName);
+        }
+
+        [Fact]
+        public void Validate_LegacyFileWithoutGroupingUsesMarqueeAndUngroupedDefaults()
+        {
+                const string json = """
+                {
+                    "version": 1,
+                    "subscriptions": [
+                        { "symbol": "X", "sourceUri": "https://example.com", "collectPrice": true, "collectNews": false }
+                    ]
+                }
+                """;
+
+                var result = SettingsImportValidator.Validate(json);
+
+                Assert.True(result.Success);
+                Assert.False(result.Settings!.UseStaticGroupedView);
+                Assert.Null(Assert.Single(result.Settings.Subscriptions).GroupName);
+        }
+
     [Fact]
     public void Validate_RoundTripsSerializedSettings()
     {
@@ -263,6 +323,7 @@ public class SettingsImportValidatorTests
             NewsScrollSpeed = 120,
             PriceRefreshSeconds = 45,
             AllowWebsiteCookiesAndCrossHostRedirects = true,
+            UseStaticGroupedView = true,
         };
 
         var result = SettingsImportValidator.Validate(SettingsJson.Serialize(original));
@@ -272,5 +333,6 @@ public class SettingsImportValidatorTests
         Assert.Equal(120, result.Settings.NewsScrollSpeed);
         Assert.Equal(45, result.Settings.PriceRefreshSeconds);
         Assert.True(result.Settings.AllowWebsiteCookiesAndCrossHostRedirects);
+        Assert.True(result.Settings.UseStaticGroupedView);
     }
 }

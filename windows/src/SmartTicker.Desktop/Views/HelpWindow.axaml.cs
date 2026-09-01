@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -8,7 +9,8 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
+using Avalonia.Media;
+using SmartTicker.Desktop.Controls;
 using SmartTicker.Infrastructure.Launching;
 
 namespace SmartTicker.Desktop.Views;
@@ -21,6 +23,7 @@ public partial class HelpWindow : Window
     private static readonly HttpClient HelpClient = CreateHelpClient();
 
     private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private readonly Dictionary<string, Control> _headingTargets = new(StringComparer.OrdinalIgnoreCase);
 
     public HelpWindow()
     {
@@ -33,7 +36,6 @@ public partial class HelpWindow : Window
 
     private async Task LoadHelpAsync()
     {
-        ReloadButton.IsEnabled = false;
         StatusText.Text = "Loading online help…";
 
         try
@@ -58,7 +60,7 @@ public partial class HelpWindow : Window
                 throw new InvalidDataException("The online help document is empty.");
             }
 
-            HelpText.Text = help;
+            RenderHelp(help);
             StatusText.Text = "Online guide loaded from the SmartTicker repository.";
         }
         catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
@@ -66,24 +68,56 @@ public partial class HelpWindow : Window
         }
         catch (Exception)
         {
-            HelpText.Text = ReadEmbeddedHelp();
+            RenderHelp(ReadEmbeddedHelp());
             StatusText.Text = "Online help is unavailable. Showing the built-in guide.";
-        }
-        finally
-        {
-            if (!_lifetimeCancellation.IsCancellationRequested)
-            {
-                ReloadButton.IsEnabled = true;
-            }
         }
     }
 
-    private async void ReloadHelp(object? sender, RoutedEventArgs e) => await LoadHelpAsync();
+    private void RenderHelp(string markdown)
+    {
+        var document = MarkdownHelpRenderer.Render(
+            markdown,
+            NavigateToAnchor,
+            uri => new DefaultBrowserLinkLauncher().TryOpen(uri));
+        HelpContentHost.Content = document.Content;
+        HelpScrollViewer.Offset = default;
+        _headingTargets.Clear();
+        NavigationPanel.Children.Clear();
+        foreach (var heading in document.Headings)
+        {
+            _headingTargets[heading.Anchor] = heading.Target;
+            if (heading.Level != 2)
+            {
+                continue;
+            }
 
-    private void OpenOnlineHelp(object? sender, RoutedEventArgs e) =>
-        new DefaultBrowserLinkLauncher().TryOpen(HelpUri);
+            var button = new Button
+            {
+                Content = new TextBlock
+                {
+                    Text = heading.Title,
+                    TextWrapping = TextWrapping.Wrap,
+                },
+                Tag = heading.Anchor,
+                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                Background = Brushes.Transparent,
+                BorderThickness = new Avalonia.Thickness(0),
+                Padding = new Avalonia.Thickness(8, 6),
+                Foreground = new SolidColorBrush(Color.Parse("#C9D1D9")),
+            };
+            button.Click += (_, _) => NavigateToAnchor((string)button.Tag!);
+            NavigationPanel.Children.Add(button);
+        }
+    }
 
-    private void CloseWindow(object? sender, RoutedEventArgs e) => Close();
+    private void NavigateToAnchor(string anchor)
+    {
+        if (_headingTargets.TryGetValue(anchor, out var target))
+        {
+            target.BringIntoView();
+        }
+    }
 
     private static string ReadEmbeddedHelp()
     {

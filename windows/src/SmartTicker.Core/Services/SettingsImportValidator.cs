@@ -37,6 +37,7 @@ public static class SettingsImportValidator
         "acknowledgedSources",
         "showPriceLine",
         "showNewsLine",
+        "useStaticGroupedView",
         "launchAtLogin",
         "allowWebsiteCookiesAndCrossHostRedirects",
         "backgroundColor",
@@ -56,6 +57,7 @@ public static class SettingsImportValidator
     {
         "id",
         "symbol",
+        "groupName",
         "sourceName",
         "sourceUri",
         "collectPrice",
@@ -127,6 +129,7 @@ public static class SettingsImportValidator
                     errors),
                 ShowPriceLine = ReadBool(root, string.Empty, "showPriceLine", true, errors),
                 ShowNewsLine = ReadBool(root, string.Empty, "showNewsLine", true, errors),
+                UseStaticGroupedView = ReadBool(root, string.Empty, "useStaticGroupedView", false, errors),
                 LaunchAtLogin = ReadBool(root, string.Empty, "launchAtLogin", false, errors),
                 AllowWebsiteCookiesAndCrossHostRedirects = ReadBool(
                     root,
@@ -258,6 +261,7 @@ public static class SettingsImportValidator
 
         var id = ReadId(map, path, identifiers, errors);
         var symbol = ReadString(map, path, "symbol", errors, required: true);
+        var groupName = ReadString(map, path, "groupName", errors);
         var sourceName = ReadString(map, path, "sourceName", errors);
         var sourceUri = ReadSourceUri(map, path, errors);
         var collectPrice = ReadBool(map, path, "collectPrice", false, errors);
@@ -283,6 +287,11 @@ public static class SettingsImportValidator
             errors.Add($"'{path}' has both 'collectPrice' and 'collectNews' set to false, so the entry would never show anything.");
         }
 
+        if (!TickerSubscription.TryNormalizeGroupName(groupName, out var normalizedGroupName, out var groupError))
+        {
+            errors.Add($"'{path}.groupName' is invalid. {groupError}");
+        }
+
         if (id is null || symbol is null || sourceUri is null)
         {
             return null;
@@ -298,6 +307,7 @@ public static class SettingsImportValidator
             string.IsNullOrWhiteSpace(cssSelector) ? null : cssSelector.Trim(),
             string.IsNullOrWhiteSpace(newsCssSelector) ? null : newsCssSelector.Trim())
         {
+            GroupName = normalizedGroupName,
             NewsRepeatLimit = repeatLimit,
             PreMarketCssSelector = string.IsNullOrWhiteSpace(preMarketCssSelector) ? null : preMarketCssSelector.Trim(),
             PreMarketChangeCssSelector = string.IsNullOrWhiteSpace(preMarketChangeCssSelector) ? null : preMarketChangeCssSelector.Trim(),

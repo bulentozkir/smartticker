@@ -28,15 +28,17 @@
                 <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
                     <StackPanel Spacing="14">
                         <TextBlock Classes="section" Text="Ticker rows and speed" />
-                        <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="14">
+                        <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="14">
                             <TextBlock Grid.Row="0" Classes="lbl" Text="Price display" VerticalAlignment="Center" />
                             <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="10">
                                 <TextBlock Classes="caption" Text="Rows" VerticalAlignment="Center" />
                                 <ComboBox ItemsSource="{Binding RowCountOptions}" SelectedItem="{Binding PriceRowCount}"
-                                          Width="88" FontSize="15" FontWeight="SemiBold" />
+                                          Width="88" FontSize="15" FontWeight="SemiBold"
+                                          IsEnabled="{Binding !UseStaticGroupedView}" />
                                 <TextBlock Classes="caption" Text="Scroll speed" VerticalAlignment="Center" Margin="14,0,0,0" />
                                 <ComboBox ItemsSource="{Binding ScrollSpeedOptions}" SelectedItem="{Binding PriceScrollSpeed}"
-                                          Width="104" FontSize="15" FontWeight="SemiBold" />
+                                          Width="104" FontSize="15" FontWeight="SemiBold"
+                                          IsEnabled="{Binding !UseStaticGroupedView}" />
                                 <TextBlock Classes="caption" Text="px/sec" VerticalAlignment="Center" />
                             </StackPanel>
 
@@ -63,6 +65,17 @@
                                                FormatString="0" Width="126" FontSize="15" FontWeight="SemiBold"
                                                HorizontalContentAlignment="Center" />
                                 <TextBlock Classes="caption" Text="sec" VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Row="3" Classes="lbl" Text="Quote view" VerticalAlignment="Center" />
+                            <StackPanel Grid.Row="3" Grid.Column="1" Spacing="7">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <CheckBox Content="Static grouped tables (no scrolling)"
+                                              IsChecked="{Binding UseStaticGroupedView}" VerticalAlignment="Center" />
+                                    <Button Content="Manage groups" Click="OpenQuoteGroups" Padding="14,6" />
+                                </StackPanel>
+                                <TextBlock Classes="caption" TextWrapping="Wrap"
+                                           Text="Shows quote tiles in the ticker and opens news tiles in a separate movable window. Neither window scrolls automatically." />
                             </StackPanel>
                         </Grid>
                     </StackPanel>
