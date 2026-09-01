@@ -577,9 +577,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         RefreshQuoteGroups();
         SelectedQuoteGroup ??= QuoteGroups.FirstOrDefault();
+        if (SelectedGroupQuote is not null &&
+            !Subscriptions.Any(item => item.Id == SelectedGroupQuote.Id))
+        {
+            SelectedGroupQuote = null;
+        }
+
         GroupManagerMessage = QuoteGroups.Count == 0
-            ? "No groups exist yet. Enter a group name while adding or editing a quote."
-            : "Select a group to rename it or clear its assignments.";
+            ? "Create a group, then select a quote to associate with it."
+            : "Select a group on the left and a quote on the right.";
     }
 
     partial void OnSelectedQuoteGroupChanged(QuoteGroupSummary? value)
@@ -597,7 +603,32 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    private void RenameQuoteGroup()
+    private void CreateQuoteGroup()
+    {
+        if (!TryGetManagedGroupName(out var name))
+        {
+            return;
+        }
+
+        var existing = QuoteGroups.FirstOrDefault(group =>
+            string.Equals(group.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            SelectedQuoteGroup = existing;
+            GroupManagerMessage = $"The group {existing.Name} already exists.";
+            return;
+        }
+
+        _quoteGroupNames.Add(name);
+        RefreshQuoteGroups();
+        SelectedQuoteGroup = QuoteGroups.First(group =>
+            string.Equals(group.Name, name, StringComparison.OrdinalIgnoreCase));
+        SaveSettings();
+        GroupManagerMessage = $"Created {name}. Select a quote and choose Associate.";
+    }
+
+    [RelayCommand]
+    private void UpdateQuoteGroup()
     {
         if (SelectedQuoteGroup is not { } selected)
         {
@@ -605,14 +636,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        if (!TickerSubscription.TryNormalizeGroupName(ManagedGroupName, out var replacement, out var error) ||
-            replacement is null)
+        if (!TryGetManagedGroupName(out var replacement))
         {
-            GroupManagerMessage = error ?? "Enter a group name.";
             return;
         }
-
-        replacement = ResolveExistingGroupName(replacement);
 
         if (string.Equals(selected.Name, replacement, StringComparison.Ordinal))
         {
@@ -620,9 +647,24 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var mergesExisting = QuoteGroups.Any(group =>
+        var duplicate = QuoteGroups.FirstOrDefault(group =>
             !string.Equals(group.Name, selected.Name, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(group.Name, replacement, StringComparison.OrdinalIgnoreCase));
+        if (duplicate is not null)
+        {
+            GroupManagerMessage = $"The group {duplicate.Name} already exists. Associate quotes with it instead.";
+            return;
+        }
+
+        var definitionIndex = _quoteGroupNames.FindIndex(name =>
+            string.Equals(name, selected.Name, StringComparison.OrdinalIgnoreCase));
+        if (definitionIndex < 0)
+        {
+            GroupManagerMessage = $"The group {selected.Name} no longer exists.";
+            return;
+        }
+
+        _quoteGroupNames[definitionIndex] = replacement;
         if (_staticNewsFilters.Remove(selected.Name, out var selectedFilter) &&
             !_staticNewsFilters.ContainsKey(replacement))
         {
@@ -641,13 +683,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         SaveSettings();
         SelectedQuoteGroup = QuoteGroups.FirstOrDefault(group =>
             string.Equals(group.Name, replacement, StringComparison.OrdinalIgnoreCase));
-        GroupManagerMessage = mergesExisting
-            ? $"Merged {selected.Name} into {replacement}."
-            : $"Renamed {selected.Name} to {replacement}.";
+        GroupManagerMessage = $"Updated {selected.Name} to {replacement}.";
     }
 
     [RelayCommand]
-    private void ClearQuoteGroup()
+    private void DeleteQuoteGroup()
     {
         if (SelectedQuoteGroup is not { } selected)
         {
@@ -655,6 +695,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        _quoteGroupNames.RemoveAll(name =>
+            string.Equals(name, selected.Name, StringComparison.OrdinalIgnoreCase));
         _staticNewsFilters.Remove(selected.Name);
         var changed = 0;
         for (var index = 0; index < Subscriptions.Count; index++)
@@ -668,7 +710,89 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         UpdateTickerLines();
         SaveSettings();
-        GroupManagerMessage = $"Removed {changed} quote{(changed == 1 ? string.Empty : "s")} from {selected.Name}.";
+        SelectedQuoteGroup = QuoteGroups.FirstOrDefault();
+        GroupManagerMessage = $"Deleted {selected.Name} and ungrouped {changed} quote{(changed == 1 ? string.Empty : "s")}.";
+    }
+
+    [RelayCommand]
+    private void AssociateSelectedQuote()
+    {
+        if (SelectedQuoteGroup is not { } group || SelectedGroupQuote is not { } quote)
+        {
+            GroupManagerMessage = "Select one group and one quote first.";
+            return;
+        }
+
+        var index = FindSubscriptionIndex(quote.Id);
+        if (index < 0)
+        {
+            GroupManagerMessage = $"The quote {quote.Symbol} no longer exists.";
+            return;
+        }
+
+        var previousGroup = Subscriptions[index].GroupName;
+        if (string.Equals(previousGroup, group.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            GroupManagerMessage = $"{quote.Symbol} is already in {group.Name}.";
+            return;
+        }
+
+        ReplaceSubscriptionGroup(index, group.Name);
+        UpdateTickerLines();
+        SaveSettings();
+        GroupManagerMessage = string.IsNullOrWhiteSpace(previousGroup)
+            ? $"Associated {quote.Symbol} with {group.Name}."
+            : $"Moved {quote.Symbol} from {previousGroup} to {group.Name}.";
+    }
+
+    [RelayCommand]
+    private void UngroupSelectedQuote()
+    {
+        if (SelectedGroupQuote is not { } quote)
+        {
+            GroupManagerMessage = "Select a quote first.";
+            return;
+        }
+
+        var index = FindSubscriptionIndex(quote.Id);
+        if (index < 0 || string.IsNullOrWhiteSpace(Subscriptions[index].GroupName))
+        {
+            GroupManagerMessage = $"{quote.Symbol} is already Ungrouped.";
+            return;
+        }
+
+        var previousGroup = Subscriptions[index].GroupName;
+        ReplaceSubscriptionGroup(index, null);
+        UpdateTickerLines();
+        SaveSettings();
+        GroupManagerMessage = $"Removed {quote.Symbol} from {previousGroup}.";
+    }
+
+    private bool TryGetManagedGroupName(out string groupName)
+    {
+        if (!TickerSubscription.TryNormalizeGroupName(ManagedGroupName, out var normalized, out var error) ||
+            normalized is null)
+        {
+            groupName = string.Empty;
+            GroupManagerMessage = error ?? "Enter a group name.";
+            return false;
+        }
+
+        groupName = normalized;
+        return true;
+    }
+
+    private int FindSubscriptionIndex(Guid id)
+    {
+        for (var index = 0; index < Subscriptions.Count; index++)
+        {
+            if (Subscriptions[index].Id == id)
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     private void RefreshQuoteGroups()
@@ -730,6 +854,26 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         if (source.Length == 0 || targetIndexes.Length == 0)
         {
             return;
+        }
+
+        var sourceDefinitionIndex = _quoteGroupNames.FindIndex(name =>
+            string.Equals(name, sourceName, StringComparison.OrdinalIgnoreCase));
+        if (sourceDefinitionIndex >= 0)
+        {
+            var movedDefinition = _quoteGroupNames[sourceDefinitionIndex];
+            _quoteGroupNames.RemoveAt(sourceDefinitionIndex);
+            var targetDefinitionIndex = _quoteGroupNames.FindIndex(name =>
+                string.Equals(name, targetName, StringComparison.OrdinalIgnoreCase));
+            if (targetDefinitionIndex >= 0)
+            {
+                _quoteGroupNames.Insert(
+                    targetDefinitionIndex + (placeAfter ? 1 : 0),
+                    movedDefinition);
+            }
+            else
+            {
+                _quoteGroupNames.Add(movedDefinition);
+            }
         }
 
         var insertionIndex = placeAfter ? targetIndexes[^1] + 1 : targetIndexes[0];
@@ -935,6 +1079,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         Subscriptions.Remove(subscription);
+        if (SelectedGroupQuote?.Id == subscription.Id)
+        {
+            SelectedGroupQuote = null;
+        }
+
         var quote = LatestQuotes.FirstOrDefault(item => item.SubscriptionId == subscription.Id);
         if (quote is not null)
         {
@@ -2620,7 +2769,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             Subscriptions.Clear();
             foreach (var subscription in settings.Subscriptions)
             {
-                Subscriptions.Add(subscription);
+                var groupName = subscription.GroupName is null
+                    ? null
+                    : ResolveExistingGroupName(subscription.GroupName);
+                Subscriptions.Add(subscription with { GroupName = groupName });
             }
 
             PriceRowCount = settings.PriceRowCount;

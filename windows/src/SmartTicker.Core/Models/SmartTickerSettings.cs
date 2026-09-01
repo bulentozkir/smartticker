@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SmartTicker.Core.Models;
 
 public sealed record SmartTickerSettings(
@@ -46,6 +48,7 @@ public sealed record SmartTickerSettings(
 
     public string[] AcknowledgedSources { get; init; } = [];
 
+    [JsonPropertyName("quoteGroups")]
     public string[] QuoteGroupNames { get; init; } = [];
 
     public bool ShowPriceLine { get; init; } = true;

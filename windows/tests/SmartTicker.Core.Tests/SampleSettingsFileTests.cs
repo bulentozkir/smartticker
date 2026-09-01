@@ -33,6 +33,9 @@ public sealed class SampleSettingsFileTests
         Assert.False(result.Settings.UseStaticGroupedView);
         Assert.True(result.Settings.AllowWebsiteCookiesAndCrossHostRedirects);
         Assert.Empty(result.Settings.AcknowledgedSources);
+        Assert.Equal(
+            ["Mega-Cap Tech", "Precious Metals", "Industrial Metals", "US Indices", "Rates", "ETFs"],
+            result.Settings.QuoteGroupNames);
 
         Assert.Equal(
             new Dictionary<string, int>

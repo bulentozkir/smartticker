@@ -383,40 +383,85 @@ public sealed class SourceValidationTests
         Assert.Equal(["GOLD", "US10Y", "MSFT", "AAPL"], viewModel.Subscriptions.Select(item => item.Symbol));
         Assert.Equal(["MSFT", "AAPL"], viewModel.Subscriptions.Where(item => item.GroupName == "Tech").Select(item => item.Symbol));
         Assert.Equal(viewModel.Subscriptions, store.Saved!.Subscriptions);
+        Assert.Equal(["Metals", "Rates", "Tech"], store.Saved.QuoteGroupNames);
     }
 
     [Fact]
-    public void QuoteGroupManager_RenamesMergesAndUngroupsWithoutRemovingQuotes()
+    public void QuoteGroupManager_CreatesUpdatesAndDeletesEmptyGroups()
     {
-        var first = Subscription("MSFT", "Example", "https://example.com/MSFT") with { GroupName = "Tech" };
-        var second = Subscription("AAPL", "Example", "https://example.com/AAPL") with { GroupName = "Leaders" };
-        var store = new TestSettingsStore(SmartTickerSettings.Default with { Subscriptions = [first, second] });
+        var quote = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        var store = new TestSettingsStore(SmartTickerSettings.Default with { Subscriptions = [quote] });
         using var viewModel = new MainViewModel(
             selectorDiscovery: null,
             quoteFetcher: null,
             settingsStore: store);
-        viewModel.EditSubscriptionCommand.Execute(first);
         viewModel.PrepareQuoteGroupManager();
-        Assert.Equal(["Tech", "Leaders"], viewModel.GroupNameOptions);
-        viewModel.SelectedQuoteGroup = viewModel.QuoteGroups.Single(group => group.Name == "Tech");
-        viewModel.ManagedGroupName = "leaders";
+        viewModel.ManagedGroupName = "Tech";
 
-        viewModel.RenameQuoteGroupCommand.Execute(null);
+        viewModel.CreateQuoteGroupCommand.Execute(null);
 
-        Assert.Single(viewModel.QuoteGroups);
-        Assert.All(viewModel.Subscriptions, item => Assert.Equal("Leaders", item.GroupName));
-        Assert.Equal("Leaders", viewModel.EditingSubscription!.GroupName);
-        Assert.Equal("Leaders", viewModel.NewGroupName);
-        Assert.Contains("Merged", viewModel.GroupManagerMessage);
+        var created = Assert.Single(viewModel.QuoteGroups);
+        Assert.Equal("Tech", created.Name);
+        Assert.Equal(0, created.QuoteCount);
+        Assert.Equal(["Tech"], store.Saved!.QuoteGroupNames);
+        viewModel.SelectedGroupQuote = quote;
+        viewModel.AssociateSelectedQuoteCommand.Execute(null);
+        Assert.Equal("Tech", Assert.Single(viewModel.Subscriptions).GroupName);
 
-        viewModel.ClearQuoteGroupCommand.Execute(null);
+        viewModel.ManagedGroupName = "Leaders";
+
+        viewModel.UpdateQuoteGroupCommand.Execute(null);
+
+        var updated = Assert.Single(viewModel.QuoteGroups);
+        Assert.Equal("Leaders", updated.Name);
+        Assert.Equal(1, updated.QuoteCount);
+        Assert.Equal("Leaders", Assert.Single(viewModel.Subscriptions).GroupName);
+        Assert.Equal(["Leaders"], store.Saved.QuoteGroupNames);
+
+        viewModel.DeleteQuoteGroupCommand.Execute(null);
 
         Assert.Empty(viewModel.QuoteGroups);
-        Assert.Equal(2, viewModel.Subscriptions.Count);
-        Assert.All(viewModel.Subscriptions, item => Assert.Null(item.GroupName));
-        Assert.Null(viewModel.EditingSubscription!.GroupName);
-        Assert.Empty(viewModel.NewGroupName);
-        Assert.NotNull(store.Saved);
+        Assert.Single(viewModel.Subscriptions);
+        Assert.Null(viewModel.Subscriptions[0].GroupName);
+        Assert.Empty(store.Saved.QuoteGroupNames);
+    }
+
+    [Fact]
+    public void QuoteGroupManager_AssociationMovesAQuoteBetweenGroups()
+    {
+        var quote = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        var store = new TestSettingsStore(SmartTickerSettings.Default with
+        {
+            Subscriptions = [quote],
+            QuoteGroupNames = ["Tech", "Leaders"],
+        });
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: store);
+        viewModel.PrepareQuoteGroupManager();
+        viewModel.SelectedGroupQuote = quote;
+        viewModel.SelectedQuoteGroup = viewModel.QuoteGroups.Single(group => group.Name == "Tech");
+
+        viewModel.AssociateSelectedQuoteCommand.Execute(null);
+
+        Assert.Equal("Tech", Assert.Single(viewModel.Subscriptions).GroupName);
+        Assert.Equal(1, viewModel.QuoteGroups.Single(group => group.Name == "Tech").QuoteCount);
+        Assert.Equal(0, viewModel.QuoteGroups.Single(group => group.Name == "Leaders").QuoteCount);
+
+        viewModel.SelectedQuoteGroup = viewModel.QuoteGroups.Single(group => group.Name == "Leaders");
+
+        viewModel.AssociateSelectedQuoteCommand.Execute(null);
+
+        Assert.Equal("Leaders", Assert.Single(viewModel.Subscriptions).GroupName);
+        Assert.Equal(0, viewModel.QuoteGroups.Single(group => group.Name == "Tech").QuoteCount);
+        Assert.Equal(1, viewModel.QuoteGroups.Single(group => group.Name == "Leaders").QuoteCount);
+        Assert.Equal("Leaders", Assert.Single(store.Saved!.Subscriptions).GroupName);
+
+        viewModel.UngroupSelectedQuoteCommand.Execute(null);
+
+        Assert.Null(Assert.Single(viewModel.Subscriptions).GroupName);
+        Assert.Equal(0, viewModel.QuoteGroups.Single(group => group.Name == "Leaders").QuoteCount);
     }
 
     [Fact]
@@ -430,6 +475,7 @@ public sealed class SourceValidationTests
             settingsStore: new TestSettingsStore(SmartTickerSettings.Default with
             {
                 Subscriptions = [first, second],
+                QuoteGroupNames = ["Tech", "Metals", "Empty"],
             }));
         var importedStore = new TestSettingsStore(SmartTickerSettings.Default);
         using var importer = new MainViewModel(
@@ -441,7 +487,8 @@ public sealed class SourceValidationTests
 
         Assert.True(result.Success);
         Assert.Equal(["Tech", "Metals"], importer.Subscriptions.Select(item => item.GroupName));
-        Assert.Equal(["Tech", "Metals"], importer.GroupNameOptions);
+        Assert.Equal(["Tech", "Metals", "Empty"], importer.GroupNameOptions);
+        Assert.Equal(["Tech", "Metals", "Empty"], importedStore.Saved!.QuoteGroupNames);
         Assert.Equal(["Tech", "Metals"], importedStore.Saved!.Subscriptions.Select(item => item.GroupName));
     }
 

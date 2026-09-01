@@ -23,7 +23,7 @@ wrong. Verify important financial information with an authoritative source.
 Right-click the ticker to open its menu. The main configuration commands are:
 
 - **Quotes...**: add, test, edit, order, and remove quote or news sources.
-- **Quote groups...**: rename, merge, or clear existing group assignments.
+- **Quote groups...**: create, update, or delete groups and associate quotes with them.
 - **Alerts**: create and manage price alert rules.
 - **App Settings...**: configure rows, speeds, refresh intervals, startup, website
 	access, colors, transparency, and backups.
@@ -178,21 +178,25 @@ edit or remove any sample entry afterward.
 
 ### Group quotes
 
-A group is a free-form label stored on each quote. It is not tied to an exchange or a
-built-in category, so you can organize entries by market, asset type, strategy,
-portfolio, region, or any other scheme. Names are trimmed, may use Unicode, and may
-contain up to 80 characters. Leaving Group blank assigns the entry to **Ungrouped**.
+A group is a named collection you define. It is not tied to an exchange or a built-in
+category, so you can organize entries by market, asset type, strategy, portfolio,
+region, or any other scheme. Names are trimmed, may use Unicode, and may contain up to
+80 characters. Each quote can belong to at most one group.
 
 Use **Manage groups** beside the Group field, in App Settings, or select
-**Quote groups...** from the ticker menu. The Quote Groups window lists every nonblank
-group with its quote count and symbols.
+**Quote groups...** from the ticker menu. The window has three working areas:
 
-- Select a group, choose an existing **Target group** to merge or type a new name to
-	rename, then choose **Rename or merge group**. Every quote in that group is updated.
-- Choose **Ungroup quotes** to clear that group's assignments. Quotes, sources, current
+- On the left, enter a **Group name**, then choose **Create**. Select an existing group,
+	edit its name, and choose **Update**, or choose **Delete**. Empty groups are retained.
+- On the right, select a quote. Its current group is shown in the **Current group**
+	column; **Ungrouped** means it has no association.
+- In the middle, choose **Associate** after selecting one group and one quote. If that
+	quote already belongs to another group, SmartTicker moves it to the selected group.
+- Choose **Remove association** to return only the selected quote to **Ungrouped**.
+- Deleting a group returns all of its quotes to **Ungrouped**. Quotes, sources, current
 	data, and alerts are not deleted.
-- Create a new group by typing its name while adding or editing any quote. Empty groups
-	are not stored because groups are inferred from quote assignments.
+- You can also choose an existing group from the lookup while adding or editing a quote,
+	or type a new group name there.
 - Use the up/down controls in Configured entries to determine group and row order in
 	the static table.
 - In static mode, drag a tile heading to reorder complete groups directly. The same
@@ -617,7 +621,8 @@ an authorized documented API through a compatible public page.
 ### Static groups or values are not what I expect
 
 - Open **Quotes...** and confirm each entry's Group value.
-- Open **Quote groups...** to rename, merge, or clear assignments globally.
+- Open **Quote groups...** to manage group definitions and review every quote's current
+	association.
 - Entries with a blank Group appear under **Ungrouped**.
 - **Chg** is calculated from Last and Chg%; it is not independently extracted from the
 	page. It stays `—` when the percentage is unavailable.

@@ -22,6 +22,14 @@
   "priceDownColor": "#F85149",
   "alertBlinkColor": "#FF00FF",
   "acknowledgedSources": [],
+  "quoteGroups": [
+    "Mega-Cap Tech",
+    "Precious Metals",
+    "Industrial Metals",
+    "US Indices",
+    "Rates",
+    "ETFs"
+  ],
   "subscriptions": [
     {
       "id": "1a2b3c4d-0001-4a00-9000-000000000001",

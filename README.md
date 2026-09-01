@@ -47,11 +47,12 @@ a non-overlapping position around Prices on a single monitor. Within every news 
 headlines are interleaved one per quote per round. A **Quote filter** can show All
 quotes or one symbol and remains selected across refreshes for the current session.
 
-To organize the static table, open **Quotes...** and choose an existing **Group** from
-the lookup, or type a new name while adding or editing a quote. Open **Quote groups...**
-from the right-click menu to rename or merge a group, or to clear its assignments
-without deleting quotes. Blank group names appear under **Ungrouped**. Settings export
-and import carry these per-quote group assignments. The published sample assigns all 20
+To organize the static table, open **Quote groups...** from the right-click menu. Create,
+update, or delete groups on the left; select a quote on the right; then use **Associate**
+in the middle. Each quote belongs to at most one group, and re-associating it moves it
+from the previous group. Deleting a group returns its quotes to **Ungrouped** without
+deleting them. Settings export and import carry group definitions and assignments. The
+published sample assigns all 20
 entries to six example groups but keep the scrolling ticker selected by default.
 
 In static mode, drag the dotted handle on any quote or news tile and drop it on the
@@ -89,7 +90,7 @@ source validation, group ordering, backups, static-table behavior, and alert rul
 **Appearance**
 
 - One to eight rows per line, with adjustable scrolling speed
-- Free-form quote groups that can be renamed, merged, or cleared without deleting quotes
+- Quote groups with explicit create, update, delete, associate, and ungroup actions
 - Adjustable window transparency
 - Configurable colours for the background, quote names, prices, after-hours values, rising and falling changes, alert blinking, and four separate news colours
 

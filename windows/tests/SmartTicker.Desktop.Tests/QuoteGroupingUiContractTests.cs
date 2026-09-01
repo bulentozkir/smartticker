@@ -178,22 +178,29 @@ public sealed class QuoteGroupingUiContractTests
     }
 
     [Fact]
-    public void GroupManager_CanRenameMergeAndUngroup()
+    public void GroupManager_ExposesCrudAndOneGroupAssociationWorkflow()
     {
         var document = LoadView("QuoteGroupsWindow.axaml");
         Assert.Equal("True", (string?)document.Root!.Attribute("Topmost"));
-        var groupLookup = Assert.Single(document.Descendants(), element =>
-            element.Name.LocalName == "ComboBox" &&
+        Assert.Contains(document.Descendants(), element =>
+            element.Name.LocalName == "TextBox" &&
             (string?)element.Attribute("Text") == "{Binding ManagedGroupName, Mode=TwoWay}");
-        Assert.Equal("{Binding GroupNameOptions}", (string?)groupLookup.Attribute("ItemsSource"));
-        Assert.Equal("True", (string?)groupLookup.Attribute("IsEditable"));
         var commands = document.Descendants()
             .Select(element => (string?)element.Attribute("Command"))
             .Where(value => value is not null)
             .ToArray();
 
-        Assert.Contains("{Binding RenameQuoteGroupCommand}", commands);
-        Assert.Contains("{Binding ClearQuoteGroupCommand}", commands);
+        Assert.Contains("{Binding CreateQuoteGroupCommand}", commands);
+        Assert.Contains("{Binding UpdateQuoteGroupCommand}", commands);
+        Assert.Contains("{Binding DeleteQuoteGroupCommand}", commands);
+        Assert.Contains("{Binding AssociateSelectedQuoteCommand}", commands);
+        Assert.Contains("{Binding UngroupSelectedQuoteCommand}", commands);
+        Assert.Contains(document.Descendants(), element =>
+            element.Name.LocalName == "ListBox" &&
+            (string?)element.Attribute("ItemsSource") == "{Binding Subscriptions}" &&
+            (string?)element.Attribute("SelectedItem") == "{Binding SelectedGroupQuote, Mode=TwoWay}");
+        Assert.Contains(document.Descendants(), element =>
+            (string?)element.Attribute("Text") == "{Binding GroupNameDisplay}");
     }
 
     private static XDocument LoadView(string name) => XDocument.Load(ViewPath(name));

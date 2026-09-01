@@ -96,4 +96,6 @@ public sealed class StaticNewsGroup : ObservableObject
 public sealed record QuoteGroupSummary(string Name, int QuoteCount, string Symbols)
 {
     public string CountText => $"{QuoteCount} quote{(QuoteCount == 1 ? string.Empty : "s")}";
+
+    public string SymbolsDisplay => string.IsNullOrWhiteSpace(Symbols) ? "No quotes assigned" : Symbols;
 }
