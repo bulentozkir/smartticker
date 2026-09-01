@@ -13,12 +13,15 @@
         WindowStartupLocation="CenterOwner"
         Background="#0D1117">
     <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="24" RowSpacing="16">
-        <StackPanel Grid.Row="0" Spacing="5">
-            <TextBlock Text="Alerts" FontSize="24" FontWeight="SemiBold" Foreground="#E6EDF3" />
-            <TextBlock TextWrapping="Wrap" Foreground="#8B949E"
-                       Text="Rules are checked after every price refresh and fire once when the condition becomes true." />
-            <TextBlock Text="{Binding AlertStoreLocation}" TextWrapping="Wrap" FontSize="12" Foreground="#6E7681" />
-        </StackPanel>
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel Spacing="5">
+                <TextBlock Text="Alerts" FontSize="24" FontWeight="SemiBold" Foreground="#E6EDF3" />
+                <TextBlock TextWrapping="Wrap" Foreground="#8B949E"
+                           Text="Rules are checked after every price refresh and fire once when the condition becomes true." />
+                <TextBlock Text="{Binding AlertStoreLocation}" TextWrapping="Wrap" FontSize="12" Foreground="#6E7681" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Help" Click="ShowHelp" Padding="14,7" VerticalAlignment="Top" />
+        </Grid>
 
         <Border Grid.Row="1" Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
             <StackPanel Spacing="14">

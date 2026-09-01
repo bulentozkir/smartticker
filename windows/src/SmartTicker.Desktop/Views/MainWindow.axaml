@@ -92,6 +92,7 @@
                               IsChecked="{Binding Language, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=zh}" />
                 </MenuItem>
                 <Separator />
+                <MenuItem Header="{Binding Text.MenuHelp}" Click="ShowHelp" />
                 <MenuItem Header="{Binding Text.MenuAbout}" Click="ShowAbout" />
                 <MenuItem Header="{Binding Text.MenuExit}" Click="ExitApplication" />
             </ContextMenu>

@@ -28,15 +28,18 @@
         </DataTemplate>
     </Window.Resources>
     <Grid RowDefinitions="Auto,*,Auto,200" Margin="24" RowSpacing="16">
-        <StackPanel Grid.Row="0" Spacing="5">
-            <TextBlock Text="Quotes" FontSize="24" FontWeight="SemiBold" Foreground="#E6EDF3" />
-            <TextBlock Text="Stocks, ETFs, Commodities, and News configuration"
-                       TextWrapping="Wrap" Foreground="#8B949E" />
-            <TextBlock Text="Add each symbol/source combination separately. The same symbol may be added any number of times."
-                       TextWrapping="Wrap" Foreground="#8B949E" />
-            <TextBlock Text="Sign-in does not authorize crawling. SmartTicker does not collect passwords, browser cookies, or authenticated sessions."
-                       TextWrapping="Wrap" Foreground="#D9822B" FontWeight="SemiBold" />
-        </StackPanel>
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel Spacing="5">
+                <TextBlock Text="Quotes" FontSize="24" FontWeight="SemiBold" Foreground="#E6EDF3" />
+                <TextBlock Text="Stocks, ETFs, Commodities, and News configuration"
+                           TextWrapping="Wrap" Foreground="#8B949E" />
+                <TextBlock Text="Add each symbol/source combination separately. The same symbol may be added any number of times."
+                           TextWrapping="Wrap" Foreground="#8B949E" />
+                <TextBlock Text="Sign-in does not authorize crawling. SmartTicker does not collect passwords, browser cookies, or authenticated sessions."
+                           TextWrapping="Wrap" Foreground="#D9822B" FontWeight="SemiBold" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Help" Click="ShowHelp" Padding="14,7" VerticalAlignment="Top" />
+        </Grid>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="12">

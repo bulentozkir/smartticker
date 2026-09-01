@@ -20,6 +20,8 @@ public partial class SettingsWindow : Window
         };
     }
 
+    private void ShowHelp(object? sender, RoutedEventArgs e) => HelpWindow.Open(this);
+
     private Task<bool> ConfirmAlertRemovalAsync(string symbol, int count) =>
         ConfirmDialog.ShowAsync(
             this,

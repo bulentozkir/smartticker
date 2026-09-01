@@ -27,6 +27,8 @@ public partial class AppSettingsWindow : Window
         InitializeComponent();
     }
 
+    private void ShowHelp(object? sender, RoutedEventArgs e) => HelpWindow.Open(this);
+
     private async void ValidateAllSources(object? sender, RoutedEventArgs e)
     {
         if (_sourceValidationRunning || DataContext is not MainViewModel viewModel)

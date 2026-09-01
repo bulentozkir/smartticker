@@ -16,6 +16,7 @@ public sealed class TranslationsTests
             Assert.False(string.IsNullOrWhiteSpace(strings.MenuQuotes), code);
             Assert.False(string.IsNullOrWhiteSpace(strings.MenuLanguage), code);
             Assert.False(string.IsNullOrWhiteSpace(strings.MenuExit), code);
+            Assert.False(string.IsNullOrWhiteSpace(strings.MenuHelp), code);
             Assert.False(string.IsNullOrWhiteSpace(strings.StatusPaused), code);
             Assert.False(string.IsNullOrWhiteSpace(strings.TitleAppSettings), code);
         }

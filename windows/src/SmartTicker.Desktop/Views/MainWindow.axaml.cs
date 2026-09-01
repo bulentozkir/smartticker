@@ -103,6 +103,8 @@ public partial class MainWindow : Window
 
     private void ExitApplication(object? sender, RoutedEventArgs e) => Close();
 
+    private void ShowHelp(object? sender, RoutedEventArgs e) => HelpWindow.Open(this);
+
     private void ShowAbout(object? sender, RoutedEventArgs e) => new AboutWindow { DataContext = DataContext }.ShowDialog(this);
 
     private void OpenSettings(object? sender, RoutedEventArgs e)

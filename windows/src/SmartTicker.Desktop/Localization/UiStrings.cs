@@ -21,6 +21,8 @@ public sealed class UiStrings
 
     public required string MenuLanguage { get; init; }
 
+    public required string MenuHelp { get; init; }
+
     public required string MenuAbout { get; init; }
 
     public required string MenuExit { get; init; }

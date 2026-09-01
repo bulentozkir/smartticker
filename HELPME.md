@@ -1,0 +1,526 @@
+# SmartTicker Help
+
+This guide applies to SmartTicker 1.0.1. It explains the main ticker, App Settings,
+Quotes, alert rules, website permissions, backups, and common problems.
+
+SmartTicker reads public static HTML from webpages that you configure. It does not
+provide a market-data feed, and extracted information can be delayed, incomplete, or
+wrong. Verify important financial information with an authoritative source.
+
+## Quick navigation
+
+| Area | Jump to |
+| --- | --- |
+| Getting started | [Open Help and configuration windows](#open-help-and-configuration-windows) |
+| Main ticker | [Controls](#main-ticker-controls) · [Move](#move-the-ticker) · [Resize](#resize-the-ticker) · [Pause](#pause-and-resume) · [Menu reference](#main-menu-reference) |
+| Quotes and news | [Quotes](#quotes) · [Add an entry](#add-a-quote-or-news-entry) · [Source URLs](#source-presets-and-urls) · [Selectors](#selector-field-reference) · [Discovery](#discover-selectors) · [Validation](#validate-a-source) |
+| Application preferences | [App Settings](#app-settings) · [Rows and speed](#ticker-rows-and-speed) · [Startup](#start-smartticker-when-signing-in) · [Website access](#website-access) · [Appearance](#appearance) · [Backup and restore](#backup-and-restore) |
+| Price alerts | [Alert rules](#alert-rules) · [Create a rule](#create-a-rule) · [Firing behavior](#when-a-rule-fires) · [Alert output](#alert-output-settings) · [Manage rules](#manage-configured-rules) |
+| Data and support | [Local files and privacy](#local-files-and-privacy) · [Troubleshooting](#troubleshooting) · [Support](#support) |
+
+## Open Help and configuration windows
+
+Right-click the ticker to open its menu. The main configuration commands are:
+
+- **Quotes...**: add, test, edit, order, and remove quote or news sources.
+- **Alerts**: create and manage price alert rules.
+- **App Settings...**: configure rows, speeds, refresh intervals, startup, website
+	access, colors, transparency, and backups.
+- **Help**: open this guide inside SmartTicker.
+- **About SmartTicker**: show the installed version and license notice.
+- **Exit**: close SmartTicker completely.
+
+The Help window checks the following online document whenever you open it or select
+**Reload**:
+
+<https://raw.githubusercontent.com/bulentozkir/smartticker/refs/heads/main/HELPME.md>
+
+If the online document cannot be downloaded, SmartTicker displays the copy embedded in
+your installed application. **Open online** opens the same raw document in your default
+browser.
+
+## Main ticker controls
+
+### Move the ticker
+
+Press and hold the vertical-dot grip at the top of the narrow left strip, drag the
+ticker, and release the mouse button. Ticker text is not a drag surface, so selecting
+or clicking content cannot accidentally start a window move.
+
+### Resize the ticker
+
+Move the pointer onto any edge or corner until a resize cursor appears, then press and
+drag. The lower-right corner has a small visible resize mark. The minimum window width
+is 420 pixels. The height is limited to 50 through 900 pixels.
+
+The configured price and news row counts determine the normal height. A manual window
+size or position is not part of the settings backup and can reset when row or line
+visibility settings change.
+
+### Pause and resume
+
+Select the status button below the move grip, or right-click and select
+**Pause / Resume**. Pausing stops automatic price and news refreshes and freezes the
+marquee. Resume to restart normal activity.
+
+### Open links
+
+Double-click linked ticker text, including a news headline, to open its source in your
+default browser. SmartTicker does not open links on a single click.
+
+### Main menu reference
+
+| Command | Effect |
+| --- | --- |
+| **Show price line** | Show or hide all configured price rows. |
+| **Show news line** | Show or hide all configured news rows. |
+| **Refresh prices now** | Request all permitted entries that collect prices immediately when SmartTicker is not paused. |
+| **Refresh news now** | Request all permitted entries that collect news immediately when SmartTicker is not paused. |
+| **Pause / Resume** | Toggle refreshing and marquee movement. |
+| **Language** | Choose one of the 16 supported menu/status languages. |
+
+Line visibility, language, and the other configuration values are saved automatically.
+
+## Quotes
+
+Open **Quotes...** from the right-click menu. Each configured entry represents one
+symbol and one webpage. Duplicate symbols are allowed and remain independent because
+each entry has its own source, selectors, collection options, and alerts.
+
+### Quick start with the published sample
+
+When no entries exist, the Quotes window offers **Import sample quotes from GitHub**.
+This downloads the repository sample and replaces the current application settings.
+Review every imported URL and each website's current terms before using it. You can
+edit or remove any sample entry afterward.
+
+### Add a quote or news entry
+
+1. Enter the **Ticker** label, such as `MSFT`. SmartTicker trims it and stores it in
+	 uppercase.
+2. Select a **Source** preset.
+3. Enter the **URL suffix**, or a complete URL when using **Custom URL**.
+4. Select **Price**, **News**, or both under **Collect**. At least one is required.
+5. Enter selectors manually, use the discovery buttons, or leave optional selectors
+	 blank to use built-in detection.
+6. Select **Validate URL** to test the regular price and/or headlines.
+7. If SmartTicker requests source approval, review the website and confirm only when
+	 you are permitted to collect from it.
+8. Select **Add independent entry**. SmartTicker saves the entry and refreshes its
+	 enabled data immediately.
+
+### Source presets and URLs
+
+| Source | What to enter | Policy shown by SmartTicker |
+| --- | --- | --- |
+| **Yahoo Finance** | A suffix after `https://finance.yahoo.com/`, for example `quote/MSFT/`. | Written permission required. Yahoo's terms prohibit automated collection without prior permission. |
+| **CNBC** | A suffix after `https://www.cnbc.com/`. | Check the site's current policy and robots directives. |
+| **Trading Economics** | A suffix after `https://tradingeconomics.com/`. | Prefer a documented API or authorized feed and check the site's current policy. |
+| **Custom URL** | A complete public `http://` or `https://` page URL. | Review the site's terms, privacy policy, and automated-access rules. |
+
+Only absolute HTTP and HTTPS URLs are accepted. URLs containing embedded usernames or
+passwords are rejected. A browser login does not authorize SmartTicker to collect a
+page, and SmartTicker does not use authenticated browser sessions.
+
+The **Full URL** line shows the final address produced from the preset prefix and your
+suffix. Check it before validation or discovery.
+
+### Collect options
+
+- **Price** requests the regular price. Optional change, pre-market, and after-hours
+	selectors are evaluated from the same downloaded page.
+- **News** requests headline links from the page.
+- Selecting both lets one entry contribute to both ticker areas.
+- Clearing both is invalid.
+
+### Selector field reference
+
+A CSS selector identifies an element in a webpage's static HTML. Selectors are
+optional unless automatic detection cannot find the value you need.
+
+| Field | Value SmartTicker extracts |
+| --- | --- |
+| **Price selector** | Regular or closing price. |
+| **Price change** | Regular-session percentage change. When blank, built-in change detection is attempted. |
+| **Pre-market selector** | Pre-market price, when that session exists on the page. |
+| **Pre-market change** | Pre-market percentage change. |
+| **After-hours selector** | Post-market or after-hours price. |
+| **After-hours change** | Post-market or after-hours percentage change. |
+| **News selector** | Headline links. Select an anchor or a container whose results include links. |
+
+Pre-market and after-hours values supplement the regular price; they do not replace
+it. A page may omit those elements outside the corresponding market session.
+
+Example Yahoo Finance selectors used by the published sample are:
+
+```text
+Price:                  [data-testid="qsp-price"]
+Price change:           section.primary span[data-testid="qsp-price-change-percent"]
+Pre-market price:       section.secondary span[data-testid="qsp-pre-price"]
+Pre-market change:      section.secondary span[data-testid="qsp-pre-price-change-percent"]
+After-hours price:      section.secondary span[data-testid="qsp-post-price"]
+After-hours change:     section.secondary span[data-testid="qsp-post-price-change-percent"]
+```
+
+Website markup changes over time. Treat examples as starting points, not permanent
+contracts.
+
+### Discover selectors
+
+Each selector field has a matching **Discover** button.
+
+1. Complete the source URL and approve the website if approval is required.
+2. Select the discovery button for the exact value type.
+3. SmartTicker downloads public static HTML and lists possible selectors with a sample
+	 value, confidence percentage, and reason in the tooltip.
+4. Select **Use** beside a suggestion to copy it into the matching field.
+5. Validate or observe the result before relying on it.
+
+Discovery does not run JavaScript, sign in, bypass access controls, or inspect your
+browser. A JavaScript-only value may have no discoverable selector. Separate discovery
+types deliberately avoid mixing pre-market and after-hours values.
+
+### Validate a source
+
+**Validate URL** requests the page and reports the regular price and/or number of
+headlines it can read. It is safe to use before entering a ticker because SmartTicker
+uses a temporary label for the test.
+
+This validation does not currently verify the four pre-market and after-hours selector
+fields. Use their discovery sample values and then confirm the displayed session data.
+
+Typical failures include an HTTP error, timeout, missing value, zero headlines, source
+permission not approved, JavaScript-only content, or a stale selector.
+
+### News repeat limit
+
+**Show max _N_ times** accepts 1 through 100 and defaults to 5. SmartTicker counts one
+showing for each news refresh in which the same headline title appears. Once the title
+has appeared in the configured number of refreshes, it is retired for the rest of the
+current application session. Editing or removing that entry clears its repeat history.
+
+### Edit, order, and remove entries
+
+The **Configured entries** list shows symbol, source, URL, collection badges, regular
+price selector, news selector, and news repeat limit.
+
+- **Edit** loads the entry into the form. Select **Save changes** to apply it or
+	**Cancel edit** to discard form changes.
+- The up and down arrow buttons change ticker order and save it immediately.
+- **Remove** deletes the entry and its current displayed data.
+- If alert rules target the entry, SmartTicker asks about deleting those rules. An
+	alert with no matching configured quote cannot fire.
+- Renaming an entry updates alert rule display symbols for rules attached to that entry.
+
+## App Settings
+
+Open **App Settings...** from the right-click menu. Changes take effect and save
+automatically; there is no Apply button.
+
+### Ticker rows and speed
+
+| Setting | Choices | Default | Effect |
+| --- | --- | --- | --- |
+| Price rows | 1 through 8 | 1 | Number of parallel price marquee rows. |
+| Price scroll speed | 20, 30, 40, 50, 65, 80, 100, or 120 px/sec | 50 | Price marquee speed. |
+| News rows | 1 through 8 | 1 | Number of parallel headline marquee rows. |
+| News scroll speed | 20, 30, 40, 50, 65, 80, 100, or 120 px/sec | 40 | News marquee speed. |
+| Price refresh | 30 through 300 seconds, in 15-second steps | 60 seconds | Automatic regular-price refresh interval. |
+| News refresh | 30 through 300 seconds, in 15-second steps | 300 seconds | Automatic headline refresh interval. |
+
+The website's policy, robots directives, server throttling, and requested backoff take
+priority over a configured interval. Avoid unnecessarily frequent requests.
+
+Use **Show price line** and **Show news line** in the main right-click menu to hide a
+whole ticker area without deleting its entries.
+
+### Start SmartTicker when signing in
+
+Enable **Start SmartTicker when I sign in** to register the installed executable for
+the current user only.
+
+- On Windows, SmartTicker uses the current user's `Run` registry key.
+- On Linux desktops that support the freedesktop autostart convention, SmartTicker
+	writes `smartticker.desktop` in the user's autostart directory.
+- The option is disabled on platforms where SmartTicker has no supported registration
+	mechanism.
+
+The operating system is authoritative. If startup is changed outside SmartTicker, the
+checkbox reflects the OS state the next time settings are loaded.
+
+### Website access
+
+**Allow website cookies and cross-host redirects** is disabled by default.
+
+When disabled:
+
+- SmartTicker requires one explicit approval for each website host before requesting
+	it.
+- Website cookies are not accepted.
+- Redirects to a different host are blocked.
+- Approved hosts are remembered in local settings.
+
+When enabled:
+
+- SmartTicker skips its per-host approval step.
+- Cookies set by requested websites are held only in an isolated in-memory container
+	and disappear when SmartTicker exits.
+- Redirects to other hosts may be followed.
+- SmartTicker still does not read browser cookies, submit credentials, or submit
+	sign-in forms.
+
+Changing this option off removes currently displayed data from unapproved sources
+until those hosts are approved and refreshed.
+
+#### Website privacy choices
+
+If a response is recognized as a privacy/cookie form containing both positive and
+negative choices, SmartTicker pauses and displays the page title, requested URL,
+consent URL, form summary, and the website's Accept/Reject labels.
+
+- **Accept** submits the hidden fields supplied by that form plus the exact Accept
+	control you selected.
+- **Reject** submits those hidden fields plus the exact Reject control you selected.
+- **Cancel** submits nothing.
+
+This is a website's privacy choice, not SmartTicker's per-source permission approval.
+
+#### Validate all sources
+
+Select **Validate all sources** to review and test every configured entry.
+
+1. If website access is restricted, SmartTicker groups unapproved entries by hostname
+	 and displays one source-review dialog per host.
+2. Review the host, policy summary, guidance, source names, and symbols.
+3. Check the confirmation only if you reviewed the website and are permitted to use it.
+4. Choose **Approve this source**, **Skip this source**, or **Cancel validation**.
+5. SmartTicker tests each permitted entry and reports passed, failed, and skipped
+	 totals. Individual problems appear below the status line.
+
+Approval records permission inside SmartTicker; it does not grant legal rights or
+override the website's terms.
+
+### Appearance
+
+**Window transparency** changes only the ticker background. Text remains opaque. The
+range is 20% through 100%, in 5% steps, and the default is 100%.
+
+Color fields accept `#RRGGBB` hexadecimal values and also provide a color picker.
+
+| Color | Default | Used for |
+| --- | --- | --- |
+| Background | `#10151D` | Ticker background before transparency is applied. |
+| Quote name | `#79C0FF` | Symbol/source label. |
+| Close price | `#FFA657` | Regular price. |
+| After hours | `#00E5FF` | Pre-market and after-hours prices. |
+| News 1st | `#FFFFFF` | Headlines 1, 5, 9, and so on. |
+| News 2nd | `#00E5FF` | Headlines 2, 6, 10, and so on. |
+| News 3rd | `#A3E635` | Headlines 3, 7, 11, and so on. |
+| News 4th | `#79C0FF` | Headlines 4, 8, 12, and so on. |
+| Change up | `#3FB950` | Positive percentage changes. |
+| Change down | `#F85149` | Negative percentage changes. |
+
+**Reset to defaults** restores every color above and 100% background opacity. It does
+not reset rows, speeds, sources, refresh intervals, alerts, or language.
+
+### Backup and restore
+
+SmartTicker keeps application settings and alert rules in separate JSON files and
+provides separate buttons for each backup type.
+
+#### Export and import settings
+
+- **Export settings...** writes configured entries, entry order, selectors, approved
+	hosts, line visibility, rows, speeds, refresh intervals, startup preference, website
+	access option, colors, transparency, and language.
+- **Import settings...** validates the entire file before changing anything. A rejected
+	file leaves current settings unchanged.
+- A successful import replaces every configured entry and application preference. It
+	does not replace the separate alert-rules file.
+- The startup preference is present in a settings backup, but importing it does not
+	silently change OS startup registration. The operating system remains authoritative;
+	use the Startup checkbox to change registration on the current computer.
+- Import files are limited to 1 MiB, schema version 1, and at most 200 subscriptions.
+	Unknown properties, duplicate IDs, malformed URLs, invalid colors, invalid ranges,
+	or unsupported language codes are rejected rather than silently ignored.
+
+#### Export and import alert rules
+
+- **Export alert rules...** writes all rules plus Buzz, buzz count, and blink duration.
+- **Import alert rules...** validates the whole file, then replaces all current rules
+	and alert-fire settings.
+- Rules first reconnect by subscription ID. When IDs differ, SmartTicker tries a
+	case-insensitive symbol match.
+- An imported rule with no matching quote is retained but cannot fire. The import
+	status reports how many rules were re-linked or remain unmatched.
+- Alert import files are limited to 1 MiB.
+
+For a transfer to another computer, import application settings first and alert rules
+second. Importing alerts second allows rules to reconnect to the new subscription IDs
+by symbol.
+
+## Alert rules
+
+Open **Alerts** from the right-click menu. Rules are evaluated after each successful
+price refresh and watch the regular price only, not pre-market or after-hours values.
+
+### Create a rule
+
+1. Select a configured **Quote**. Entries with the same symbol remain distinct.
+2. Select a **Condition** and enter a numeric threshold using an invariant decimal such
+	 as `250.50`.
+3. Optionally choose **Active from**. Leave it empty to activate immediately.
+4. Leave **Never expires** checked, or clear it and choose an expiry date.
+5. Select **Add rule**.
+
+The available comparisons are:
+
+| Choice | Meaning |
+| --- | --- |
+| `LessThan` | Price `<` threshold. |
+| `LessThanOrEqual` | Price `<=` threshold. |
+| `GreaterThan` | Price `>` threshold. |
+| `GreaterThanOrEqual` | Price `>=` threshold. |
+| `EqualTo` | Price equals the threshold exactly. |
+| `NotEqualTo` | Price differs from the threshold. |
+
+The start boundary is inclusive. The expiry boundary is also inclusive; after it has
+passed, the rule no longer fires. SmartTicker rejects an expiry earlier than the start.
+
+### When a rule fires
+
+An enabled, scheduled rule fires once when its condition changes from false to true.
+It does not notify on every refresh while the condition remains true. After the price
+leaves the condition, the rule re-arms and can fire when the price enters it again.
+
+Editing a rule or disabling and re-enabling it also re-arms it. Therefore, an enabled
+rule can fire immediately if the most recent regular price already satisfies its
+condition. A failed or missing price cannot trigger a rule.
+
+When one or more rules fire:
+
+- The affected price entry alternates magenta and black for the configured duration.
+- If **Buzz** is enabled, SmartTicker plays the configured buzz sequence.
+- The alert message identifies one rule or reports the number of rules fired together.
+- Ticker scrolling continues while the alert highlight is active.
+
+### Alert output settings
+
+| Setting | Range | Default |
+| --- | --- | --- |
+| **Buzz** | On or off | On |
+| Buzz count | 1 through 20 | 15 |
+| **Blink for** | 5 through 900 seconds, in 15-second steps | 60 seconds |
+
+Disabling Buzz leaves the visual alert active. If several rules fire in the same
+evaluation, SmartTicker starts one configured buzz sequence for that evaluation.
+
+### Manage configured rules
+
+- **Edit** loads a rule into the form. Select **Update rule** to save or **Cancel** to
+	leave it unchanged.
+- **Disable** keeps the rule but stops it from matching. **Enable** re-arms it and
+	evaluates it against the latest regular price.
+- **Remove** deletes the rule.
+- The list shows enabled state, symbol, condition summary, and schedule.
+
+Alert rule changes and alert output settings save automatically.
+
+## Local files and privacy
+
+SmartTicker stores configuration locally and does not synchronize it to a developer
+service.
+
+On Windows, the default files are:
+
+```text
+%LocalAppData%\SmartTicker\settings.json
+%LocalAppData%\SmartTicker\alerts.json
+```
+
+On Linux, .NET uses the current user's local application-data directory, normally:
+
+```text
+~/.local/share/SmartTicker/settings.json
+~/.local/share/SmartTicker/alerts.json
+```
+
+The Alerts window displays the exact alert file path in use. Writes use a temporary
+file followed by replacement so a partially written file is not treated as current
+configuration.
+
+SmartTicker has no account, telemetry, analytics, advertising, or cloud sync. A source
+website receives normal network information such as your IP address when SmartTicker
+requests that source. Opening Help requests the raw guide from GitHub. For complete
+details, read `PRIVACY.md` in the repository.
+
+You are responsible for ensuring that each source URL and selector is used in
+accordance with the website's terms, license, robots directives, and applicable law.
+
+## Troubleshooting
+
+### A quote shows unavailable or no price
+
+1. Open **Quotes...**, edit the entry, and check the Full URL.
+2. Confirm **Price** is selected.
+3. Approve the website if prompted.
+4. Select **Validate URL** and read its exact result.
+5. Run **Discover price**, or inspect the page's static HTML and update the selector.
+6. Check whether the page requires JavaScript, authentication, or consent that
+	 SmartTicker cannot safely handle.
+7. Respect HTTP 403, 429, robots restrictions, and the site's automated-access policy.
+
+### Pre-market or after-hours data is missing
+
+- The corresponding market session may not be active.
+- The page may omit the session element when no session value exists.
+- Verify that pre-market selectors target pre-market elements and after-hours selectors
+	target post-market elements.
+- Run the matching discovery command again because website markup may have changed.
+
+### News is empty
+
+- Confirm **News** is selected.
+- Validate the source and run **Discover news**.
+- Ensure the selector returns links with visible headline text.
+- A headline disappears after reaching its configured repeat limit for this session.
+
+### Selector discovery finds nothing
+
+Discovery reads only the downloaded static HTML. It cannot see values created later by
+page JavaScript. Enter a verified selector manually, choose a static page/feed, or use
+an authorized documented API through a compatible public page.
+
+### An alert does not fire
+
+- Confirm the attached quote still exists, collects Price, and has a successful regular
+	price.
+- Confirm the rule is Enabled and within its start/expiry schedule.
+- Check the comparison and threshold. `EqualTo` requires exact decimal equality.
+- Remember that a continuously true condition fires once; it must become false before
+	it can fire again, unless you edit or re-enable the rule.
+- Pre-market and after-hours prices do not drive alert rules.
+
+### SmartTicker cannot move or resize
+
+- Move only from the vertical-dot grip in the left strip.
+- Resize from an edge or corner; use the visible lower-right mark if an edge is hard to
+	locate.
+- Ticker content is intentionally not a move surface.
+
+### Online Help is unavailable or out of date
+
+- Select **Reload** in the Help window.
+- Select **Open online** to test the raw GitHub address in your browser.
+- SmartTicker uses the embedded guide when the request fails or returns an empty file.
+- Online changes appear only after the updated `HELPME.md` is published on the
+	repository's `main` branch.
+
+## Support
+
+Report reproducible problems at:
+
+<https://github.com/bulentozkir/smartticker/issues>
+
+Include the SmartTicker version, operating system, source hostname, validation status,
+and exact error text. Remove private URLs or other sensitive information before posting.

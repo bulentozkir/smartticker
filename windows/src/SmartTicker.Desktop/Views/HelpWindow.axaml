@@ -1,0 +1,40 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SmartTicker.Desktop.Views.HelpWindow"
+        Icon="/Assets/SmartTicker.ico"
+        Title="SmartTicker Help"
+        Width="820"
+        Height="700"
+        MinWidth="560"
+        MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        Background="#10151D">
+    <Grid Margin="20" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
+        <StackPanel Grid.Row="0" Spacing="3">
+            <TextBlock Text="SmartTicker Help" FontSize="24" FontWeight="SemiBold" Foreground="#70E1A1" />
+            <TextBlock Text="Configuration guide" Opacity="0.75" />
+        </StackPanel>
+
+        <TextBlock Name="StatusText" Grid.Row="1" Text="Loading online help…" TextWrapping="Wrap" Opacity="0.8" />
+
+        <Border Grid.Row="2" BorderBrush="#2D3748" BorderThickness="1" CornerRadius="4" Background="#0B1017">
+            <TextBox Name="HelpText"
+                     IsReadOnly="True"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     Padding="16"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     FontFamily="Cascadia Mono, Consolas"
+                     FontSize="13" />
+        </Border>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Name="ReloadButton" Content="Reload" Click="ReloadHelp" Padding="14,7" />
+            <Button Content="Open online" Click="OpenOnlineHelp" Padding="14,7" />
+            <Button Content="Close" Click="CloseWindow" Padding="18,7" />
+        </StackPanel>
+    </Grid>
+</Window>

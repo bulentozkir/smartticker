@@ -13,11 +13,14 @@
         WindowStartupLocation="CenterOwner"
         Background="#0D1117">
     <Grid RowDefinitions="Auto,*,Auto" Margin="24" RowSpacing="16">
-        <StackPanel Grid.Row="0" Spacing="5">
-            <TextBlock Text="App Settings" FontSize="24" FontWeight="SemiBold" Foreground="#E6EDF3" />
-            <TextBlock Text="Ticker layout, scrolling speed, colors, and settings backup."
-                       TextWrapping="Wrap" Foreground="#8B949E" />
-        </StackPanel>
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel Spacing="5">
+                <TextBlock Text="App Settings" FontSize="24" FontWeight="SemiBold" Foreground="#E6EDF3" />
+                <TextBlock Text="Ticker layout, scrolling speed, colors, and settings backup."
+                           TextWrapping="Wrap" Foreground="#8B949E" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Help" Click="ShowHelp" Padding="14,7" VerticalAlignment="Top" />
+        </Grid>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel Spacing="14">
