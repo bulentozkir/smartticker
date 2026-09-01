@@ -52,6 +52,7 @@ public class SettingsImportValidatorTests
         Assert.True(settings.UseStaticGroupedView);
         Assert.Equal("#F85149", settings.PriceDownColor);
         Assert.Equal(["finance.yahoo.com"], settings.AcknowledgedSources);
+        Assert.Equal(["Mega-Cap Tech"], settings.QuoteGroupNames);
 
         var subscription = Assert.Single(settings.Subscriptions);
         Assert.Equal("MSFT", subscription.Symbol);
