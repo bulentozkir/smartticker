@@ -51,6 +51,9 @@ public sealed record SmartTickerSettings(
     [JsonPropertyName("quoteGroups")]
     public string[] QuoteGroupNames { get; init; } = [];
 
+    [JsonPropertyName("hiddenNewsQuotes")]
+    public Guid[] HiddenNewsQuotes { get; init; } = [];
+
     public bool ShowPriceLine { get; init; } = true;
 
     public bool ShowNewsLine { get; init; }
@@ -116,6 +119,7 @@ public sealed record SmartTickerSettings(
         Subscriptions = Subscriptions ?? [],
         AcknowledgedSources = AcknowledgedSources ?? [],
         QuoteGroupNames = NormalizeQuoteGroupNames(QuoteGroupNames, Subscriptions),
+        HiddenNewsQuotes = NormalizeHiddenNewsQuotes(HiddenNewsQuotes, Subscriptions),
         PriceRowCount = Math.Clamp(PriceRowCount, 1, 8),
         NewsRowCount = Math.Clamp(NewsRowCount, 1, 8),
         BackgroundOpacity = double.IsFinite(BackgroundOpacity)
@@ -144,5 +148,14 @@ public sealed record SmartTickerSettings(
         }
 
         return normalized.ToArray();
+    }
+
+    // A hidden quote is dropped once its entry is gone, so a deleted quote cannot linger in the file.
+    private static Guid[] NormalizeHiddenNewsQuotes(
+        IEnumerable<Guid>? hidden,
+        IEnumerable<TickerSubscription>? subscriptions)
+    {
+        var known = (subscriptions ?? []).Select(item => item.Id).ToHashSet();
+        return (hidden ?? []).Where(known.Contains).Distinct().ToArray();
     }
 }

@@ -88,8 +88,8 @@ the ticker's right-click **View** menu.
 - Open the one-line **Show news for** dropdown and check or clear each quote
 	independently. Any combination of quotes can be visible, including all or none. The
 	button summarises the current choice, and entries include the quote and source so
-	duplicate symbols remain independent. Selections are remembered across refreshes for
-	the current SmartTicker session.
+	duplicate symbols remain independent. Cleared quotes are saved in your settings file
+	as `hiddenNewsQuotes`, so they survive a restart and travel with a settings backup.
 - Drag the dotted handle beside any quote or news tile heading and drop it on the left
 	or right half of another tile. The order changes in both windows and is saved by
 	reordering the underlying configured entries.
@@ -473,9 +473,7 @@ provides separate buttons for each backup type.
 	Unknown properties, duplicate IDs, malformed URLs, invalid colors, invalid ranges,
 	or unsupported language codes are rejected rather than silently ignored.
 
-#### Export and import alert rules
-
-- **Export alert rules...** writes all rules plus Buzz, buzz count, and blink duration.
+#### Export and import alert rules- **Export alert rules...** writes all rules plus Buzz, buzz count, and blink duration.
 - **Import alert rules...** validates the whole file, then replaces all current rules
 	and alert-fire settings.
 - Rules first reconnect by subscription ID. When IDs differ, SmartTicker tries a

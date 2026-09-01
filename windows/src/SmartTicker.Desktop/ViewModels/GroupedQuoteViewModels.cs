@@ -81,13 +81,13 @@ public sealed class StaticNewsQuoteFilter : ObservableObject
 public sealed class StaticNewsGroup : ObservableObject
 {
     private readonly IReadOnlyList<StaticNewsRow> _allRows;
-    private readonly Action<string, Guid, bool> _filterChanged;
+    private readonly Action<Guid, bool> _filterChanged;
 
     public StaticNewsGroup(
         string name,
         IReadOnlyList<StaticNewsRow> rows,
         IReadOnlySet<Guid>? hiddenQuotes,
-        Action<string, Guid, bool> filterChanged)
+        Action<Guid, bool> filterChanged)
     {
         Name = name;
         _allRows = rows;
@@ -149,7 +149,7 @@ public sealed class StaticNewsGroup : ObservableObject
         OnPropertyChanged(nameof(Rows));
         OnPropertyChanged(nameof(CountText));
         OnPropertyChanged(nameof(FilterSummary));
-        _filterChanged(Name, subscriptionId, isShown);
+        _filterChanged(subscriptionId, isShown);
     }
 }
 

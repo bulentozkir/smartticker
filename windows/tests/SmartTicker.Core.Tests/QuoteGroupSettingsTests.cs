@@ -50,4 +50,59 @@ public sealed class QuoteGroupSettingsTests
         Assert.False(result.Success);
         Assert.Contains(result.Errors, error => error.Contains("quoteGroups", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void Normalize_DropsHiddenNewsQuotesThatNoLongerExist()
+    {
+        var kept = Guid.NewGuid();
+        var subscription = new TickerSubscription(
+            kept,
+            "MSFT",
+            "Example",
+            new Uri("https://example.com/MSFT"),
+            CollectPrice: true,
+            CollectNews: true);
+        var settings = SmartTickerSettings.Default with
+        {
+            Subscriptions = [subscription],
+            HiddenNewsQuotes = [kept, kept, Guid.NewGuid()],
+        };
+
+        Assert.Equal([kept], settings.Normalize().HiddenNewsQuotes);
+    }
+
+    [Fact]
+    public void Import_ReadsHiddenNewsQuotes()
+    {
+        var id = Guid.NewGuid();
+        var json = $$"""
+        {
+          "version": 1,
+          "subscriptions": [
+            {
+              "id": "{{id}}",
+              "symbol": "MSFT",
+              "sourceUri": "https://example.com/MSFT",
+              "collectPrice": true,
+              "collectNews": true
+            }
+          ],
+          "hiddenNewsQuotes": ["{{id}}"]
+        }
+        """;
+
+        var result = SettingsImportValidator.Validate(json);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Errors));
+        Assert.Equal([id], result.Settings!.HiddenNewsQuotes);
+    }
+
+    [Fact]
+    public void Import_RejectsAnInvalidHiddenNewsQuote()
+    {
+        var result = SettingsImportValidator.Validate("{\"version\":1,\"hiddenNewsQuotes\":[\"not-a-guid\"]}");
+
+        Assert.False(result.Success);
+        Assert.Contains(result.Errors, error => error.Contains("hiddenNewsQuotes", StringComparison.Ordinal));
+    }
 }

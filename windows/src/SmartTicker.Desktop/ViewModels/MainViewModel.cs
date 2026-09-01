@@ -457,6 +457,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly IStartupRegistration? _startupRegistration;
     private readonly WebsiteAccessPolicy _websiteAccessPolicy;
     private readonly DispatcherTimer _blinkTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private readonly DispatcherTimer _configReloadTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    private FileSystemWatcher? _settingsWatcher;
+    private FileSystemWatcher? _alertsWatcher;
+    private bool _settingsFileChanged;
+    private bool _alertsFileChanged;
+    private int _configReloadAttempts;
+    private DateTimeOffset _lastSelfWrite;
     private readonly Dictionary<Guid, DateTimeOffset> _blinkingUntil = [];
     private readonly Dictionary<Guid, DateTimeOffset> _priceChangeBlinkUntil = [];
     private readonly Dictionary<(Guid SubscriptionId, string Headline), DateTimeOffset> _newHeadlineBlinkUntil = [];
@@ -465,7 +472,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly SemaphoreSlim _priceRefreshGate = new(1, 1);
     private readonly SemaphoreSlim _newsRefreshGate = new(1, 1);
     private readonly NewsRepeatFilter _newsRepeatFilter = new();
-    private readonly Dictionary<string, HashSet<Guid>> _staticNewsHiddenQuotes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<Guid> _hiddenNewsQuotes = [];
     private readonly List<string> _quoteGroupNames = [];
     private SourceAcknowledgementLedger _acknowledgements = new();
     private readonly CancellationTokenSource _lifetimeCancellation = new();
@@ -504,6 +511,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         SelectedSource = SourceAlternatives[0];
         LoadSettings();
         LoadAlerts();
+        StartWatchingConfigFiles();
     }
 
     public string SourceSummary => string.Join("  •  ", SourceAlternatives.Select(source => source.Name));
@@ -674,12 +682,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         _quoteGroupNames[definitionIndex] = replacement;
-        if (_staticNewsHiddenQuotes.Remove(selected.Name, out var hiddenQuotes) &&
-            !_staticNewsHiddenQuotes.ContainsKey(replacement))
-        {
-            _staticNewsHiddenQuotes[replacement] = hiddenQuotes;
-        }
-
         for (var index = 0; index < Subscriptions.Count; index++)
         {
             if (string.Equals(Subscriptions[index].GroupName, selected.Name, StringComparison.OrdinalIgnoreCase))
@@ -706,7 +708,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         _quoteGroupNames.RemoveAll(name =>
             string.Equals(name, selected.Name, StringComparison.OrdinalIgnoreCase));
-        _staticNewsHiddenQuotes.Remove(selected.Name);
         var changed = 0;
         for (var index = 0; index < Subscriptions.Count; index++)
         {
@@ -1088,6 +1089,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         Subscriptions.Remove(subscription);
+        _hiddenNewsQuotes.Remove(subscription.Id);
         if (SelectedGroupQuote?.Id == subscription.Id)
         {
             SelectedGroupQuote = null;
@@ -2220,11 +2222,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                     HeadlineForeground = NewsBrushCycle[colorIndex++ % NewsBrushCycle.Count],
                 })
                 .ToArray();
-            _staticNewsHiddenQuotes.TryGetValue(group.Key, out var hiddenQuotes);
             groups.Add(new StaticNewsGroup(
                 group.Key,
                 rows,
-                hiddenQuotes,
+                _hiddenNewsQuotes,
                 SetStaticNewsQuoteVisibility));
         }
 
@@ -2279,28 +2280,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         ];
     }
 
-    private void SetStaticNewsQuoteVisibility(string groupName, Guid subscriptionId, bool isShown)
+    private void SetStaticNewsQuoteVisibility(Guid subscriptionId, bool isShown)
     {
-        if (isShown)
+        var changed = isShown
+            ? _hiddenNewsQuotes.Remove(subscriptionId)
+            : _hiddenNewsQuotes.Add(subscriptionId);
+        if (changed)
         {
-            if (_staticNewsHiddenQuotes.TryGetValue(groupName, out var hiddenQuotes))
-            {
-                hiddenQuotes.Remove(subscriptionId);
-                if (hiddenQuotes.Count == 0)
-                {
-                    _staticNewsHiddenQuotes.Remove(groupName);
-                }
-            }
-        }
-        else
-        {
-            if (!_staticNewsHiddenQuotes.TryGetValue(groupName, out var hiddenQuotes))
-            {
-                hiddenQuotes = [];
-                _staticNewsHiddenQuotes[groupName] = hiddenQuotes;
-            }
-
-            hiddenQuotes.Add(subscriptionId);
+            SaveSettings();
         }
     }
 
@@ -2368,6 +2355,164 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public string AlertStoreLocation => _alertStore?.FilePath ?? "(not available in the designer)";
 
+    public string SettingsStoreLocation => _settingsStore?.FilePath ?? "(not available in the designer)";
+
+    public void PersistSettings() => SaveSettings();
+
+    public void PersistAlerts() => SaveAlerts();
+
+    /// <summary>Applies a file edited outside SmartTicker; the file is already current, so it is not written back.</summary>
+    public SettingsImportResult ApplyEditedSettingsJson(string? json)
+    {
+        var result = SettingsImportValidator.Validate(json);
+        if (!result.Success)
+        {
+            ReportEditedConfigRejected("settings.json", result.Errors);
+            return result;
+        }
+
+        ApplySettings(result.Settings!);
+        UpdateTickerLines();
+        RaiseAcknowledgementChanged();
+        ReportImportSuccess("the edited settings.json", result.Settings!.Subscriptions.Length);
+        return result;
+    }
+
+    public AlertsImportResult ApplyEditedAlertsJson(string? json)
+    {
+        var result = ImportAlertsJson(json, persist: false);
+        if (!result.Success)
+        {
+            ReportEditedConfigRejected("alerts.json", result.Errors);
+        }
+
+        return result;
+    }
+
+    private void ReportEditedConfigRejected(string fileName, IReadOnlyList<string> problems)
+    {
+        ReportImportFailure(
+            fileName,
+            [
+                .. problems,
+                "Correct the file, or restore a valid export with Import settings\u2026 or Import alert rules\u2026.",
+            ]);
+    }
+
+    private void StartWatchingConfigFiles()
+    {
+        _configReloadTimer.Tick += (_, _) => ReloadChangedConfigFiles();
+        _settingsWatcher = CreateConfigWatcher(_settingsStore?.FilePath, () => _settingsFileChanged = true);
+        _alertsWatcher = CreateConfigWatcher(_alertStore?.FilePath, () => _alertsFileChanged = true);
+    }
+
+    private FileSystemWatcher? CreateConfigWatcher(string? filePath, Action onChanged)
+    {
+        var directory = string.IsNullOrWhiteSpace(filePath) ? null : Path.GetDirectoryName(filePath);
+        var fileName = string.IsNullOrWhiteSpace(filePath) ? null : Path.GetFileName(filePath);
+        if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName) || !Directory.Exists(directory))
+        {
+            return null;
+        }
+
+        try
+        {
+            var watcher = new FileSystemWatcher(directory, fileName)
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName,
+            };
+
+            // Editors save through temp files and renames, so every event restarts one debounce window.
+            void Queue(object? sender, FileSystemEventArgs args) => Dispatcher.UIThread.Post(() =>
+            {
+                onChanged();
+                _configReloadAttempts = 0;
+                _configReloadTimer.Stop();
+                _configReloadTimer.Start();
+            });
+
+            watcher.Changed += Queue;
+            watcher.Created += Queue;
+            watcher.Renamed += (sender, args) => Queue(sender, args);
+            watcher.EnableRaisingEvents = true;
+            return watcher;
+        }
+        catch (Exception exception)
+            when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private void ReloadChangedConfigFiles()
+    {
+        _configReloadTimer.Stop();
+
+        // SmartTicker's own saves raise the same events; only an outside edit should be re-imported.
+        if (DateTimeOffset.Now - _lastSelfWrite < TimeSpan.FromSeconds(1))
+        {
+            _settingsFileChanged = false;
+            _alertsFileChanged = false;
+            return;
+        }
+
+        if (_settingsFileChanged)
+        {
+            if (!TryReadConfigFile(_settingsStore?.FilePath, out var settingsJson))
+            {
+                RetryConfigReload();
+                return;
+            }
+
+            _settingsFileChanged = false;
+            ApplyEditedSettingsJson(settingsJson);
+        }
+
+        if (_alertsFileChanged)
+        {
+            if (!TryReadConfigFile(_alertStore?.FilePath, out var alertsJson))
+            {
+                RetryConfigReload();
+                return;
+            }
+
+            _alertsFileChanged = false;
+            ApplyEditedAlertsJson(alertsJson);
+        }
+    }
+
+    private void RetryConfigReload()
+    {
+        if (++_configReloadAttempts > 5)
+        {
+            _settingsFileChanged = false;
+            _alertsFileChanged = false;
+            EntryMessage = "An edited configuration file stayed locked by another program, so it was not reloaded.";
+            return;
+        }
+
+        _configReloadTimer.Start();
+    }
+
+    private static bool TryReadConfigFile(string? filePath, out string json)
+    {
+        json = string.Empty;
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+        {
+            return false;
+        }
+
+        try
+        {
+            json = File.ReadAllText(filePath);
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
     private bool _isApplyingAlerts;
 
     private void LoadAlerts()
@@ -2410,6 +2555,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             BlinkSeconds = AlertBlinkSeconds,
             BuzzCount = AlertBuzzCount,
         });
+        _lastSelfWrite = DateTimeOffset.Now;
     }
 
     partial void OnAlertSoundEnabledChanged(bool value) => SaveAlerts();
@@ -2817,6 +2963,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         SaveSettings();
+        _configReloadTimer.Stop();
+        _settingsWatcher?.Dispose();
+        _alertsWatcher?.Dispose();
         _lifetimeCancellation.Cancel();
         _lifetimeCancellation.Dispose();
         _priceRefreshGate.Dispose();
@@ -2886,6 +3035,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             SyncApprovedSourceHosts();
             _quoteGroupNames.Clear();
             _quoteGroupNames.AddRange(settings.QuoteGroupNames);
+            _hiddenNewsQuotes.Clear();
+            _hiddenNewsQuotes.UnionWith(settings.HiddenNewsQuotes);
             Subscriptions.Clear();
             foreach (var subscription in settings.Subscriptions)
             {
@@ -2938,6 +3089,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         AcknowledgedSources = _acknowledgements.ToArray(),
         QuoteGroupNames = _quoteGroupNames.ToArray(),
+        HiddenNewsQuotes = _hiddenNewsQuotes.ToArray(),
         ShowPriceLine = ShowPriceLine,
         ShowNewsLine = ShowNewsLine,
         UseStaticGroupedView = UseStaticGroupedView,
@@ -2971,7 +3123,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     });
 
     /// <summary>Validates untrusted JSON and only replaces the live alerts when every check passes.</summary>
-    public AlertsImportResult ImportAlertsJson(string? json)
+    public AlertsImportResult ImportAlertsJson(string? json) => ImportAlertsJson(json, persist: true);
+
+    private AlertsImportResult ImportAlertsJson(string? json, bool persist)
     {
         var result = AlertsImportValidator.Validate(json);
         if (!result.Success)
@@ -3026,7 +3180,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         _arming.Clear();
         ClearAlertForm();
-        SaveAlerts();
+        if (persist)
+        {
+            SaveAlerts();
+        }
 
         var notes = new List<string> { $"Imported {rules.Count} alert rule{(rules.Count == 1 ? string.Empty : "s")}" };
         if (relinked > 0)
@@ -3071,6 +3228,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         try
         {
             _settingsStore.Save(CurrentSettings());
+            _lastSelfWrite = DateTimeOffset.Now;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

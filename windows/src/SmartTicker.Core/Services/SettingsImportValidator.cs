@@ -37,6 +37,7 @@ public static class SettingsImportValidator
         "newsRefreshSeconds",
         "acknowledgedSources",
         "quoteGroups",
+        "hiddenNewsQuotes",
         "showPriceLine",
         "showNewsLine",
         "useStaticGroupedView",
@@ -115,6 +116,7 @@ public static class SettingsImportValidator
             {
                 AcknowledgedSources = ReadAcknowledgedSources(root, errors),
                 QuoteGroupNames = ReadQuoteGroups(root, errors),
+                HiddenNewsQuotes = ReadHiddenNewsQuotes(root, errors),
                 PriceRefreshSeconds = ReadInt(
                     root,
                     string.Empty,
@@ -418,7 +420,6 @@ public static class SettingsImportValidator
         {
             return [];
         }
-
         if (element.ValueKind != JsonValueKind.Array)
         {
             errors.Add($"'quoteGroups' must be a list of group names, but it is {Describe(element.ValueKind)}.");
@@ -458,6 +459,39 @@ public static class SettingsImportValidator
         }
 
         return names.ToArray();
+    }
+
+    private static Guid[] ReadHiddenNewsQuotes(Dictionary<string, JsonElement> root, List<string> errors)
+    {
+        if (!root.TryGetValue("hiddenNewsQuotes", out var element))
+        {
+            return [];
+        }
+
+        if (element.ValueKind != JsonValueKind.Array)
+        {
+            errors.Add($"'hiddenNewsQuotes' must be a list of quote ids, but it is {Describe(element.ValueKind)}.");
+            return [];
+        }
+
+        var hidden = new List<Guid>();
+        var index = 0;
+        foreach (var item in element.EnumerateArray())
+        {
+            var path = $"hiddenNewsQuotes[{index++}]";
+            if (item.ValueKind != JsonValueKind.String || !Guid.TryParse(item.GetString(), out var id))
+            {
+                errors.Add($"'{path}' must be a quoted quote id such as \"7c9e6679-7425-40de-944b-e07fc1f90ae7\".");
+                continue;
+            }
+
+            if (!hidden.Contains(id))
+            {
+                hidden.Add(id);
+            }
+        }
+
+        return hidden.ToArray();
     }
 
     private static Dictionary<string, JsonElement>? ReadObject(JsonElement element, string path, List<string> errors)

@@ -169,6 +169,31 @@ public sealed class QuoteGroupingUiContractTests
     }
 
     [Fact]
+    public void AppSettings_OffersDirectConfigFileEditingBehindAnExportFirstWarning()
+    {
+        var document = LoadView("AppSettingsWindow.axaml");
+        var handlers = document.Descendants()
+            .Select(element => (string?)element.Attribute("Click"))
+            .Where(value => value is not null)
+            .ToArray();
+
+        Assert.Contains("EditAppConfig", handlers);
+        Assert.Contains("EditAlertRules", handlers);
+
+        var code = File.ReadAllText(ViewPath("AppSettingsWindow.axaml.cs"));
+        Assert.Contains("EditConfigFileWorkflow.RunAsync(this, viewModel, ConfigFileKind.Settings)", code);
+        Assert.Contains("EditConfigFileWorkflow.RunAsync(this, viewModel, ConfigFileKind.Alerts)", code);
+
+        var workflow = File.ReadAllText(ViewPath("EditConfigFileWorkflow.cs"));
+        Assert.Contains("For advanced users", workflow);
+        Assert.Contains("Export existing config...", workflow);
+        Assert.Contains("Open in text editor", workflow);
+        Assert.Contains("Cancel", workflow);
+        Assert.Contains("reloads the file as soon as you save it", workflow);
+        Assert.Contains("LocalConfigFileLauncher().TryOpen(path)", workflow);
+    }
+
+    [Fact]
     public void ResponsiveTilePanel_FillsAvailableWidthWithoutLeftoverGaps()
     {
         var panel = new ResponsiveTilePanel

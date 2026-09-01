@@ -336,10 +336,11 @@ public sealed class SourceValidationTests
             UseStaticGroupedView = true,
             ShowNewsLine = true,
         };
+        var store = new TestSettingsStore(settings);
         using var viewModel = new MainViewModel(
             selectorDiscovery: null,
             quoteFetcher: null,
-            settingsStore: new TestSettingsStore(settings),
+            settingsStore: store,
             newsFetcher: new InterleavedNewsFetcher());
 
         await viewModel.RefreshNewsAsync();
@@ -357,13 +358,16 @@ public sealed class SourceValidationTests
         Assert.All(group.Rows, row => Assert.Equal("AAPL", row.Symbol));
         Assert.Equal("3 of 6 headlines", group.CountText);
         Assert.Equal("AAPL", group.FilterSummary);
+        Assert.Equal([microsoft.Id], store.Saved!.HiddenNewsQuotes);
 
         group.QuoteFilters.Single(filter => filter.SubscriptionId == apple.Id).IsShown = false;
         Assert.Empty(group.Rows);
         Assert.Equal("No quotes", group.FilterSummary);
+        Assert.Equal([microsoft.Id, apple.Id], store.Saved.HiddenNewsQuotes);
 
         group.QuoteFilters.Single(filter => filter.SubscriptionId == apple.Id).IsShown = true;
         Assert.All(group.Rows, row => Assert.Equal("AAPL", row.Symbol));
+        Assert.Equal([microsoft.Id], store.Saved.HiddenNewsQuotes);
 
         await viewModel.RefreshNewsAsync();
 
@@ -562,6 +566,51 @@ public sealed class SourceValidationTests
         Assert.Equal(["First", "Second"], rows.Select(row => row.Headline));
         Assert.Equal(Brushes.Transparent, rows[0].Background);
         Assert.Equal(Color.Parse("#8B4513"), Assert.IsType<SolidColorBrush>(rows[1].Background).Color);
+    }
+
+    [Fact]
+    public void ApplyEditedSettingsJson_AppliesAValidInPlaceEditWithoutWritingItBack()
+    {
+        var store = new TestSettingsStore(SmartTickerSettings.Default with
+        {
+            Subscriptions = [Subscription("MSFT", "Example", "https://example.com/MSFT")],
+        });
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: store);
+
+        var result = viewModel.ApplyEditedSettingsJson(
+            """{"version":1,"subscriptions":[],"quoteGroups":["Edited"],"priceRowCount":3}""");
+
+        Assert.True(result.Success);
+        Assert.Empty(viewModel.Subscriptions);
+        Assert.Equal(["Edited"], viewModel.GroupNameOptions);
+        Assert.Equal(3, viewModel.PriceRowCount);
+        // The file on disk is already the source of truth, so nothing is written back over the edit.
+        Assert.Null(store.Saved);
+    }
+
+    [Fact]
+    public void ApplyEditedSettingsJson_RejectsAMalformedEditAndKeepsTheCurrentConfiguration()
+    {
+        var store = new TestSettingsStore(SmartTickerSettings.Default with
+        {
+            Subscriptions = [Subscription("MSFT", "Example", "https://example.com/MSFT")],
+        });
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: store);
+
+        var result = viewModel.ApplyEditedSettingsJson("{ not json ");
+
+        Assert.False(result.Success);
+        Assert.Equal(["MSFT"], viewModel.Subscriptions.Select(item => item.Symbol));
+        Assert.True(viewModel.HasImportProblems);
+        Assert.Contains("settings.json", viewModel.ImportStatusMessage);
+        Assert.Contains(viewModel.ImportProblems, problem => problem.Contains("restore a valid export"));
+        Assert.Null(store.Saved);
     }
 
     private static TickerSubscription Subscription(string symbol, string sourceName, string sourceUri) =>

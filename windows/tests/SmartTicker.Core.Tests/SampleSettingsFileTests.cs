@@ -23,9 +23,9 @@ public sealed class SampleSettingsFileTests
         var result = SettingsImportValidator.Validate(File.ReadAllText(SamplePath()));
 
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Errors));
-        Assert.Equal(20, result.Settings!.Subscriptions.Length);
+        Assert.Equal(28, result.Settings!.Subscriptions.Length);
         Assert.All(result.Settings.Subscriptions, item => Assert.True(item.CollectPrice && item.CollectNews));
-        Assert.Equal(20, result.Settings.Subscriptions.Select(item => item.Id).Distinct().Count());
+        Assert.Equal(28, result.Settings.Subscriptions.Select(item => item.Id).Distinct().Count());
         Assert.All(result.Settings.Subscriptions, item => Assert.False(string.IsNullOrWhiteSpace(item.CssSelector)));
         Assert.All(result.Settings.Subscriptions, item => Assert.False(string.IsNullOrWhiteSpace(item.NewsCssSelector)));
         Assert.All(result.Settings.Subscriptions, item => Assert.False(string.IsNullOrWhiteSpace(item.GroupName)));
@@ -36,6 +36,7 @@ public sealed class SampleSettingsFileTests
         Assert.Equal(
             ["Mega-Cap Tech", "Precious Metals", "Industrial Metals", "US Indices", "Rates", "ETFs"],
             result.Settings.QuoteGroupNames);
+        Assert.Empty(result.Settings.HiddenNewsQuotes);
 
         Assert.Equal(
             new Dictionary<string, int>
@@ -45,7 +46,7 @@ public sealed class SampleSettingsFileTests
                 ["Industrial Metals"] = 1,
                 ["US Indices"] = 2,
                 ["Rates"] = 1,
-                ["ETFs"] = 2,
+                ["ETFs"] = 10,
             },
             result.Settings.Subscriptions
                 .GroupBy(item => item.GroupName!)
@@ -54,7 +55,7 @@ public sealed class SampleSettingsFileTests
         var yahoo = result.Settings.Subscriptions
             .Where(item => item.SourceName == "Yahoo Finance")
             .ToArray();
-        Assert.Equal(15, yahoo.Length);
+        Assert.Equal(23, yahoo.Length);
         Assert.All(yahoo, item =>
         {
             Assert.Equal("[data-testid=\"qsp-price\"]", item.CssSelector);

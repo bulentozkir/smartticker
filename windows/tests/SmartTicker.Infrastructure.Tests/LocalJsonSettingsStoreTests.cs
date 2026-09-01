@@ -22,6 +22,7 @@ public sealed class LocalJsonSettingsStoreTests
                 UseStaticGroupedView = true,
                 AlertBlinkColor = "#123ABC",
                 QuoteGroupNames = ["Mega-Cap Tech", "Empty"],
+                HiddenNewsQuotes = [subscription!.Id],
             };
             var store = new LocalJsonSettingsStore(path);
 
@@ -35,6 +36,7 @@ public sealed class LocalJsonSettingsStoreTests
             Assert.True(actual.UseStaticGroupedView);
             Assert.Equal("#123ABC", actual.AlertBlinkColor);
             Assert.Equal(["Mega-Cap Tech", "Empty"], actual.QuoteGroupNames);
+            Assert.Equal([subscription!.Id], actual.HiddenNewsQuotes);
             var restored = Assert.Single(actual.Subscriptions);
             Assert.Equal(subscription, restored);
             Assert.Equal("Mega-Cap Tech", restored.GroupName);
@@ -42,6 +44,7 @@ public sealed class LocalJsonSettingsStoreTests
             Assert.Contains("\"priceScrollSpeed\": 65", File.ReadAllText(path));
             Assert.Contains("\"alertBlinkColor\": \"#123ABC\"", File.ReadAllText(path));
             Assert.Contains("\"quoteGroups\"", File.ReadAllText(path));
+            Assert.Contains($"\"hiddenNewsQuotes\": [\r\n    \"{subscription!.Id}\"", File.ReadAllText(path).ReplaceLineEndings("\r\n"));
         }
         finally
         {

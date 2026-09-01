@@ -53,7 +53,7 @@ update, or delete groups on the left; select a quote on the right; then use **As
 in the middle. Each quote belongs to at most one group, and re-associating it moves it
 from the previous group. Deleting a group returns its quotes to **Ungrouped** without
 deleting them. Settings export and import carry group definitions and assignments. The
-published sample assigns all 20
+published sample assigns all 28
 entries to six example groups but keep the scrolling ticker selected by default.
 
 In static mode, drag the dotted handle on any quote or news tile and drop it on the

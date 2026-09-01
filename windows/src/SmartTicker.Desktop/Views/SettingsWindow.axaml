@@ -52,7 +52,7 @@
             <StackPanel Spacing="8">
                 <TextBlock Text="Start with the sample quotes" FontSize="17" FontWeight="SemiBold" Foreground="#3FB950" />
                 <TextBlock TextWrapping="Wrap" Opacity="0.85"
-                           Text="Nothing is configured yet. Download the published sample to get 20 ready-made entries with verified selectors, then edit or remove whatever you do not want." />
+                           Text="Nothing is configured yet. Download the published sample to get 28 ready-made entries with verified selectors, then edit or remove whatever you do not want." />
                 <TextBlock Text="{Binding StarterSourceUri}" TextWrapping="Wrap" FontSize="12" Opacity="0.6" />
                 <Button Content="Import sample quotes from GitHub"
                         Classes="primary"

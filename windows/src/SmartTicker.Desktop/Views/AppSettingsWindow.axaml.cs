@@ -37,6 +37,22 @@ public partial class AppSettingsWindow : Window
         }
     }
 
+    private async void EditAppConfig(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+        {
+            await EditConfigFileWorkflow.RunAsync(this, viewModel, ConfigFileKind.Settings);
+        }
+    }
+
+    private async void EditAlertRules(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+        {
+            await EditConfigFileWorkflow.RunAsync(this, viewModel, ConfigFileKind.Alerts);
+        }
+    }
+
     private async void ValidateAllSources(object? sender, RoutedEventArgs e)
     {
         if (_sourceValidationRunning || DataContext is not MainViewModel viewModel)
