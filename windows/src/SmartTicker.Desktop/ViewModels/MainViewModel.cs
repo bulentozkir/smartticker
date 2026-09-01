@@ -435,6 +435,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private static readonly IBrush AlertFlashTextBrush = new SolidColorBrush(Color.Parse("#000000"));
 
+    private const int ChangeBlinkSeconds = 3;
+
+    // Fixed brown so a refreshed price or a brand-new headline reads differently from a fired alert.
+    private static readonly IBrush ChangeBlinkBrush = new SolidColorBrush(Color.Parse("#8B4513"));
+
+    private static readonly IBrush ChangeBlinkTextBrush = new SolidColorBrush(Color.Parse("#FFFFFF"));
+
     private static IBrush ToBrush(string hex, string fallback) =>
         new SolidColorBrush(Color.Parse(HexColor.TryNormalize(hex, out var normalized) ? normalized : fallback));
 
@@ -451,6 +458,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly WebsiteAccessPolicy _websiteAccessPolicy;
     private readonly DispatcherTimer _blinkTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly Dictionary<Guid, DateTimeOffset> _blinkingUntil = [];
+    private readonly Dictionary<Guid, DateTimeOffset> _priceChangeBlinkUntil = [];
+    private readonly Dictionary<(Guid SubscriptionId, string Headline), DateTimeOffset> _newHeadlineBlinkUntil = [];
     private readonly AlertArmingState _arming = new();
     private bool _blinkOn;
     private readonly SemaphoreSlim _priceRefreshGate = new(1, 1);
@@ -1141,16 +1150,29 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             var priceSubscriptions = Subscriptions
                 .Where(item => item.CollectPrice && CanAccessSource(item.SourceUri))
                 .ToArray();
+            var changeBlinkUntil = DateTimeOffset.Now.AddSeconds(ChangeBlinkSeconds);
+            var changed = false;
             foreach (var subscription in priceSubscriptions)
             {
                 var snapshot = await _quoteFetcher.FetchAsync(subscription, _lifetimeCancellation.Token);
                 var previous = LatestQuotes.FirstOrDefault(item => item.SubscriptionId == subscription.Id);
+                if (HasPriceChanged(previous, snapshot))
+                {
+                    _priceChangeBlinkUntil[subscription.Id] = changeBlinkUntil;
+                    changed = true;
+                }
+
                 if (previous is not null)
                 {
                     LatestQuotes.Remove(previous);
                 }
 
                 LatestQuotes.Add(snapshot);
+            }
+
+            if (changed)
+            {
+                StartBlinking();
             }
 
             UpdatePriceRows();
@@ -1179,6 +1201,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             var newsSubscriptions = Subscriptions
                 .Where(item => item.CollectNews && CanAccessSource(item.SourceUri))
                 .ToArray();
+            var changeBlinkUntil = DateTimeOffset.Now.AddSeconds(ChangeBlinkSeconds);
+            var changed = false;
             foreach (var subscription in newsSubscriptions)
             {
                 var snapshot = await _newsFetcher.FetchAsync(subscription, _lifetimeCancellation.Token);
@@ -1194,12 +1218,23 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 }
 
                 var previous = LatestNews.FirstOrDefault(item => item.SubscriptionId == subscription.Id);
+                foreach (var headline in NewHeadlinesSince(previous, snapshot))
+                {
+                    _newHeadlineBlinkUntil[(subscription.Id, headline)] = changeBlinkUntil;
+                    changed = true;
+                }
+
                 if (previous is not null)
                 {
                     LatestNews.Remove(previous);
                 }
 
                 LatestNews.Add(snapshot);
+            }
+
+            if (changed)
+            {
+                StartBlinking();
             }
 
             UpdateNewsRows();
@@ -2005,7 +2040,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                         ? _blinkOn
                             ? new TickerHighlight(AlertBlinkBrush, AlertFlashTextBrush)
                             : new TickerHighlight(AlertFlashTextBrush, AlertBlinkBrush)
-                        : null,
+                        : _blinkOn && IsPriceChanged(item.Id)
+                            ? new TickerHighlight(ChangeBlinkBrush, ChangeBlinkTextBrush)
+                            : null,
                 };
             })
             .ToArray();
@@ -2091,6 +2128,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             symbolBrush = highlight.Foreground;
             lastBrush = highlight.Foreground;
             changeBrush = highlight.Foreground;
+        }
+        else if (_blinkOn && IsPriceChanged(subscription.Id))
+        {
+            background = ChangeBlinkBrush;
+            symbolBrush = ChangeBlinkTextBrush;
+            lastBrush = ChangeBlinkTextBrush;
+            changeBrush = ChangeBlinkTextBrush;
         }
 
         return new StaticQuoteRow(
@@ -2209,7 +2253,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                     news.Status,
                     headline.Url ?? subscription.SourceUri,
                     SymbolBrush,
-                    NewsBrush));
+                    NewsBrush)
+                {
+                    Background = _blinkOn && IsNewHeadline(subscription.Id, headline.Title)
+                        ? ChangeBlinkBrush
+                        : Brushes.Transparent,
+                });
             }
 
             return rows;
@@ -2606,6 +2655,35 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         UpdatePriceRows();
     }
 
+    private void StartBlinking()
+    {
+        _blinkOn = true;
+        if (!_blinkTimer.IsEnabled)
+        {
+            _blinkTimer.Start();
+        }
+    }
+
+    private static bool HasPriceChanged(QuoteSnapshot? previous, QuoteSnapshot current) =>
+        previous is { Success: true, Price: { } earlier } &&
+        current is { Success: true, Price: { } latest } &&
+        earlier != latest;
+
+    private static IEnumerable<string> NewHeadlinesSince(NewsSnapshot? previous, NewsSnapshot current)
+    {
+        // Without a previous successful sync nothing qualifies as new, so a first load never blinks.
+        if (previous is not { Success: true } || current is not { Success: true })
+        {
+            return [];
+        }
+
+        var known = previous.Headlines.Select(headline => headline.Title).ToHashSet(StringComparer.Ordinal);
+        return current.Headlines
+            .Select(headline => headline.Title)
+            .Where(title => !known.Contains(title))
+            .Distinct(StringComparer.Ordinal);
+    }
+
     private void OnBlinkTick()
     {
         var now = DateTimeOffset.Now;
@@ -2614,7 +2692,17 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             _blinkingUntil.Remove(key);
         }
 
-        if (_blinkingUntil.Count == 0)
+        foreach (var key in _priceChangeBlinkUntil.Where(pair => pair.Value <= now).Select(pair => pair.Key).ToArray())
+        {
+            _priceChangeBlinkUntil.Remove(key);
+        }
+
+        foreach (var key in _newHeadlineBlinkUntil.Where(pair => pair.Value <= now).Select(pair => pair.Key).ToArray())
+        {
+            _newHeadlineBlinkUntil.Remove(key);
+        }
+
+        if (_blinkingUntil.Count == 0 && _priceChangeBlinkUntil.Count == 0 && _newHeadlineBlinkUntil.Count == 0)
         {
             _blinkTimer.Stop();
             _blinkOn = false;
@@ -2625,9 +2713,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         UpdatePriceRows();
+        UpdateNewsRows();
     }
 
     private bool IsAlerting(Guid subscriptionId) => _blinkingUntil.ContainsKey(subscriptionId);
+
+    private bool IsPriceChanged(Guid subscriptionId) => _priceChangeBlinkUntil.ContainsKey(subscriptionId);
+
+    private bool IsNewHeadline(Guid subscriptionId, string headline) =>
+        _newHeadlineBlinkUntil.ContainsKey((subscriptionId, headline));
 
     private async Task ReconcileAlertsAfterRenameAsync(TickerSubscription original, string newSymbol)
     {
@@ -2654,7 +2748,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
 
     private static TickerSegment Tint(TickerSegment segment, IBrush brush) =>
-        new(segment.Runs.Select(run => run with { Brush = brush }).ToArray(), segment.Link);
+        segment with { Runs = segment.Runs.Select(run => run with { Brush = brush }).ToArray() };
 
     private IEnumerable<TickerSegment> BuildNewsSegments(TickerSubscription item)
     {
@@ -2666,7 +2760,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         return news.Headlines.Select(headline => new TickerSegment(
             $"{item.Symbol} — {headline.Title}",
-            headline.Url ?? item.SourceUri));
+            headline.Url ?? item.SourceUri)
+        {
+            Highlight = _blinkOn && IsNewHeadline(item.Id, headline.Title)
+                ? new TickerHighlight(ChangeBlinkBrush, ChangeBlinkTextBrush)
+                : null,
+        });
     }
 
     private static void ReplaceVisibleRows(

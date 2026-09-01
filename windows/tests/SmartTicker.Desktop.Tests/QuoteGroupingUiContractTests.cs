@@ -153,6 +153,12 @@ public sealed class QuoteGroupingUiContractTests
         Assert.Contains(newsWindow.Descendants(), element =>
             element.Name.LocalName == "CheckBox" &&
             (string?)element.Attribute("IsChecked") == "{Binding IsShown, Mode=TwoWay}");
+        // The multi-select list lives in a flyout so the filter itself stays one line tall.
+        Assert.Contains(newsWindow.Descendants(), element => element.Name.LocalName == "Flyout");
+        Assert.Contains(newsWindow.Descendants(), element =>
+            (string?)element.Attribute("Text") == "{Binding FilterSummary}");
+        Assert.DoesNotContain(newsWindow.Descendants(), element =>
+            element.Name.LocalName == "WrapPanel");
         Assert.DoesNotContain(newsWindow.Descendants(), element =>
             (string?)element.Attribute("Click") == "ShowHelp");
         Assert.Contains(mainWindow.Descendants(), element =>
@@ -163,19 +169,20 @@ public sealed class QuoteGroupingUiContractTests
     }
 
     [Fact]
-    public void ResponsiveTilePanel_UsesAvailableWidthBeforeVerticalOverflow()
+    public void ResponsiveTilePanel_FillsAvailableWidthWithoutLeftoverGaps()
     {
         var panel = new ResponsiveTilePanel
         {
             MinimumTileWidth = 380,
-            MaximumTileWidth = 560,
             Spacing = 12,
         };
 
         Assert.Equal(new TileLayout(1, 360), panel.Calculate(360));
-        Assert.Equal(new TileLayout(1, 560), panel.Calculate(700));
+        Assert.Equal(new TileLayout(1, 700), panel.Calculate(700));
         Assert.Equal(new TileLayout(2, 434), panel.Calculate(880));
         Assert.Equal(new TileLayout(5, 410.4), panel.Calculate(2100));
+        Assert.Equal(new TileLayout(2, 1044), panel.Calculate(2100, 2));
+        Assert.Equal(new TileLayout(1, 2100), panel.Calculate(2100, 1));
     }
 
     [Fact]

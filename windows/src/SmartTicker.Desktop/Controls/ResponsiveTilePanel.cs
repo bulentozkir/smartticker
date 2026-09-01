@@ -9,9 +9,6 @@ public sealed class ResponsiveTilePanel : Panel
     public static readonly StyledProperty<double> MinimumTileWidthProperty =
         AvaloniaProperty.Register<ResponsiveTilePanel, double>(nameof(MinimumTileWidth), 360);
 
-    public static readonly StyledProperty<double> MaximumTileWidthProperty =
-        AvaloniaProperty.Register<ResponsiveTilePanel, double>(nameof(MaximumTileWidth), 560);
-
     public static readonly StyledProperty<double> SpacingProperty =
         AvaloniaProperty.Register<ResponsiveTilePanel, double>(nameof(Spacing), 12);
 
@@ -19,12 +16,6 @@ public sealed class ResponsiveTilePanel : Panel
     {
         get => GetValue(MinimumTileWidthProperty);
         set => SetValue(MinimumTileWidthProperty, value);
-    }
-
-    public double MaximumTileWidth
-    {
-        get => GetValue(MaximumTileWidthProperty);
-        set => SetValue(MaximumTileWidthProperty, value);
     }
 
     public double Spacing
@@ -35,74 +26,71 @@ public sealed class ResponsiveTilePanel : Panel
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        var width = double.IsFinite(availableSize.Width)
-            ? availableSize.Width
-            : Math.Max(MinimumTileWidth, MaximumTileWidth);
-        var layout = Calculate(width);
-        var height = 0d;
-        var rowHeight = 0d;
-        var column = 0;
+        var width = double.IsFinite(availableSize.Width) ? availableSize.Width : MinimumTileWidth;
+        var spacing = Math.Max(0, Spacing);
+        var layout = Calculate(width, Children.Count);
+        var columnHeights = new double[layout.Columns];
         foreach (var child in Children)
         {
             child.Measure(new Size(layout.TileWidth, double.PositiveInfinity));
-            rowHeight = Math.Max(rowHeight, child.DesiredSize.Height);
-            column++;
-            if (column == layout.Columns)
-            {
-                height += rowHeight + Spacing;
-                rowHeight = 0;
-                column = 0;
-            }
+            var column = ShortestColumn(columnHeights);
+            columnHeights[column] += child.DesiredSize.Height + spacing;
         }
 
-        if (column > 0)
+        var height = 0d;
+        foreach (var columnHeight in columnHeights)
         {
-            height += rowHeight;
-        }
-        else if (height > 0)
-        {
-            height -= Spacing;
+            height = Math.Max(height, columnHeight);
         }
 
-        return new Size(width, Math.Max(0, height));
+        return new Size(width, Math.Max(0, height - spacing));
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        var layout = Calculate(finalSize.Width);
-        var y = 0d;
-        for (var start = 0; start < Children.Count; start += layout.Columns)
+        var spacing = Math.Max(0, Spacing);
+        var layout = Calculate(finalSize.Width, Children.Count);
+        var columnHeights = new double[layout.Columns];
+        foreach (var child in Children)
         {
-            var count = Math.Min(layout.Columns, Children.Count - start);
-            var rowHeight = 0d;
-            for (var index = 0; index < count; index++)
-            {
-                rowHeight = Math.Max(rowHeight, Children[start + index].DesiredSize.Height);
-            }
-
-            for (var index = 0; index < count; index++)
-            {
-                var x = index * (layout.TileWidth + Spacing);
-                Children[start + index].Arrange(new Rect(x, y, layout.TileWidth, rowHeight));
-            }
-
-            y += rowHeight + Spacing;
+            var column = ShortestColumn(columnHeights);
+            var height = child.DesiredSize.Height;
+            child.Arrange(new Rect(
+                column * (layout.TileWidth + spacing),
+                columnHeights[column],
+                layout.TileWidth,
+                height));
+            columnHeights[column] += height + spacing;
         }
 
         return finalSize;
     }
 
-    public TileLayout Calculate(double availableWidth)
+    public TileLayout Calculate(double availableWidth) => Calculate(availableWidth, int.MaxValue);
+
+    public TileLayout Calculate(double availableWidth, int tileCount)
     {
         var spacing = Math.Max(0, Spacing);
         var minimum = Math.Max(240, MinimumTileWidth);
-        var maximum = Math.Max(minimum, MaximumTileWidth);
         var width = Math.Max(0, availableWidth);
         var columns = Math.Max(1, (int)Math.Floor((width + spacing) / (minimum + spacing)));
-        var tileWidth = columns == 1
-            ? Math.Min(maximum, width)
-            : Math.Min(maximum, (width - spacing * (columns - 1)) / columns);
-        return new TileLayout(columns, Math.Max(0, tileWidth));
+        columns = Math.Min(columns, Math.Max(1, tileCount));
+        return new TileLayout(columns, Math.Max(0, (width - spacing * (columns - 1)) / columns));
+    }
+
+    // Each tile starts under the shortest column, so a short group leaves no gap beneath it.
+    private static int ShortestColumn(double[] columnHeights)
+    {
+        var shortest = 0;
+        for (var index = 1; index < columnHeights.Length; index++)
+        {
+            if (columnHeights[index] < columnHeights[shortest])
+            {
+                shortest = index;
+            }
+        }
+
+        return shortest;
     }
 }
 

@@ -85,8 +85,9 @@ the ticker's right-click **View** menu.
 - Within each News group, headlines are interleaved by quote: one headline from the
 	first quote, then one from the next quote, continuing in rounds. A quote with many
 	headlines therefore cannot occupy the whole top of its group.
-- Under **Show news for**, check or clear each quote independently. Any combination of
-	quotes can be visible, including all or none. Labels include the quote and source so
+- Open the one-line **Show news for** dropdown and check or clear each quote
+	independently. Any combination of quotes can be visible, including all or none. The
+	button summarises the current choice, and entries include the quote and source so
 	duplicate symbols remain independent. Selections are remembered across refreshes for
 	the current SmartTicker session.
 - Drag the dotted handle beside any quote or news tile heading and drop it on the left
@@ -130,6 +131,17 @@ marquee. Resume to restart normal activity.
 
 Double-click linked ticker text, including a news headline, to open its source in your
 default browser. SmartTicker does not open links on a single click.
+
+### Change highlights
+
+After each refresh, SmartTicker briefly marks what moved on a brown background for three
+seconds:
+
+- A quote whose price differs from the previous sync.
+- Each headline that was not present in the previous sync for that quote.
+
+The first sync after startup highlights nothing because there is no earlier value to
+compare against. A fired alert keeps its own alert blink colour and takes precedence.
 
 ### Main menu reference
 

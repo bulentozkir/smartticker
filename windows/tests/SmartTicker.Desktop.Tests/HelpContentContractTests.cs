@@ -36,6 +36,7 @@ public sealed class HelpContentContractTests
         Assert.Contains("Left-to-right scroll: Prices with News", guide);
         Assert.Contains("headlines are interleaved by quote", guide);
         Assert.Contains("Show news for", guide);
+        Assert.Contains("### Change highlights", guide);
         Assert.Contains("responsive tiles laid out from left to right", guide);
         Assert.Contains("Drag the dotted handle", guide);
         Assert.Contains("## Quotes", guide);

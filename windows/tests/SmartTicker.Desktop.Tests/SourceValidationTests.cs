@@ -347,6 +347,7 @@ public sealed class SourceValidationTests
         var group = Assert.Single(viewModel.StaticNewsGroups);
         Assert.Equal(["MSFT · Example", "AAPL · Example"], group.QuoteFilters.Select(filter => filter.Label));
         Assert.All(group.QuoteFilters, filter => Assert.True(filter.IsShown));
+        Assert.Equal("All quotes", group.FilterSummary);
         Assert.Equal(
             ["MSFT", "AAPL", "MSFT", "AAPL", "MSFT", "AAPL"],
             group.Rows.Select(row => row.Symbol));
@@ -355,9 +356,11 @@ public sealed class SourceValidationTests
 
         Assert.All(group.Rows, row => Assert.Equal("AAPL", row.Symbol));
         Assert.Equal("3 of 6 headlines", group.CountText);
+        Assert.Equal("AAPL", group.FilterSummary);
 
         group.QuoteFilters.Single(filter => filter.SubscriptionId == apple.Id).IsShown = false;
         Assert.Empty(group.Rows);
+        Assert.Equal("No quotes", group.FilterSummary);
 
         group.QuoteFilters.Single(filter => filter.SubscriptionId == apple.Id).IsShown = true;
         Assert.All(group.Rows, row => Assert.Equal("AAPL", row.Symbol));
@@ -500,6 +503,67 @@ public sealed class SourceValidationTests
         Assert.Equal(["Tech", "Metals"], importedStore.Saved!.Subscriptions.Select(item => item.GroupName));
     }
 
+    [Fact]
+    public async Task PriceRefresh_BlinksOnlyAQuoteWhosePriceChangedSinceTheLastSync()
+    {
+        var subscription = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        var settings = SmartTickerSettings.Default with
+        {
+            Subscriptions = [subscription],
+            AcknowledgedSources = ["example.com"],
+            UseStaticGroupedView = true,
+        };
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: new ChangingQuoteFetcher(100m, 101m),
+            settingsStore: new TestSettingsStore(settings));
+
+        await viewModel.RefreshPricesAsync();
+
+        Assert.Equal(Brushes.Transparent, Assert.Single(viewModel.StaticQuoteGroups).Rows.Single().Background);
+
+        await viewModel.RefreshPricesAsync();
+
+        var changed = Assert.Single(viewModel.StaticQuoteGroups).Rows.Single();
+        Assert.Equal(Color.Parse("#8B4513"), Assert.IsType<SolidColorBrush>(changed.Background).Color);
+
+        await viewModel.RefreshPricesAsync();
+
+        var unchanged = Assert.Single(viewModel.StaticQuoteGroups).Rows.Single();
+        Assert.Equal(Color.Parse("#8B4513"), Assert.IsType<SolidColorBrush>(unchanged.Background).Color);
+    }
+
+    [Fact]
+    public async Task NewsRefresh_BlinksOnlyHeadlinesThatArrivedSinceTheLastSync()
+    {
+        var subscription = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        var settings = SmartTickerSettings.Default with
+        {
+            Subscriptions = [subscription],
+            AcknowledgedSources = ["example.com"],
+            UseStaticGroupedView = true,
+            ShowNewsLine = true,
+        };
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: new TestSettingsStore(settings),
+            newsFetcher: new GrowingNewsFetcher());
+
+        await viewModel.RefreshNewsAsync();
+
+        Assert.All(
+            Assert.Single(viewModel.StaticNewsGroups).Rows,
+            row => Assert.Equal(Brushes.Transparent, row.Background));
+
+        await viewModel.RefreshNewsAsync();
+
+        var rows = Assert.Single(viewModel.StaticNewsGroups).Rows;
+        Assert.Equal(["First", "Second"], rows.Select(row => row.Headline));
+        Assert.Equal(Brushes.Transparent, rows[0].Background);
+        Assert.Equal(Color.Parse("#8B4513"), Assert.IsType<SolidColorBrush>(rows[1].Background).Color);
+    }
+
     private static TickerSubscription Subscription(string symbol, string sourceName, string sourceUri) =>
         new(
             Guid.NewGuid(),
@@ -541,6 +605,43 @@ public sealed class SourceValidationTests
                 true,
                 "ok"));
         }
+    }
+
+    private sealed class ChangingQuoteFetcher(params decimal[] prices) : IQuoteFetcher
+    {
+        private readonly Queue<decimal> _prices = new(prices);
+
+        public Task<QuoteSnapshot> FetchAsync(
+            TickerSubscription subscription,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new QuoteSnapshot(
+                subscription.Id,
+                subscription.Symbol,
+                subscription.SourceName,
+                _prices.Count > 1 ? _prices.Dequeue() : _prices.Peek(),
+                "USD",
+                DateTimeOffset.UtcNow,
+                true,
+                "ok"));
+    }
+
+    private sealed class GrowingNewsFetcher : INewsFetcher
+    {
+        private int _calls;
+
+        public Task<NewsSnapshot> FetchAsync(
+            TickerSubscription subscription,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new NewsSnapshot(
+                subscription.Id,
+                subscription.Symbol,
+                subscription.SourceName,
+                (_calls++ == 0 ? new[] { "First" } : ["First", "Second"])
+                    .Select(title => new NewsHeadline(title, new Uri("https://example.com/news")))
+                    .ToArray(),
+                DateTimeOffset.UtcNow,
+                true,
+                "ok"));
     }
 
     private sealed class SessionQuoteFetcher : IQuoteFetcher

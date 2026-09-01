@@ -30,7 +30,6 @@
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <controls:ResponsiveTilePanel MinimumTileWidth="380"
-                                                          MaximumTileWidth="560"
                                                           Spacing="12" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
@@ -65,23 +64,31 @@
                                     </Grid>
                                 </Expander.Header>
                                 <Grid RowDefinitions="Auto,Auto,*">
-                                    <StackPanel Margin="12,6,12,4" Spacing="5">
-                                        <TextBlock Text="Show news for" FontSize="10" Foreground="#8B949E" />
-                                        <ItemsControl ItemsSource="{Binding QuoteFilters}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <WrapPanel Orientation="Horizontal" />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="vm:StaticNewsQuoteFilter">
-                                                    <CheckBox Content="{Binding Label}"
-                                                              IsChecked="{Binding IsShown, Mode=TwoWay}"
-                                                              Margin="0,0,14,5" />
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="12,6,12,4">
+                                        <TextBlock Text="Show news for" FontSize="10" Foreground="#8B949E"
+                                                   VerticalAlignment="Center" />
+                                        <Button Grid.Column="1" HorizontalAlignment="Left" MinWidth="170"
+                                                Padding="10,4" FontSize="11"
+                                                ToolTip.Tip="Choose which quotes contribute headlines">
+                                            <TextBlock Text="{Binding FilterSummary}" FontSize="11"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <Button.Flyout>
+                                                <Flyout Placement="BottomEdgeAlignedLeft">
+                                                    <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto">
+                                                        <ItemsControl ItemsSource="{Binding QuoteFilters}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:StaticNewsQuoteFilter">
+                                                                    <CheckBox Content="{Binding Label}"
+                                                                              IsChecked="{Binding IsShown, Mode=TwoWay}"
+                                                                              Margin="0,1" />
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </ScrollViewer>
+                                                </Flyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                    </Grid>
                                     <Grid Grid.Row="1" ColumnDefinitions="100,*" ColumnSpacing="10" Margin="12,6,12,7">
                                         <TextBlock Text="Symbol" FontSize="10" Foreground="#8B949E" />
                                         <TextBlock Grid.Column="1" Text="Headline" FontSize="10" Foreground="#8B949E" />
@@ -98,6 +105,7 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:StaticNewsRow">
                                                     <Border BorderBrush="#252B33" BorderThickness="0,0,0,1"
+                                                            Background="{Binding Background}"
                                                             PointerPressed="OpenStaticNews"
                                                             ToolTip.Tip="{Binding StatusText}">
                                                         <Grid ColumnDefinitions="100,*" ColumnSpacing="10" Margin="12,7">

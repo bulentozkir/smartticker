@@ -194,7 +194,6 @@
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <controls:ResponsiveTilePanel MinimumTileWidth="380"
-                                                                      MaximumTileWidth="560"
                                                                       Spacing="12" />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>

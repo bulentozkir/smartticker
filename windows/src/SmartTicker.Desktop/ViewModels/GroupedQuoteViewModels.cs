@@ -35,7 +35,10 @@ public sealed record StaticNewsRow(
     string StatusText,
     Uri? SourceUri,
     IBrush SymbolForeground,
-    IBrush HeadlineForeground);
+    IBrush HeadlineForeground)
+{
+    public IBrush Background { get; init; } = Brushes.Transparent;
+}
 
 public sealed class StaticNewsQuoteFilter : ObservableObject
 {
@@ -50,12 +53,15 @@ public sealed class StaticNewsQuoteFilter : ObservableObject
         Action<bool> visibilityChanged)
     {
         SubscriptionId = subscriptionId;
+        Symbol = symbol;
         Label = $"{symbol} · {sourceName}";
         _isShown = isShown;
         _visibilityChanged = visibilityChanged;
     }
 
     public Guid SubscriptionId { get; }
+
+    public string Symbol { get; }
 
     public string Label { get; }
 
@@ -107,6 +113,21 @@ public sealed class StaticNewsGroup : ObservableObject
 
     public IReadOnlyList<StaticNewsQuoteFilter> QuoteFilters { get; }
 
+    public string FilterSummary
+    {
+        get
+        {
+            var shown = QuoteFilters.Count(filter => filter.IsShown);
+            return shown switch
+            {
+                0 => "No quotes",
+                1 => QuoteFilters.First(filter => filter.IsShown).Symbol,
+                _ when shown == QuoteFilters.Count => "All quotes",
+                _ => $"{shown} of {QuoteFilters.Count} quotes",
+            };
+        }
+    }
+
     public IReadOnlyList<StaticNewsRow> Rows
     {
         get
@@ -127,6 +148,7 @@ public sealed class StaticNewsGroup : ObservableObject
     {
         OnPropertyChanged(nameof(Rows));
         OnPropertyChanged(nameof(CountText));
+        OnPropertyChanged(nameof(FilterSummary));
         _filterChanged(Name, subscriptionId, isShown);
     }
 }
