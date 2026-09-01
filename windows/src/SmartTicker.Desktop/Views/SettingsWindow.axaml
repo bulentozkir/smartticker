@@ -80,8 +80,9 @@
                 <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="160,Auto,*,Auto" ColumnSpacing="10">
                     <TextBox Text="{Binding NewSymbol}" PlaceholderText="MSFT" />
                     <TextBlock Grid.Column="1" Text="Group" Classes="lbl" VerticalAlignment="Center" />
-                    <TextBox Grid.Column="2" Text="{Binding NewGroupName}" MaxLength="80"
-                             PlaceholderText="Optional, for example Mag 7" />
+                    <ComboBox Grid.Column="2" ItemsSource="{Binding GroupNameOptions}"
+                              Text="{Binding NewGroupName, Mode=TwoWay}" IsEditable="True"
+                              PlaceholderText="Choose a group or type a new name" />
                     <Button Grid.Column="3" Content="Manage groups" Click="OpenQuoteGroups" Padding="14,6" />
                 </Grid>
                 <TextBlock Grid.Row="1" Classes="lbl" Text="Source" VerticalAlignment="Center" />

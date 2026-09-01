@@ -1,3 +1,4 @@
+using Avalonia.Media;
 using SmartTicker.Core.Models;
 using SmartTicker.Core.Services;
 using SmartTicker.Desktop.ViewModels;
@@ -27,6 +28,51 @@ public sealed class SourceValidationTests
 
         Assert.False(policy.AllowCookiesAndCrossHostRedirects);
         Assert.False(store.Saved!.AllowWebsiteCookiesAndCrossHostRedirects);
+    }
+
+    [Fact]
+    public void LoadSettings_MigratesLegacyHiddenPricesToTheSelectedViewMode()
+    {
+        var store = new TestSettingsStore(SmartTickerSettings.Default with
+        {
+            ShowPriceLine = false,
+            ShowNewsLine = false,
+        });
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: store);
+
+        Assert.True(viewModel.ShowPriceLine);
+        Assert.True(viewModel.IsScrollingPricesOnlyView);
+    }
+
+    [Fact]
+    public void AlertBlinkColor_LoadsSavesAndResetsWithAppearanceSettings()
+    {
+        var store = new TestSettingsStore(SmartTickerSettings.Default with
+        {
+            AlertBlinkColor = "#12AB34",
+        });
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: store);
+
+        Assert.Equal("#12AB34", viewModel.AlertBlinkColorHex);
+        Assert.Equal(Color.Parse("#12AB34"), Assert.IsType<SolidColorBrush>(viewModel.AlertBlinkBrush).Color);
+
+        viewModel.AlertBlinkColorHex = "#3456CD";
+
+        Assert.Equal("#3456CD", store.Saved!.AlertBlinkColor);
+        var exported = SettingsImportValidator.Validate(viewModel.ExportSettingsJson());
+        Assert.True(exported.Success);
+        Assert.Equal("#3456CD", exported.Settings!.AlertBlinkColor);
+
+        viewModel.ResetColorsCommand.Execute(null);
+
+        Assert.Equal(SmartTickerSettings.DefaultAlertBlinkColor, viewModel.AlertBlinkColorHex);
+        Assert.Equal(SmartTickerSettings.DefaultAlertBlinkColor, store.Saved.AlertBlinkColor);
     }
 
     [Fact]
@@ -193,19 +239,58 @@ public sealed class SourceValidationTests
             quoteFetcher: null,
             settingsStore: store);
 
-        viewModel.SetTickerViewCommand.Execute("static");
+        viewModel.SetTickerViewCommand.Execute("static-prices-news");
 
         Assert.True(viewModel.IsStaticTableTickerView);
         Assert.Single(viewModel.StaticQuoteGroups);
         Assert.Empty(viewModel.VisiblePriceRows);
         Assert.True(store.Saved!.UseStaticGroupedView);
 
-        viewModel.SetTickerViewCommand.Execute("scrolling");
+        viewModel.SetTickerViewCommand.Execute("scrolling-prices");
 
         Assert.True(viewModel.IsScrollingTickerView);
+        Assert.False(viewModel.ShowNewsLine);
         Assert.Empty(viewModel.StaticQuoteGroups);
         Assert.Single(viewModel.VisiblePriceRows);
         Assert.False(store.Saved!.UseStaticGroupedView);
+    }
+
+    [Theory]
+    [InlineData("scrolling-prices", false, false)]
+    [InlineData("scrolling-prices-news", false, true)]
+    [InlineData("static-prices", true, false)]
+    [InlineData("static-prices-news", true, true)]
+    public void SetTickerView_MapsEveryMenuChoiceToOnePersistedMode(
+        string mode,
+        bool expectedStatic,
+        bool expectedNews)
+    {
+        var store = new TestSettingsStore(SmartTickerSettings.Default with
+        {
+            UseStaticGroupedView = !expectedStatic,
+            ShowNewsLine = !expectedNews,
+        });
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: store);
+
+        viewModel.SetTickerViewCommand.Execute(mode);
+
+        Assert.True(viewModel.ShowPriceLine);
+        Assert.Equal(expectedStatic, viewModel.UseStaticGroupedView);
+        Assert.Equal(expectedNews, viewModel.ShowNewsLine);
+        Assert.Equal(expectedStatic, store.Saved!.UseStaticGroupedView);
+        Assert.Equal(expectedNews, store.Saved.ShowNewsLine);
+        Assert.Single(
+            new[]
+            {
+                viewModel.IsScrollingPricesOnlyView,
+                viewModel.IsScrollingPricesWithNewsView,
+                viewModel.IsStaticPricesOnlyView,
+                viewModel.IsStaticPricesWithNewsView,
+            },
+            selected => selected);
     }
 
     [Fact]
@@ -220,6 +305,7 @@ public sealed class SourceValidationTests
             Subscriptions = [subscription],
             AcknowledgedSources = ["example.com"],
             UseStaticGroupedView = true,
+            ShowNewsLine = true,
         };
         using var viewModel = new MainViewModel(
             selectorDiscovery: null,
@@ -236,6 +322,44 @@ public sealed class SourceValidationTests
         var row = Assert.Single(group.Rows);
         Assert.Equal("MSFT", row.Symbol);
         Assert.Equal("Headline", row.Headline);
+    }
+
+    [Fact]
+    public async Task StaticNews_InterleavesQuotesAndRetainsPerGroupFilterAcrossRefreshes()
+    {
+        var microsoft = Subscription("MSFT", "Example", "https://example.com/MSFT") with { GroupName = "Tech" };
+        var apple = Subscription("AAPL", "Example", "https://example.com/AAPL") with { GroupName = "Tech" };
+        var settings = SmartTickerSettings.Default with
+        {
+            Subscriptions = [microsoft, apple],
+            AcknowledgedSources = ["example.com"],
+            UseStaticGroupedView = true,
+            ShowNewsLine = true,
+        };
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: new TestSettingsStore(settings),
+            newsFetcher: new InterleavedNewsFetcher());
+
+        await viewModel.RefreshNewsAsync();
+
+        var group = Assert.Single(viewModel.StaticNewsGroups);
+        Assert.Equal(["All quotes", "MSFT", "AAPL"], group.FilterOptions);
+        Assert.Equal(
+            ["MSFT", "AAPL", "MSFT", "AAPL", "MSFT", "AAPL"],
+            group.Rows.Select(row => row.Symbol));
+
+        group.SelectedQuote = "AAPL";
+
+        Assert.All(group.Rows, row => Assert.Equal("AAPL", row.Symbol));
+        Assert.Equal("3 of 6 headlines", group.CountText);
+
+        await viewModel.RefreshNewsAsync();
+
+        var refreshed = Assert.Single(viewModel.StaticNewsGroups);
+        Assert.Equal("AAPL", refreshed.SelectedQuote);
+        Assert.All(refreshed.Rows, row => Assert.Equal("AAPL", row.Symbol));
     }
 
     [Fact]
@@ -273,8 +397,9 @@ public sealed class SourceValidationTests
             settingsStore: store);
         viewModel.EditSubscriptionCommand.Execute(first);
         viewModel.PrepareQuoteGroupManager();
+        Assert.Equal(["Tech", "Leaders"], viewModel.GroupNameOptions);
         viewModel.SelectedQuoteGroup = viewModel.QuoteGroups.Single(group => group.Name == "Tech");
-        viewModel.ManagedGroupName = "Leaders";
+        viewModel.ManagedGroupName = "leaders";
 
         viewModel.RenameQuoteGroupCommand.Execute(null);
 
@@ -292,6 +417,32 @@ public sealed class SourceValidationTests
         Assert.Null(viewModel.EditingSubscription!.GroupName);
         Assert.Empty(viewModel.NewGroupName);
         Assert.NotNull(store.Saved);
+    }
+
+    [Fact]
+    public void SettingsExportImport_PreservesQuoteGroupsAndLookupOptions()
+    {
+        var first = Subscription("MSFT", "Example", "https://example.com/MSFT") with { GroupName = "Tech" };
+        var second = Subscription("GOLD", "Example", "https://example.com/GOLD") with { GroupName = "Metals" };
+        using var exporter = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: new TestSettingsStore(SmartTickerSettings.Default with
+            {
+                Subscriptions = [first, second],
+            }));
+        var importedStore = new TestSettingsStore(SmartTickerSettings.Default);
+        using var importer = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: importedStore);
+
+        var result = importer.ImportSettingsJson(exporter.ExportSettingsJson());
+
+        Assert.True(result.Success);
+        Assert.Equal(["Tech", "Metals"], importer.Subscriptions.Select(item => item.GroupName));
+        Assert.Equal(["Tech", "Metals"], importer.GroupNameOptions);
+        Assert.Equal(["Tech", "Metals"], importedStore.Saved!.Subscriptions.Select(item => item.GroupName));
     }
 
     private static TickerSubscription Subscription(string symbol, string sourceName, string sourceUri) =>
@@ -393,5 +544,24 @@ public sealed class SourceValidationTests
                 true,
                 "ok"));
         }
+    }
+
+    private sealed class InterleavedNewsFetcher : INewsFetcher
+    {
+        public Task<NewsSnapshot> FetchAsync(
+            TickerSubscription subscription,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new NewsSnapshot(
+                subscription.Id,
+                subscription.Symbol,
+                subscription.SourceName,
+                Enumerable.Range(1, 3)
+                    .Select(index => new NewsHeadline(
+                        $"{subscription.Symbol} headline {index}",
+                        new Uri($"https://example.com/{subscription.Symbol}/{index}")))
+                    .ToArray(),
+                DateTimeOffset.UtcNow,
+                true,
+                "ok"));
     }
 }

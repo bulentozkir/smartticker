@@ -254,7 +254,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public partial bool ShowPriceLine { get; set; } = true;
 
     [ObservableProperty]
-    public partial bool ShowNewsLine { get; set; } = true;
+    public partial bool ShowNewsLine { get; set; }
 
     [ObservableProperty]
     public partial bool UseStaticGroupedView { get; set; }
@@ -264,6 +264,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     public partial string ManagedGroupName { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial TickerSubscription? SelectedGroupQuote { get; set; }
 
     [ObservableProperty]
     public partial string GroupManagerMessage { get; set; } = string.Empty;
@@ -336,6 +339,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public partial string PriceDownColorHex { get; set; } = SmartTickerSettings.DefaultPriceDownColor;
 
     [ObservableProperty]
+    public partial string AlertBlinkColorHex { get; set; } = SmartTickerSettings.DefaultAlertBlinkColor;
+
+    [ObservableProperty]
     public partial int PriceRefreshSeconds { get; set; } = SmartTickerSettings.DefaultPriceRefreshSeconds;
 
     [ObservableProperty]
@@ -358,6 +364,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public bool IsStaticTableTickerView => UseStaticGroupedView;
 
+    public bool IsScrollingPricesOnlyView => !UseStaticGroupedView && !ShowNewsLine;
+
+    public bool IsScrollingPricesWithNewsView => !UseStaticGroupedView && ShowNewsLine;
+
+    public bool IsStaticPricesOnlyView => UseStaticGroupedView && !ShowNewsLine;
+
+    public bool IsStaticPricesWithNewsView => UseStaticGroupedView && ShowNewsLine;
+
     public bool IsScrollingNewsView => IsNewsVisible && !UseStaticGroupedView;
 
     public bool IsStaticGroupedNewsView => ShowNewsLine && UseStaticGroupedView;
@@ -366,7 +380,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public bool HasQuoteGroups => QuoteGroups.Count > 0;
 
+    public IReadOnlyList<string> GroupNameOptions => QuoteGroups.Select(group => group.Name).ToArray();
+
     public bool HasSelectedQuoteGroup => SelectedQuoteGroup is not null;
+
+    public bool HasSelectedGroupQuote => SelectedGroupQuote is not null;
+
+    public bool CanAssociateGroupQuote => SelectedQuoteGroup is not null && SelectedGroupQuote is not null;
+
+    public bool CanUngroupSelectedQuote => !string.IsNullOrWhiteSpace(SelectedGroupQuote?.GroupName);
 
     public bool HasStaticQuoteGroups => StaticQuoteGroups.Count > 0;
 
@@ -409,8 +431,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public IBrush PriceDownBrush => ToBrush(PriceDownColorHex, SmartTickerSettings.DefaultPriceDownColor);
 
-    // Fixed rather than themed: a fired alert has to stand out against whatever palette is configured.
-    private static readonly IBrush AlertFlashBrush = new SolidColorBrush(Color.Parse("#FF00FF"));
+    public IBrush AlertBlinkBrush => ToBrush(AlertBlinkColorHex, SmartTickerSettings.DefaultAlertBlinkColor);
 
     private static readonly IBrush AlertFlashTextBrush = new SolidColorBrush(Color.Parse("#000000"));
 
@@ -435,6 +456,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly SemaphoreSlim _priceRefreshGate = new(1, 1);
     private readonly SemaphoreSlim _newsRefreshGate = new(1, 1);
     private readonly NewsRepeatFilter _newsRepeatFilter = new();
+    private readonly Dictionary<string, string> _staticNewsFilters = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> _quoteGroupNames = [];
     private SourceAcknowledgementLedger _acknowledgements = new();
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private bool _isApplyingSettings;
@@ -514,8 +537,29 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private void SetLanguage(string? code) => Language = AppLanguages.Normalize(code);
 
     [RelayCommand]
-    private void SetTickerView(string? mode) =>
-        UseStaticGroupedView = string.Equals(mode, "static", StringComparison.OrdinalIgnoreCase);
+    private void SetTickerView(string? mode)
+    {
+        var (useStaticView, showNews) = mode switch
+        {
+            "scrolling-prices" => (false, false),
+            "scrolling-prices-news" => (false, true),
+            "static-prices" => (true, false),
+            "static-prices-news" => (true, true),
+            _ => (UseStaticGroupedView, ShowNewsLine),
+        };
+
+        ShowPriceLine = true;
+        if (!showNews)
+        {
+            ShowNewsLine = false;
+        }
+
+        UseStaticGroupedView = useStaticView;
+        if (showNews)
+        {
+            ShowNewsLine = true;
+        }
+    }
 
     [RelayCommand]
     private void AcknowledgeSource()
@@ -542,6 +586,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         ManagedGroupName = value?.Name ?? string.Empty;
         OnPropertyChanged(nameof(HasSelectedQuoteGroup));
+        OnPropertyChanged(nameof(CanAssociateGroupQuote));
+    }
+
+    partial void OnSelectedGroupQuoteChanged(TickerSubscription? value)
+    {
+        OnPropertyChanged(nameof(HasSelectedGroupQuote));
+        OnPropertyChanged(nameof(CanAssociateGroupQuote));
+        OnPropertyChanged(nameof(CanUngroupSelectedQuote));
     }
 
     [RelayCommand]
@@ -560,6 +612,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        replacement = ResolveExistingGroupName(replacement);
+
         if (string.Equals(selected.Name, replacement, StringComparison.Ordinal))
         {
             GroupManagerMessage = "The group name is unchanged.";
@@ -569,6 +623,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         var mergesExisting = QuoteGroups.Any(group =>
             !string.Equals(group.Name, selected.Name, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(group.Name, replacement, StringComparison.OrdinalIgnoreCase));
+        if (_staticNewsFilters.Remove(selected.Name, out var selectedFilter) &&
+            !_staticNewsFilters.ContainsKey(replacement))
+        {
+            _staticNewsFilters[replacement] = selectedFilter;
+        }
+
         for (var index = 0; index < Subscriptions.Count; index++)
         {
             if (string.Equals(Subscriptions[index].GroupName, selected.Name, StringComparison.OrdinalIgnoreCase))
@@ -595,6 +655,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        _staticNewsFilters.Remove(selected.Name);
         var changed = 0;
         for (var index = 0; index < Subscriptions.Count; index++)
         {
@@ -613,14 +674,27 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private void RefreshQuoteGroups()
     {
         var selectedName = SelectedQuoteGroup?.Name;
-        var summaries = Subscriptions
+        foreach (var assignedName in Subscriptions
             .Where(item => !string.IsNullOrWhiteSpace(item.GroupName))
-            .GroupBy(item => item.GroupName!, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new QuoteGroupSummary(
-                group.First().GroupName!,
-                group.Count(),
-                string.Join(", ", group.Select(item => item.Symbol))))
-            .ToArray();
+            .Select(item => item.GroupName!)
+            .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (!_quoteGroupNames.Contains(assignedName, StringComparer.OrdinalIgnoreCase))
+            {
+                _quoteGroupNames.Add(assignedName);
+            }
+        }
+
+        var summaries = _quoteGroupNames.Select(name =>
+        {
+            var members = Subscriptions
+                .Where(item => string.Equals(item.GroupName, name, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            return new QuoteGroupSummary(
+                name,
+                members.Length,
+                string.Join(", ", members.Select(item => item.Symbol)));
+        }).ToArray();
 
         SelectedQuoteGroup = null;
         QuoteGroups.Clear();
@@ -632,6 +706,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         SelectedQuoteGroup = QuoteGroups.FirstOrDefault(group =>
             string.Equals(group.Name, selectedName, StringComparison.OrdinalIgnoreCase));
         OnPropertyChanged(nameof(HasQuoteGroups));
+        OnPropertyChanged(nameof(GroupNameOptions));
     }
 
     public void MoveQuoteGroup(string sourceName, string targetName, bool placeAfter)
@@ -672,6 +747,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private static string GroupKey(TickerSubscription subscription) =>
         string.IsNullOrWhiteSpace(subscription.GroupName) ? string.Empty : subscription.GroupName;
 
+    private string ResolveExistingGroupName(string groupName) =>
+        _quoteGroupNames.FirstOrDefault(candidate =>
+            string.Equals(candidate, groupName, StringComparison.OrdinalIgnoreCase))
+        ?? groupName;
+
     private void ReplaceSubscriptionGroup(int index, string? groupName)
     {
         var original = Subscriptions[index];
@@ -681,6 +761,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             EditingSubscription = updated;
             NewGroupName = groupName ?? string.Empty;
+        }
+
+        if (SelectedGroupQuote?.Id == original.Id)
+        {
+            SelectedGroupQuote = updated;
         }
 
         if (AlertSubscription?.Id == original.Id)
@@ -720,6 +805,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             EntryMessage = groupError!;
             return;
+        }
+
+        if (groupName is not null)
+        {
+            groupName = ResolveExistingGroupName(groupName);
         }
 
         var valid = EditingSubscription is { } original
@@ -1454,6 +1544,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsScrollingNewsView));
         OnPropertyChanged(nameof(IsStaticGroupedNewsView));
         OnPropertyChanged(nameof(IsStaticTickerContentVisible));
+        OnPropertyChanged(nameof(IsScrollingPricesOnlyView));
+        OnPropertyChanged(nameof(IsScrollingPricesWithNewsView));
+        OnPropertyChanged(nameof(IsStaticPricesOnlyView));
+        OnPropertyChanged(nameof(IsStaticPricesWithNewsView));
         UpdateVisibleRows();
         SaveSettings();
     }
@@ -1470,6 +1564,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsScrollingNewsView));
         OnPropertyChanged(nameof(IsStaticGroupedNewsView));
         OnPropertyChanged(nameof(IsStaticTickerContentVisible));
+        OnPropertyChanged(nameof(IsScrollingPricesOnlyView));
+        OnPropertyChanged(nameof(IsScrollingPricesWithNewsView));
+        OnPropertyChanged(nameof(IsStaticPricesOnlyView));
+        OnPropertyChanged(nameof(IsStaticPricesWithNewsView));
         UpdateVisibleRows();
         SaveSettings();
     }
@@ -1620,6 +1718,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         SaveSettings();
     }
 
+    partial void OnAlertBlinkColorHexChanged(string value)
+    {
+        OnPropertyChanged(nameof(AlertBlinkBrush));
+        UpdatePriceRows();
+        SaveSettings();
+    }
+
     private void ApplyColorChange(string brushName)
     {
         OnPropertyChanged(brushName);
@@ -1640,6 +1745,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         NewsColor4Hex = SmartTickerSettings.DefaultNewsColor4;
         PriceUpColorHex = SmartTickerSettings.DefaultPriceUpColor;
         PriceDownColorHex = SmartTickerSettings.DefaultPriceDownColor;
+        AlertBlinkColorHex = SmartTickerSettings.DefaultAlertBlinkColor;
     }
 
     partial void OnPriceScrollSpeedChanged(int value)
@@ -1748,8 +1854,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 {
                     Highlight = alerting
                         ? _blinkOn
-                            ? new TickerHighlight(AlertFlashBrush, AlertFlashTextBrush)
-                            : new TickerHighlight(AlertFlashTextBrush, AlertFlashBrush)
+                            ? new TickerHighlight(AlertBlinkBrush, AlertFlashTextBrush)
+                            : new TickerHighlight(AlertFlashTextBrush, AlertBlinkBrush)
                         : null,
                 };
             })
@@ -1830,8 +1936,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         if (alerting)
         {
             var highlight = _blinkOn
-                ? new TickerHighlight(AlertFlashBrush, AlertFlashTextBrush)
-                : new TickerHighlight(AlertFlashTextBrush, AlertFlashBrush);
+                ? new TickerHighlight(AlertBlinkBrush, AlertFlashTextBrush)
+                : new TickerHighlight(AlertFlashTextBrush, AlertBlinkBrush);
             background = highlight.Background;
             symbolBrush = highlight.Foreground;
             lastBrush = highlight.Foreground;
@@ -1907,13 +2013,23 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private void UpdateStaticNewsGroups()
     {
         var colorIndex = 0;
-        var groups = Subscriptions
-            .Where(item => item.CollectNews)
-            .GroupBy(GroupKey, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new StaticNewsGroup(
-                group.Key,
-                group.SelectMany(item => BuildStaticNewsRows(item, ref colorIndex)).ToArray()))
-            .ToArray();
+        var groups = new List<StaticNewsGroup>();
+        foreach (var group in Subscriptions
+                     .Where(item => item.CollectNews)
+                     .GroupBy(GroupKey, StringComparer.OrdinalIgnoreCase))
+        {
+            var quoteRows = group
+                .Select(item => (IReadOnlyList<StaticNewsRow>)BuildStaticNewsRows(item))
+                .ToArray();
+            var rows = RoundRobinSequencer.Interleave(quoteRows)
+                .Select(row => row with
+                {
+                    HeadlineForeground = NewsBrushCycle[colorIndex++ % NewsBrushCycle.Count],
+                })
+                .ToArray();
+            _staticNewsFilters.TryGetValue(group.Key, out var selectedQuote);
+            groups.Add(new StaticNewsGroup(group.Key, rows, selectedQuote, SetStaticNewsFilter));
+        }
 
         StaticNewsGroups.Clear();
         foreach (var group in groups)
@@ -1924,7 +2040,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(HasStaticNewsGroups));
     }
 
-    private IEnumerable<StaticNewsRow> BuildStaticNewsRows(TickerSubscription subscription, ref int colorIndex)
+    private IReadOnlyList<StaticNewsRow> BuildStaticNewsRows(TickerSubscription subscription)
     {
         var news = LatestNews.FirstOrDefault(snapshot => snapshot.SubscriptionId == subscription.Id);
         if (news is { Success: true, Headlines.Count: > 0 })
@@ -1932,14 +2048,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             var rows = new List<StaticNewsRow>(news.Headlines.Count);
             foreach (var headline in news.Headlines)
             {
-                var brush = NewsBrushCycle[colorIndex++ % NewsBrushCycle.Count];
                 rows.Add(new StaticNewsRow(
                     subscription.Symbol,
                     headline.Title,
                     news.Status,
                     headline.Url ?? subscription.SourceUri,
                     SymbolBrush,
-                    brush));
+                    NewsBrush));
             }
 
             return rows;
@@ -1954,8 +2069,20 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 status,
                 subscription.SourceUri,
                 SymbolBrush,
-                NewsBrushCycle[colorIndex++ % NewsBrushCycle.Count]),
+                NewsBrush),
         ];
+    }
+
+    private void SetStaticNewsFilter(string groupName, string selectedQuote)
+    {
+        if (selectedQuote == StaticNewsGroup.AllQuotesFilter)
+        {
+            _staticNewsFilters.Remove(groupName);
+        }
+        else
+        {
+            _staticNewsFilters[groupName] = selectedQuote;
+        }
     }
 
     // A headline-less entry is marked in the price row rather than shown as a news error.
@@ -2488,6 +2615,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             _isApplyingSettings = true;
             _acknowledgements = new SourceAcknowledgementLedger(settings.AcknowledgedSources);
             SyncApprovedSourceHosts();
+            _quoteGroupNames.Clear();
+            _quoteGroupNames.AddRange(settings.QuoteGroupNames);
             Subscriptions.Clear();
             foreach (var subscription in settings.Subscriptions)
             {
@@ -2498,7 +2627,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             NewsRowCount = settings.NewsRowCount;
             PriceScrollSpeed = settings.PriceScrollSpeed;
             NewsScrollSpeed = settings.NewsScrollSpeed;
-            ShowPriceLine = settings.ShowPriceLine;
+            // Every selectable View mode includes prices; migrate the retired hidden-price state.
+            ShowPriceLine = true;
             ShowNewsLine = settings.ShowNewsLine;
             UseStaticGroupedView = settings.UseStaticGroupedView;
             // The OS wins: the user may have switched autostart off outside the app.
@@ -2515,6 +2645,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             NewsColor4Hex = settings.NewsColor4;
             PriceUpColorHex = settings.PriceUpColor;
             PriceDownColorHex = settings.PriceDownColor;
+            AlertBlinkColorHex = settings.AlertBlinkColor;
             PriceRefreshSeconds = settings.PriceRefreshSeconds;
             NewsRefreshSeconds = settings.NewsRefreshSeconds;
             Language = settings.Language;
@@ -2534,6 +2665,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         NewsScrollSpeed)
     {
         AcknowledgedSources = _acknowledgements.ToArray(),
+        QuoteGroupNames = _quoteGroupNames.ToArray(),
         ShowPriceLine = ShowPriceLine,
         ShowNewsLine = ShowNewsLine,
         UseStaticGroupedView = UseStaticGroupedView,
@@ -2550,6 +2682,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         NewsColor4 = NewsColor4Hex,
         PriceUpColor = PriceUpColorHex,
         PriceDownColor = PriceDownColorHex,
+        AlertBlinkColor = AlertBlinkColorHex,
         PriceRefreshSeconds = PriceRefreshSeconds,
         NewsRefreshSeconds = NewsRefreshSeconds,
         Language = Language,

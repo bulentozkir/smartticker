@@ -6,14 +6,14 @@
         x:DataType="vm:MainViewModel"
         Icon="/Assets/SmartTicker.ico"
         Title="SmartTicker News"
-        Width="960"
-        Height="620"
-        MinWidth="520"
-        MinHeight="300"
+        Width="680"
+        Height="340"
+        MinWidth="420"
+        MinHeight="240"
         CanResize="True"
         Topmost="True"
         ShowInTaskbar="True"
-        WindowStartupLocation="CenterScreen"
+        WindowStartupLocation="Manual"
         Background="#10151D">
     <Grid RowDefinitions="Auto,*" Margin="16" RowSpacing="10">
         <StackPanel Spacing="3">
@@ -64,12 +64,19 @@
                                                    Foreground="#6E7681" VerticalAlignment="Center" />
                                     </Grid>
                                 </Expander.Header>
-                                <Grid RowDefinitions="Auto,*">
-                                    <Grid ColumnDefinitions="100,*" ColumnSpacing="10" Margin="12,6,12,7">
+                                <Grid RowDefinitions="Auto,Auto,*">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="12,6,12,4">
+                                        <TextBlock Text="Quote filter" FontSize="10" Foreground="#8B949E"
+                                                   VerticalAlignment="Center" />
+                                        <ComboBox Grid.Column="1" ItemsSource="{Binding FilterOptions}"
+                                                  SelectedItem="{Binding SelectedQuote, Mode=TwoWay}"
+                                                  MinWidth="150" HorizontalAlignment="Left" />
+                                    </Grid>
+                                    <Grid Grid.Row="1" ColumnDefinitions="100,*" ColumnSpacing="10" Margin="12,6,12,7">
                                         <TextBlock Text="Symbol" FontSize="10" Foreground="#8B949E" />
                                         <TextBlock Grid.Column="1" Text="Headline" FontSize="10" Foreground="#8B949E" />
                                     </Grid>
-                                    <ScrollViewer Grid.Row="1" MaxHeight="360"
+                                    <ScrollViewer Grid.Row="2" MaxHeight="360"
                                                   VerticalScrollBarVisibility="Auto"
                                                   HorizontalScrollBarVisibility="Disabled">
                                         <ItemsControl ItemsSource="{Binding Rows}">

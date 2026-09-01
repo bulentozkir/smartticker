@@ -7,12 +7,15 @@ namespace SmartTicker.Desktop.Tests;
 public sealed class QuoteGroupingUiContractTests
 {
     [Fact]
-    public void QuoteEditor_ExposesFreeFormGroupAndManager()
+    public void QuoteEditor_ExposesEditableGroupLookupAndManager()
     {
         var document = LoadView("SettingsWindow.axaml");
 
-        Assert.Contains(document.Descendants(), element =>
-            (string?)element.Attribute("Text") == "{Binding NewGroupName}");
+        var groupLookup = Assert.Single(document.Descendants(), element =>
+            element.Name.LocalName == "ComboBox" &&
+            (string?)element.Attribute("Text") == "{Binding NewGroupName, Mode=TwoWay}");
+        Assert.Equal("{Binding GroupNameOptions}", (string?)groupLookup.Attribute("ItemsSource"));
+        Assert.Equal("True", (string?)groupLookup.Attribute("IsEditable"));
         Assert.Contains(document.Descendants(), element =>
             (string?)element.Attribute("Click") == "OpenQuoteGroups");
         Assert.Contains(document.Descendants(), element =>
@@ -26,6 +29,20 @@ public sealed class QuoteGroupingUiContractTests
 
         Assert.Contains(document.Descendants(), element =>
             (string?)element.Attribute("IsChecked") == "{Binding UseStaticGroupedView}");
+    }
+
+    [Fact]
+    public void AppSettings_ExposesAlertBlinkColorPicker()
+    {
+        var document = LoadView("AppSettingsWindow.axaml");
+
+        Assert.Contains(document.Descendants(), element =>
+            element.Name.LocalName == "ColorPicker" &&
+            (string?)element.Attribute("Color") ==
+                "{Binding AlertBlinkColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}");
+        Assert.Contains(document.Descendants(), element =>
+            element.Name.LocalName == "TextBox" &&
+            (string?)element.Attribute("Text") == "{Binding AlertBlinkColorHex}");
     }
 
     [Fact]
@@ -96,13 +113,21 @@ public sealed class QuoteGroupingUiContractTests
         Assert.Equal("True", (string?)newsWindow.Root!.Attribute("CanResize"));
         Assert.Equal("True", (string?)newsWindow.Root.Attribute("Topmost"));
         Assert.Equal("SmartTicker News", (string?)newsWindow.Root.Attribute("Title"));
+        Assert.Equal("680", (string?)newsWindow.Root.Attribute("Width"));
+        Assert.Equal("340", (string?)newsWindow.Root.Attribute("Height"));
+        Assert.Equal("Manual", (string?)newsWindow.Root.Attribute("WindowStartupLocation"));
         Assert.Contains(newsWindow.Descendants(), element =>
             (string?)element.Attribute("ItemsSource") == "{Binding StaticNewsGroups}");
+        Assert.Contains(newsWindow.Descendants(), element =>
+            (string?)element.Attribute("ItemsSource") == "{Binding FilterOptions}");
+        Assert.Contains(newsWindow.Descendants(), element =>
+            (string?)element.Attribute("SelectedItem") == "{Binding SelectedQuote, Mode=TwoWay}");
         Assert.DoesNotContain(newsWindow.Descendants(), element =>
             (string?)element.Attribute("Click") == "ShowHelp");
         Assert.Contains(mainWindow.Descendants(), element =>
             (string?)element.Attribute("Click") == "OpenStaticNewsWindow");
         Assert.Contains("SyncStaticNewsWindow();", source);
+        Assert.Contains("PositionStaticNewsWindow(newsWindow);", source);
         Assert.Contains("newsWindow.Show();", source);
     }
 
@@ -130,29 +155,38 @@ public sealed class QuoteGroupingUiContractTests
             .Where(element => (string?)element.Attribute("GroupName") == "TickerView")
             .ToArray();
 
-        Assert.Equal(2, viewItems.Length);
+        Assert.Equal(4, viewItems.Length);
         Assert.All(viewItems, item => Assert.Equal("Radio", (string?)item.Attribute("ToggleType")));
         Assert.Equal(
-            ["scrolling", "static"],
+            ["scrolling-prices", "scrolling-prices-news", "static-prices", "static-prices-news"],
             viewItems.Select(item => (string?)item.Attribute("CommandParameter")));
         Assert.Equal(
-            ["{Binding IsScrollingTickerView, Mode=OneWay}", "{Binding IsStaticTableTickerView, Mode=OneWay}"],
+            [
+                "{Binding IsScrollingPricesOnlyView, Mode=OneWay}",
+                "{Binding IsScrollingPricesWithNewsView, Mode=OneWay}",
+                "{Binding IsStaticPricesOnlyView, Mode=OneWay}",
+                "{Binding IsStaticPricesWithNewsView, Mode=OneWay}",
+            ],
             viewItems.Select(item => (string?)item.Attribute("IsChecked")));
 
         using var viewModel = new MainViewModel();
-        Assert.True(viewModel.IsScrollingTickerView);
-        Assert.False(viewModel.IsStaticTableTickerView);
+        Assert.True(viewModel.IsScrollingPricesOnlyView);
 
-        viewModel.SetTickerViewCommand.Execute("static");
+        viewModel.SetTickerViewCommand.Execute("static-prices");
 
-        Assert.False(viewModel.IsScrollingTickerView);
-        Assert.True(viewModel.IsStaticTableTickerView);
+        Assert.True(viewModel.IsStaticPricesOnlyView);
     }
 
     [Fact]
     public void GroupManager_CanRenameMergeAndUngroup()
     {
         var document = LoadView("QuoteGroupsWindow.axaml");
+        Assert.Equal("True", (string?)document.Root!.Attribute("Topmost"));
+        var groupLookup = Assert.Single(document.Descendants(), element =>
+            element.Name.LocalName == "ComboBox" &&
+            (string?)element.Attribute("Text") == "{Binding ManagedGroupName, Mode=TwoWay}");
+        Assert.Equal("{Binding GroupNameOptions}", (string?)groupLookup.Attribute("ItemsSource"));
+        Assert.Equal("True", (string?)groupLookup.Attribute("IsEditable"));
         var commands = document.Descendants()
             .Select(element => (string?)element.Attribute("Command"))
             .Where(value => value is not null)

@@ -12,8 +12,12 @@ public partial class QuoteGroupsWindow : Window
         Opened += (_, _) => (DataContext as MainViewModel)?.PrepareQuoteGroupManager();
     }
 
-    public static void Open(Window owner, object? dataContext) =>
-        new QuoteGroupsWindow { DataContext = dataContext }.Show(owner);
+    public static void Open(Window owner, object? dataContext)
+    {
+        var window = new QuoteGroupsWindow { DataContext = dataContext };
+        window.Show(owner);
+        window.Activate();
+    }
 
     private void ShowHelp(object? sender, RoutedEventArgs e) => HelpWindow.Open(this);
 

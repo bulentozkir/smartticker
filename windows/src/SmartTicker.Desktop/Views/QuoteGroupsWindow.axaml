@@ -9,6 +9,7 @@
         Height="520"
         MinWidth="620"
         MinHeight="420"
+        Topmost="True"
         WindowStartupLocation="CenterOwner"
         Background="#0D1117">
     <Grid Margin="24" RowDefinitions="Auto,*,Auto" RowSpacing="16">
@@ -44,14 +45,15 @@
 
             <StackPanel Grid.Column="1" Spacing="12">
                 <TextBlock Text="Selected group" Classes="section" />
-                <TextBlock Text="New name" Classes="lbl" />
-                <TextBox Text="{Binding ManagedGroupName, Mode=TwoWay}"
-                         MaxLength="80" PlaceholderText="Any group name" />
+                <TextBlock Text="Target group" Classes="lbl" />
+                <ComboBox ItemsSource="{Binding GroupNameOptions}"
+                          Text="{Binding ManagedGroupName, Mode=TwoWay}" IsEditable="True"
+                          PlaceholderText="Choose to merge or type to rename" />
                 <Button Content="Rename or merge group" Command="{Binding RenameQuoteGroupCommand}"
                         IsEnabled="{Binding HasSelectedQuoteGroup}" Padding="16,8" />
                 <Button Content="Ungroup quotes" Command="{Binding ClearQuoteGroupCommand}"
                         IsEnabled="{Binding HasSelectedQuoteGroup}" Padding="16,8" />
-                <TextBlock Text="Ungrouping keeps every quote and removes only its group assignment. Renaming to an existing name merges the groups."
+                <TextBlock Text="Choose an existing group to merge. Type a new name only when renaming. Ungrouping keeps every quote and removes only its group assignment."
                            TextWrapping="Wrap" FontSize="12" Foreground="#8B949E" />
             </StackPanel>
         </Grid>

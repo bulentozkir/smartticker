@@ -20,6 +20,7 @@ public sealed class LocalJsonSettingsStoreTests
             var expected = new SmartTickerSettings(1, [subscription!], 3, 2, 65, 30)
             {
                 UseStaticGroupedView = true,
+                AlertBlinkColor = "#123ABC",
             };
             var store = new LocalJsonSettingsStore(path);
 
@@ -31,11 +32,13 @@ public sealed class LocalJsonSettingsStoreTests
             Assert.Equal(65, actual.PriceScrollSpeed);
             Assert.Equal(30, actual.NewsScrollSpeed);
             Assert.True(actual.UseStaticGroupedView);
+            Assert.Equal("#123ABC", actual.AlertBlinkColor);
             var restored = Assert.Single(actual.Subscriptions);
             Assert.Equal(subscription, restored);
             Assert.Equal("Mega-Cap Tech", restored.GroupName);
             Assert.Equal(9, restored.NewsRepeatLimit);
             Assert.Contains("\"priceScrollSpeed\": 65", File.ReadAllText(path));
+            Assert.Contains("\"alertBlinkColor\": \"#123ABC\"", File.ReadAllText(path));
         }
         finally
         {
@@ -56,5 +59,31 @@ public sealed class LocalJsonSettingsStoreTests
         Assert.Equal(SmartTickerSettings.CurrentVersion, settings.Version);
         Assert.Empty(settings.Subscriptions);
         Assert.Equal(50, settings.PriceScrollSpeed);
+        Assert.True(settings.ShowPriceLine);
+        Assert.False(settings.ShowNewsLine);
+        Assert.False(settings.UseStaticGroupedView);
+    }
+
+    [Fact]
+    public void Load_SettingsWithoutAlertBlinkColorDefaultsToMagenta()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "SmartTicker.Tests", Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(directory, "settings.json");
+        Directory.CreateDirectory(directory);
+
+        try
+        {
+            File.WriteAllText(
+                path,
+                """{"version":1,"subscriptions":[],"priceRowCount":1,"newsRowCount":1,"priceScrollSpeed":50,"newsScrollSpeed":40}""");
+
+            var settings = new LocalJsonSettingsStore(path).Load();
+
+            Assert.Equal(SmartTickerSettings.DefaultAlertBlinkColor, settings.AlertBlinkColor);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
     }
 }

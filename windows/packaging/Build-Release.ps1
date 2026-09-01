@@ -249,10 +249,12 @@ if ($wix) {
                     throw "wix build failed for ${identifier} with exit code ${LASTEXITCODE}."
                 }
 
-                Move-Item -Path $stagedMsi -Destination $msiPath -Force
+                [IO.File]::Move($stagedMsi, $msiPath, $true)
                 if (Test-Path $stagedPdb) {
-                    Move-Item -Path $stagedPdb `
-                        -Destination ([IO.Path]::ChangeExtension($msiPath, '.wixpdb')) -Force
+                    [IO.File]::Move(
+                        $stagedPdb,
+                        [IO.Path]::ChangeExtension($msiPath, '.wixpdb'),
+                        $true)
                 }
             }
             finally {

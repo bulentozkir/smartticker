@@ -33,6 +33,9 @@ public sealed class HelpContentContractTests
         Assert.Contains("[Troubleshooting](#troubleshooting)", guide);
         Assert.Contains("News opens automatically in a separate", guide);
         Assert.Contains("View > Open static news window", guide);
+        Assert.Contains("Left-to-right scroll: Prices with News", guide);
+        Assert.Contains("headlines are interleaved by quote", guide);
+        Assert.Contains("Quote filter", guide);
         Assert.Contains("responsive tiles laid out from left to right", guide);
         Assert.Contains("Drag the dotted handle", guide);
         Assert.Contains("## Quotes", guide);
@@ -63,8 +66,11 @@ public sealed class HelpContentContractTests
     [Fact]
     public void HelpWindow_UsesPublishedRawGuide()
     {
+        var window = XDocument.Load(DesktopPath("Views", "HelpWindow.axaml"));
         var code = File.ReadAllText(DesktopPath("Views", "HelpWindow.axaml.cs"));
 
+        Assert.Equal("True", (string?)window.Root!.Attribute("Topmost"));
+        Assert.Contains("window.Activate();", code);
         Assert.Contains(
             "https://raw.githubusercontent.com/bulentozkir/smartticker/refs/heads/main/HELPME.md",
             code);

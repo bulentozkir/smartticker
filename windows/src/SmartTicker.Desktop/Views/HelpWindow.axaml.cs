@@ -32,7 +32,12 @@ public partial class HelpWindow : Window
         Closed += (_, _) => _lifetimeCancellation.Cancel();
     }
 
-    public static void Open(Window owner) => new HelpWindow().Show(owner);
+    public static void Open(Window owner)
+    {
+        var window = new HelpWindow();
+        window.Show(owner);
+        window.Activate();
+    }
 
     private async Task LoadHelpAsync()
     {

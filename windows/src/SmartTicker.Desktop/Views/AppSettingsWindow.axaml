@@ -75,7 +75,7 @@
                                     <Button Content="Manage groups" Click="OpenQuoteGroups" Padding="14,6" />
                                 </StackPanel>
                                 <TextBlock Classes="caption" TextWrapping="Wrap"
-                                           Text="Shows quote tiles in the ticker and opens news tiles in a separate movable window. Neither window scrolls automatically." />
+                                           Text="Switches between scrolling and static while preserving the current Prices-only or Prices-with-News choice from the View menu." />
                             </StackPanel>
                         </Grid>
                     </StackPanel>
@@ -209,6 +209,12 @@
                                              Color="{Binding PriceDownColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
                                 <TextBox Text="{Binding PriceDownColorHex}" Width="112" FontSize="14" />
                             </StackPanel>
+                            <StackPanel Spacing="4" Margin="0,0,12,10">
+                                <TextBlock Classes="lbl" Text="Alert blink" ToolTip.Tip="Color used while a triggered alert flashes" />
+                                <ColorPicker Width="112" HorizontalAlignment="Left"
+                                             Color="{Binding AlertBlinkColorHex, Mode=TwoWay, Converter={x:Static conv:HexColorConverter.Instance}}" />
+                                <TextBox Text="{Binding AlertBlinkColorHex}" Width="112" FontSize="14" />
+                            </StackPanel>
                         </WrapPanel>
                     </StackPanel>
                 </Border>
@@ -217,7 +223,7 @@
                     <StackPanel Spacing="12">
                         <TextBlock Classes="section" Text="Backup" />
                         <TextBlock Classes="caption" TextWrapping="Wrap"
-                                   Text="Importing replaces every configured entry and appearance setting." />
+                                   Text="Settings backups include quote groups. Importing replaces every configured entry and appearance setting." />
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Button Content="Export settings…" Click="ExportSettings" Padding="18,8" />
                             <Button Content="Import settings…" Click="ImportSettings" Padding="18,8" />

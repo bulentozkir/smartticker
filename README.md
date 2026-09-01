@@ -33,21 +33,25 @@ Launch SmartTicker from the desktop application menu or by running `smartticker`
 
 ## Choose a ticker view
 
-Right-click SmartTicker and open **View**. The two choices are mutually exclusive and
-the selected style is applied immediately and remembered:
+Right-click SmartTicker and open **View**. Four mutually exclusive choices are applied
+immediately and remembered:
 
-- **Left-to-right scrolling ticker** is the default. It uses the original horizontal
-	price marquee, configured price rows, and scroll speed.
-- **Static table ticker** lays out collapsible group tiles from left to right and wraps
-	them only as the window narrows. Quote tiles have aligned **Symbol**, **Last**,
-	**Chg**, and **Chg%** columns. Static **Symbol / Headline** news tiles open in a
-	separate movable and resizable **SmartTicker News** window. Nothing moves
-	automatically.
+- **Left-to-right scroll: Prices only** shows only the price marquee and is the default.
+- **Left-to-right scroll: Prices with News** shows both marquees.
+- **Static view: Prices only** shows only responsive quote tiles.
+- **Static view: Prices with News** shows quote tiles and opens a separate movable,
+  resizable **SmartTicker News** window.
 
-To organize the static table, open **Quotes...** and enter any free-form **Group** name
-while adding or editing a quote. Open **Quote groups...** from the right-click menu to
-rename or merge a group, or to clear its assignments without deleting quotes. Blank
-group names appear under **Ungrouped**. The published sample settings assign all 20
+The News window starts compact and is placed on another monitor when available, or in
+a non-overlapping position around Prices on a single monitor. Within every news group,
+headlines are interleaved one per quote per round. A **Quote filter** can show All
+quotes or one symbol and remains selected across refreshes for the current session.
+
+To organize the static table, open **Quotes...** and choose an existing **Group** from
+the lookup, or type a new name while adding or editing a quote. Open **Quote groups...**
+from the right-click menu to rename or merge a group, or to clear its assignments
+without deleting quotes. Blank group names appear under **Ungrouped**. Settings export
+and import carry these per-quote group assignments. The published sample assigns all 20
 entries to six example groups but keep the scrolling ticker selected by default.
 
 In static mode, drag the dotted handle on any quote or news tile and drop it on the
@@ -66,7 +70,8 @@ source validation, group ordering, backups, static-table behavior, and alert rul
 - Always-on-top window with separate scrolling lines for prices and news
 - Optional tiled static quote view with collapsible, user-defined groups and Last/Chg/Chg% columns
 - Separate tiled static news window with cross-monitor placement and group ordering shared with quotes
-- Mutually exclusive ticker styles selectable immediately from **View** in the right-click menu; scrolling remains the default
+- Four mutually exclusive price/news and scrolling/static combinations in the right-click **View** menu
+- Round-robin static headlines with an All-quotes/per-symbol filter in every news group
 - Track any quote from a public web page you choose yourself
 - Automatic value detection, or pick an exact element with a CSS selector
 - After-hours prices and daily change percentages
@@ -86,7 +91,7 @@ source validation, group ordering, backups, static-table behavior, and alert rul
 - One to eight rows per line, with adjustable scrolling speed
 - Free-form quote groups that can be renamed, merged, or cleared without deleting quotes
 - Adjustable window transparency
-- Configurable colours for the background, quote names, prices, after-hours values, rising and falling changes, and four separate news colours
+- Configurable colours for the background, quote names, prices, after-hours values, rising and falling changes, alert blinking, and four separate news colours
 
 **Everything else**
 

@@ -27,8 +27,8 @@ Right-click the ticker to open its menu. The main configuration commands are:
 - **Alerts**: create and manage price alert rules.
 - **App Settings...**: configure rows, speeds, refresh intervals, startup, website
 	access, colors, transparency, and backups.
-- **View**: select either **Left-to-right scrolling ticker** or
-  **Static table ticker**. The two choices are mutually exclusive.
+- **View**: select one of four mutually exclusive combinations: scrolling or static,
+	with Prices only or Prices with News.
 - **Help**: open this guide inside SmartTicker.
 - **About SmartTicker**: show the installed version and license notice.
 - **Exit**: close SmartTicker completely.
@@ -45,13 +45,20 @@ control.
 
 ### Choose scrolling or static quote view
 
-SmartTicker offers two mutually exclusive price display modes. Right-click the ticker,
-open **View**, and select **Left-to-right scrolling ticker** or
-**Static table ticker**. The view changes immediately and your choice is saved.
+SmartTicker offers four mutually exclusive display modes. Right-click the ticker, open
+**View**, and select one. The layout changes immediately and your choice is saved.
 
-The default is **Left-to-right scrolling ticker**, including for settings files created
-before static tables were added. The **Static grouped tables (no scrolling)**
-checkbox under **App Settings... > Quote view** controls the same saved choice.
+| View option | Result |
+| --- | --- |
+| **Left-to-right scroll: Prices only** | Price marquee in the main ticker; no news display. This is the default. |
+| **Left-to-right scroll: Prices with News** | Price and news marquees in the main ticker. |
+| **Static view: Prices only** | Responsive price tiles in the main window; no News window. |
+| **Static view: Prices with News** | Responsive price tiles plus a separate static **SmartTicker News** window. |
+
+Settings files created before these choices were added map to the matching combination
+of their saved scrolling/static and news settings. The **Static grouped tables (no
+scrolling)** checkbox under **App Settings... > Quote view** changes only the
+scrolling/static half and preserves the current News choice.
 
 - When clear, prices use the original horizontal marquee and the configured price row
 	count and scroll speed.
@@ -73,6 +80,14 @@ checkbox under **App Settings... > Quote view** controls the same saved choice.
 	window has a normal title bar and resize border, so the Quotes and News windows can
 	be moved independently to different monitors. Double-click a headline row to open
 	its source.
+- On initial launch, News uses a compact 680×340 size. SmartTicker places it on another
+	monitor when one is available; on a single monitor it first tries a free area below,
+	right, above, or left of Prices. You can then move and resize it normally.
+- Within each News group, headlines are interleaved by quote: one headline from the
+	first quote, then one from the next quote, continuing in rounds. A quote with many
+	headlines therefore cannot occupy the whole top of its group.
+- Use **Quote filter** at the top of a News tile to show **All quotes** or one symbol.
+	The filter is remembered across refreshes for the current SmartTicker session.
 - Drag the dotted handle beside any quote or news tile heading and drop it on the left
 	or right half of another tile. The order changes in both windows and is saved by
 	reordering the underlying configured entries.
@@ -80,10 +95,10 @@ checkbox under **App Settings... > Quote view** controls the same saved choice.
 	vertically only when wrapped tile rows do not fit in the current window height.
 
 Closing **SmartTicker News** does not disable news collection. To reopen it, right-click
-the Quotes window and select **View > Open static news window**. Turning off
-**Show news line** closes it; turning that option on while static mode is selected opens
-it again. Switching back to the scrolling ticker closes the separate News window and
-restores the news marquee in the main ticker.
+the Prices window and select **View > Open static news window**. Selecting **Static
+view: Prices only** closes it; selecting **Static view: Prices with News** opens it
+again. Either scrolling choice closes the separate News window; the scrolling
+Prices-with-News choice restores the news marquee in the main ticker.
 
 Switching to static mode expands a short ticker window to a usable table height. You
 can then resize it from any edge or corner.
@@ -119,13 +134,13 @@ default browser. SmartTicker does not open links on a single click.
 
 | Command | Effect |
 | --- | --- |
-| **Show price line** | Show or hide all configured price rows. |
-| **Show news line** | Show or hide all configured news rows. |
 | **Refresh prices now** | Request all permitted entries that collect prices immediately when SmartTicker is not paused. |
 | **Refresh news now** | Request all permitted entries that collect news immediately when SmartTicker is not paused. |
 | **Pause / Resume** | Toggle refreshing and marquee movement. |
-| **View > Left-to-right scrolling ticker** | Use the original horizontal price marquee. This is the default. |
-| **View > Static table ticker** | Use responsive static quote and news group tiles. |
+| **View > Left-to-right scroll: Prices only** | Use only the horizontal price marquee. This is the default. |
+| **View > Left-to-right scroll: Prices with News** | Use both horizontal marquees. |
+| **View > Static view: Prices only** | Use only responsive static quote tiles. |
+| **View > Static view: Prices with News** | Use quote tiles plus the separate static News window. |
 | **View > Open static news window** | Reopen the separate News window after closing it. Available in static mode when news is enabled. |
 | **Language** | Choose one of the 16 supported menu/status languages. |
 
@@ -148,8 +163,8 @@ edit or remove any sample entry afterward.
 
 1. Enter the **Ticker** label, such as `MSFT`. SmartTicker trims it and stores it in
 	 uppercase.
-2. Optionally enter any **Group** name, such as `Nasdaq`, `Precious Metals`, or
-	 `Mag 7`.
+2. Optionally choose an existing **Group** from the lookup, or type a new name such as
+	 `Nasdaq`, `Precious Metals`, or `Mag 7`. Leave it blank for **Ungrouped**.
 3. Select a **Source** preset.
 4. Enter the **URL suffix**, or a complete URL when using **Custom URL**.
 5. Select **Price**, **News**, or both under **Collect**. At least one is required.
@@ -172,8 +187,8 @@ Use **Manage groups** beside the Group field, in App Settings, or select
 **Quote groups...** from the ticker menu. The Quote Groups window lists every nonblank
 group with its quote count and symbols.
 
-- Select a group, edit **New name**, then choose **Rename or merge group**. Every quote
-	in that group is updated. Renaming to an existing name merges the assignments.
+- Select a group, choose an existing **Target group** to merge or type a new name to
+	rename, then choose **Rename or merge group**. Every quote in that group is updated.
 - Choose **Ungroup quotes** to clear that group's assignments. Quotes, sources, current
 	data, and alerts are not deleted.
 - Create a new group by typing its name while adding or editing any quote. Empty groups
@@ -312,8 +327,8 @@ News row and speed settings are retained for the scrolling view.
 The website's policy, robots directives, server throttling, and requested backoff take
 priority over a configured interval. Avoid unnecessarily frequent requests.
 
-Use **Show price line** and **Show news line** in the main right-click menu to hide a
-whole ticker area without deleting its entries.
+Use the four choices under **View** to choose whether News is displayed and whether the
+layout scrolls or remains static. Changing the view never deletes configured entries.
 
 ### Start SmartTicker when signing in
 
@@ -400,6 +415,7 @@ Color fields accept `#RRGGBB` hexadecimal values and also provide a color picker
 | News 4th | `#79C0FF` | Headlines 4, 8, 12, and so on. |
 | Change up | `#3FB950` | Positive percentage changes. |
 | Change down | `#F85149` | Negative percentage changes. |
+| Alert blink | `#FF00FF` | Triggered price alerts, alternating with black. |
 
 **Reset to defaults** restores every color above and 100% background opacity. It does
 not reset rows, speeds, sources, refresh intervals, alerts, or language.
@@ -419,6 +435,8 @@ provides separate buttons for each backup type.
 	file leaves current settings unchanged.
 - A successful import replaces every configured entry and application preference. It
 	does not replace the separate alert-rules file.
+- Groups are included as quote assignments in the settings file. There is no separate
+	group-only export or import file.
 - The startup preference is present in a settings backup, but importing it does not
 	silently change OS startup registration. The operating system remains authoritative;
 	use the Startup checkbox to change registration on the current computer.
@@ -481,7 +499,8 @@ condition. A failed or missing price cannot trigger a rule.
 
 When one or more rules fire:
 
-- The affected price entry alternates magenta and black for the configured duration.
+- The affected price entry alternates the configured alert blink color and black for
+	the configured duration. The default blink color is magenta (`#FF00FF`).
 - If **Buzz** is enabled, SmartTicker plays the configured buzz sequence.
 - The alert message identifies one rule or reports the number of rules fired together.
 - Ticker scrolling continues while the alert highlight is active.
@@ -496,6 +515,9 @@ When one or more rules fire:
 
 Disabling Buzz leaves the visual alert active. If several rules fire in the same
 evaluation, SmartTicker starts one configured buzz sequence for that evaluation.
+Change **Alert blink** under **App Settings > Appearance**. It is an application
+appearance preference, so Settings export/import includes it rather than the separate
+alert-rules file.
 
 ### Manage configured rules
 
@@ -566,6 +588,8 @@ accordance with the website's terms, license, robots directives, and applicable 
 - Validate the source and run **Discover news**.
 - Ensure the selector returns links with visible headline text.
 - A headline disappears after reaching its configured repeat limit for this session.
+- In static News, confirm the tile's **Quote filter** is set to **All quotes** or the
+	intended symbol.
 
 ### Selector discovery finds nothing
 

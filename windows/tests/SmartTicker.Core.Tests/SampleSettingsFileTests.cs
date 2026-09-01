@@ -29,6 +29,7 @@ public sealed class SampleSettingsFileTests
         Assert.All(result.Settings.Subscriptions, item => Assert.False(string.IsNullOrWhiteSpace(item.CssSelector)));
         Assert.All(result.Settings.Subscriptions, item => Assert.False(string.IsNullOrWhiteSpace(item.NewsCssSelector)));
         Assert.All(result.Settings.Subscriptions, item => Assert.False(string.IsNullOrWhiteSpace(item.GroupName)));
+        Assert.False(result.Settings.ShowNewsLine);
         Assert.False(result.Settings.UseStaticGroupedView);
         Assert.True(result.Settings.AllowWebsiteCookiesAndCrossHostRedirects);
         Assert.Empty(result.Settings.AcknowledgedSources);
@@ -91,5 +92,6 @@ public sealed class SampleSettingsFileTests
         Assert.Equal(SmartTickerSettings.DefaultNewsColor4, settings.NewsColor4);
         Assert.Equal(SmartTickerSettings.DefaultPriceUpColor, settings.PriceUpColor);
         Assert.Equal(SmartTickerSettings.DefaultPriceDownColor, settings.PriceDownColor);
+        Assert.Equal(SmartTickerSettings.DefaultAlertBlinkColor, settings.AlertBlinkColor);
     }
 }

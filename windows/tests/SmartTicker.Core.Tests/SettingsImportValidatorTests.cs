@@ -310,6 +310,7 @@ public class SettingsImportValidatorTests
                 var result = SettingsImportValidator.Validate(json);
 
                 Assert.True(result.Success);
+                Assert.False(result.Settings!.ShowNewsLine);
                 Assert.False(result.Settings!.UseStaticGroupedView);
                 Assert.Null(Assert.Single(result.Settings.Subscriptions).GroupName);
         }

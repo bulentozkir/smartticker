@@ -4,10 +4,10 @@
   "newsRowCount": 2,
   "priceScrollSpeed": 50,
   "newsScrollSpeed": 40,
-  "priceRefreshSeconds": 60,
+  "priceRefreshSeconds": 30,
   "newsRefreshSeconds": 300,
   "showPriceLine": true,
-  "showNewsLine": true,
+  "showNewsLine": false,
   "useStaticGroupedView": false,
   "allowWebsiteCookiesAndCrossHostRedirects": true,
   "backgroundColor": "#10151D",
@@ -20,6 +20,7 @@
   "newsColor4": "#79C0FF",
   "priceUpColor": "#3FB950",
   "priceDownColor": "#F85149",
+  "alertBlinkColor": "#FF00FF",
   "acknowledgedSources": [],
   "subscriptions": [
     {

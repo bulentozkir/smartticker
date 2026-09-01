@@ -1,5 +1,7 @@
 using System;
 using System.ComponentModel;
+using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -299,6 +301,7 @@ public partial class MainWindow : Window
                 }
             };
             _staticNewsWindow = newsWindow;
+            PositionStaticNewsWindow(newsWindow);
             newsWindow.Show();
         }
         catch (Exception exception)
@@ -314,4 +317,58 @@ public partial class MainWindow : Window
         _staticNewsWindow = null;
         newsWindow?.Close();
     }
+
+    private void PositionStaticNewsWindow(StaticNewsWindow newsWindow)
+    {
+        const int margin = 24;
+        var screens = Screens;
+        var mainScreen = screens?.ScreenFromWindow(this) ?? screens?.Primary;
+        if (screens is null || mainScreen is null)
+        {
+            return;
+        }
+
+        var targetScreen = screens.All.FirstOrDefault(screen => screen != mainScreen) ?? mainScreen;
+        var workArea = targetScreen.WorkingArea;
+        var width = Math.Min(
+            Math.Max(1, workArea.Width - margin * 2),
+            (int)Math.Ceiling(newsWindow.Width * targetScreen.Scaling));
+        var height = Math.Min(
+            Math.Max(1, workArea.Height - margin * 2),
+            (int)Math.Ceiling(newsWindow.Height * targetScreen.Scaling));
+
+        if (targetScreen != mainScreen)
+        {
+            newsWindow.Position = new PixelPoint(workArea.X + margin, workArea.Y + margin);
+            return;
+        }
+
+        var mainWidth = (int)Math.Ceiling(Bounds.Width * mainScreen.Scaling);
+        var mainHeight = (int)Math.Ceiling(Bounds.Height * mainScreen.Scaling);
+        var candidates = new[]
+        {
+            new PixelPoint(Position.X, Position.Y + mainHeight + margin),
+            new PixelPoint(Position.X + mainWidth + margin, Position.Y),
+            new PixelPoint(Position.X, Position.Y - height - margin),
+            new PixelPoint(Position.X - width - margin, Position.Y),
+        };
+        PixelPoint? position = candidates
+            .Where(candidate => Fits(workArea, candidate, width, height))
+            .Select(candidate => (PixelPoint?)candidate)
+            .FirstOrDefault();
+        if (position is null)
+        {
+            position = new PixelPoint(
+                Math.Max(workArea.X + margin, workArea.Right - width - margin),
+                Math.Max(workArea.Y + margin, workArea.Bottom - height - margin));
+        }
+
+        newsWindow.Position = position.Value;
+    }
+
+    private static bool Fits(PixelRect area, PixelPoint position, int width, int height) =>
+        position.X >= area.X &&
+        position.Y >= area.Y &&
+        position.X + width <= area.Right &&
+        position.Y + height <= area.Bottom;
 }

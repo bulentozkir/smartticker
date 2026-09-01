@@ -7,6 +7,7 @@
         Height="760"
         MinWidth="720"
         MinHeight="420"
+        Topmost="True"
         WindowStartupLocation="CenterOwner"
         Background="#10151D">
     <Grid Margin="20" RowDefinitions="Auto,Auto,*" RowSpacing="12">

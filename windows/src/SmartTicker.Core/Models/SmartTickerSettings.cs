@@ -26,6 +26,7 @@ public sealed record SmartTickerSettings(
     public static IReadOnlyList<string> RetiredNewsColors { get; } = ["#D8DEE9"];
     public const string DefaultPriceUpColor = "#3FB950";
     public const string DefaultPriceDownColor = "#F85149";
+    public const string DefaultAlertBlinkColor = "#FF00FF";
 
     public const int MinimumRefreshSeconds = 30;
     public const int MaximumRefreshSeconds = 300;
@@ -45,9 +46,11 @@ public sealed record SmartTickerSettings(
 
     public string[] AcknowledgedSources { get; init; } = [];
 
+    public string[] QuoteGroupNames { get; init; } = [];
+
     public bool ShowPriceLine { get; init; } = true;
 
-    public bool ShowNewsLine { get; init; } = true;
+    public bool ShowNewsLine { get; init; }
 
     public bool UseStaticGroupedView { get; init; }
 
@@ -75,6 +78,8 @@ public sealed record SmartTickerSettings(
     public string PriceUpColor { get; init; } = DefaultPriceUpColor;
 
     public string PriceDownColor { get; init; } = DefaultPriceDownColor;
+
+    public string AlertBlinkColor { get; init; } = DefaultAlertBlinkColor;
 
     public string Language { get; init; } = AppLanguages.Default;
 
@@ -107,6 +112,7 @@ public sealed record SmartTickerSettings(
         Version = CurrentVersion,
         Subscriptions = Subscriptions ?? [],
         AcknowledgedSources = AcknowledgedSources ?? [],
+        QuoteGroupNames = NormalizeQuoteGroupNames(QuoteGroupNames, Subscriptions),
         PriceRowCount = Math.Clamp(PriceRowCount, 1, 8),
         NewsRowCount = Math.Clamp(NewsRowCount, 1, 8),
         BackgroundOpacity = double.IsFinite(BackgroundOpacity)
@@ -118,4 +124,22 @@ public sealed record SmartTickerSettings(
         NewsRefreshSeconds = Math.Clamp(NewsRefreshSeconds, MinimumRefreshSeconds, MaximumRefreshSeconds),
         Language = AppLanguages.Normalize(Language),
     };
+
+    private static string[] NormalizeQuoteGroupNames(
+        IEnumerable<string>? names,
+        IEnumerable<TickerSubscription>? subscriptions)
+    {
+        var normalized = new List<string>();
+        foreach (var name in (names ?? []).Concat((subscriptions ?? []).Select(item => item.GroupName)))
+        {
+            if (TickerSubscription.TryNormalizeGroupName(name, out var groupName, out _) &&
+                groupName is not null &&
+                !normalized.Contains(groupName, StringComparer.OrdinalIgnoreCase))
+            {
+                normalized.Add(groupName);
+            }
+        }
+
+        return normalized.ToArray();
+    }
 }

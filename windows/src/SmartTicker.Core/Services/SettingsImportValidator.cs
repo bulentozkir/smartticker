@@ -20,6 +20,7 @@ public sealed record SettingsImportResult(SmartTickerSettings? Settings, IReadOn
 public static class SettingsImportValidator
 {
     public const int MaximumSubscriptions = 200;
+    public const int MaximumQuoteGroups = 200;
 
     private const int MaximumReportedErrors = 25;
 
@@ -35,6 +36,7 @@ public static class SettingsImportValidator
         "priceRefreshSeconds",
         "newsRefreshSeconds",
         "acknowledgedSources",
+        "quoteGroups",
         "showPriceLine",
         "showNewsLine",
         "useStaticGroupedView",
@@ -50,6 +52,7 @@ public static class SettingsImportValidator
         "newsColor4",
         "priceUpColor",
         "priceDownColor",
+        "alertBlinkColor",
         "language",
     };
 
@@ -111,6 +114,7 @@ public static class SettingsImportValidator
                 ReadInt(root, string.Empty, "newsScrollSpeed", 10, 200, 40, errors))
             {
                 AcknowledgedSources = ReadAcknowledgedSources(root, errors),
+                QuoteGroupNames = ReadQuoteGroups(root, errors),
                 PriceRefreshSeconds = ReadInt(
                     root,
                     string.Empty,
@@ -128,7 +132,7 @@ public static class SettingsImportValidator
                     SmartTickerSettings.DefaultNewsRefreshSeconds,
                     errors),
                 ShowPriceLine = ReadBool(root, string.Empty, "showPriceLine", true, errors),
-                ShowNewsLine = ReadBool(root, string.Empty, "showNewsLine", true, errors),
+                ShowNewsLine = ReadBool(root, string.Empty, "showNewsLine", false, errors),
                 UseStaticGroupedView = ReadBool(root, string.Empty, "useStaticGroupedView", false, errors),
                 LaunchAtLogin = ReadBool(root, string.Empty, "launchAtLogin", false, errors),
                 AllowWebsiteCookiesAndCrossHostRedirects = ReadBool(
@@ -154,6 +158,11 @@ public static class SettingsImportValidator
                 NewsColor4 = ReadColor(root, "newsColor4", SmartTickerSettings.DefaultNewsColor4, errors),
                 PriceUpColor = ReadColor(root, "priceUpColor", SmartTickerSettings.DefaultPriceUpColor, errors),
                 PriceDownColor = ReadColor(root, "priceDownColor", SmartTickerSettings.DefaultPriceDownColor, errors),
+                AlertBlinkColor = ReadColor(
+                    root,
+                    "alertBlinkColor",
+                    SmartTickerSettings.DefaultAlertBlinkColor,
+                    errors),
                 Language = ReadLanguage(root, errors),
             };
 
@@ -401,6 +410,54 @@ public static class SettingsImportValidator
         }
 
         return hosts.ToArray();
+    }
+
+    private static string[] ReadQuoteGroups(Dictionary<string, JsonElement> root, List<string> errors)
+    {
+        if (!root.TryGetValue("quoteGroups", out var element))
+        {
+            return [];
+        }
+
+        if (element.ValueKind != JsonValueKind.Array)
+        {
+            errors.Add($"'quoteGroups' must be a list of group names, but it is {Describe(element.ValueKind)}.");
+            return [];
+        }
+
+        if (element.GetArrayLength() > MaximumQuoteGroups)
+        {
+            errors.Add($"'quoteGroups' contains more than the {MaximumQuoteGroups} groups SmartTicker allows.");
+            return [];
+        }
+
+        var names = new List<string>();
+        var index = 0;
+        foreach (var item in element.EnumerateArray())
+        {
+            var path = $"quoteGroups[{index++}]";
+            if (item.ValueKind != JsonValueKind.String)
+            {
+                errors.Add($"'{path}' must be a quoted group name.");
+                continue;
+            }
+
+            if (!TickerSubscription.TryNormalizeGroupName(item.GetString(), out var name, out var error) || name is null)
+            {
+                errors.Add($"'{path}' is invalid. {error ?? "Group names cannot be blank."}");
+                continue;
+            }
+
+            if (names.Contains(name, StringComparer.OrdinalIgnoreCase))
+            {
+                errors.Add($"'{path}' duplicates the group name \"{name}\".");
+                continue;
+            }
+
+            names.Add(name);
+        }
+
+        return names.ToArray();
     }
 
     private static Dictionary<string, JsonElement>? ReadObject(JsonElement element, string path, List<string> errors)

@@ -38,26 +38,35 @@
                 <MenuItem Header="{Binding Text.MenuAlerts}" Click="OpenAlerts" />
                 <MenuItem Header="{Binding Text.MenuAppSettings}" Click="OpenAppSettings" />
                 <MenuItem Header="View">
-                    <MenuItem Header="Left-to-right scrolling ticker"
+                    <MenuItem Header="Left-to-right scroll: Prices only"
                               ToggleType="Radio"
                               GroupName="TickerView"
                               Command="{Binding SetTickerViewCommand}"
-                              CommandParameter="scrolling"
-                              IsChecked="{Binding IsScrollingTickerView, Mode=OneWay}" />
-                    <MenuItem Header="Static table ticker"
+                              CommandParameter="scrolling-prices"
+                              IsChecked="{Binding IsScrollingPricesOnlyView, Mode=OneWay}" />
+                    <MenuItem Header="Left-to-right scroll: Prices with News"
                               ToggleType="Radio"
                               GroupName="TickerView"
                               Command="{Binding SetTickerViewCommand}"
-                              CommandParameter="static"
-                              IsChecked="{Binding IsStaticTableTickerView, Mode=OneWay}" />
+                              CommandParameter="scrolling-prices-news"
+                              IsChecked="{Binding IsScrollingPricesWithNewsView, Mode=OneWay}" />
+                    <MenuItem Header="Static view: Prices only"
+                              ToggleType="Radio"
+                              GroupName="TickerView"
+                              Command="{Binding SetTickerViewCommand}"
+                              CommandParameter="static-prices"
+                              IsChecked="{Binding IsStaticPricesOnlyView, Mode=OneWay}" />
+                    <MenuItem Header="Static view: Prices with News"
+                              ToggleType="Radio"
+                              GroupName="TickerView"
+                              Command="{Binding SetTickerViewCommand}"
+                              CommandParameter="static-prices-news"
+                              IsChecked="{Binding IsStaticPricesWithNewsView, Mode=OneWay}" />
                     <Separator />
                     <MenuItem Header="Open static news window"
                               Click="OpenStaticNewsWindow"
-                              IsVisible="{Binding IsStaticTableTickerView}"
-                              IsEnabled="{Binding ShowNewsLine}" />
+                              IsVisible="{Binding IsStaticPricesWithNewsView}" />
                 </MenuItem>
-                <MenuItem Header="{Binding Text.MenuShowPriceLine}" ToggleType="CheckBox" IsChecked="{Binding ShowPriceLine, Mode=TwoWay}" />
-                <MenuItem Header="{Binding Text.MenuShowNewsLine}" ToggleType="CheckBox" IsChecked="{Binding ShowNewsLine, Mode=TwoWay}" />
                 <MenuItem Header="{Binding Text.MenuRefreshPrices}" Command="{Binding RefreshPricesCommand}" />
                 <MenuItem Header="{Binding Text.MenuRefreshNews}" Command="{Binding RefreshNewsCommand}" />
                 <MenuItem Header="{Binding Text.MenuPauseResume}" Command="{Binding TogglePauseCommand}" />
