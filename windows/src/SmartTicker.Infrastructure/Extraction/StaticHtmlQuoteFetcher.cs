@@ -21,7 +21,9 @@ public sealed class StaticHtmlQuoteFetcher : IQuoteFetcher, IDisposable
     {
         try
         {
-            var html = await _client.GetStringAsync(subscription.SourceUri, cancellationToken);
+            var html = await _client
+                .GetStringAsync(subscription.SourceUri, cancellationToken)
+                .ConfigureAwait(false);
             return ExtractSnapshot(subscription, html, DateTimeOffset.UtcNow);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

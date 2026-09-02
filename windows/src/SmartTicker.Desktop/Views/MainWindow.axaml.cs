@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -12,12 +13,17 @@ namespace SmartTicker.Desktop.Views;
 
 public partial class MainWindow : Window
 {
-    private readonly DispatcherTimer _priceRefreshTimer = new();
-    private readonly DispatcherTimer _newsRefreshTimer = new();
+    private readonly DispatcherTimer _priceRefreshTimer = new(DispatcherPriority.Background)
+    {
+        Interval = TimeSpan.FromSeconds(1),
+    };
+    private readonly DispatcherTimer _newsRefreshTimer = new(DispatcherPriority.Background);
+    private readonly PriceRefreshSchedule _priceRefreshSchedule = new();
     private MainViewModel? _observedViewModel;
     private string? _draggedGroupName;
     private StaticNewsWindow? _staticNewsWindow;
     private bool _staticNewsSyncQueued;
+    private bool _scheduledPriceRefreshRunning;
     private bool _isClosing;
 
     public MainWindow()
@@ -72,14 +78,36 @@ public partial class MainWindow : Window
     private async void OnPriceRefreshTimerTick(object? sender, EventArgs e)
     {
         await ExceptionSafety.RunAsync(
-            async () =>
-            {
-                if (!_isClosing && ViewModel is { IsPaused: false } viewModel)
-                {
-                    await viewModel.RefreshPricesSafelyAsync("Automatic price refresh");
-                }
-            },
+            () => RefreshNextPriceBatchAsync("Automatic price refresh"),
             exception => ReportRecoverableError("Automatic price refresh", exception));
+    }
+
+    private async Task RefreshNextPriceBatchAsync(string operation)
+    {
+        if (_isClosing || _scheduledPriceRefreshRunning || ViewModel is not { IsPaused: false } viewModel)
+        {
+            return;
+        }
+
+        _scheduledPriceRefreshRunning = true;
+        try
+        {
+            var subscriptionIds = viewModel.Subscriptions
+                .Where(subscription => subscription.CollectPrice)
+                .Select(subscription => subscription.Id)
+                .ToArray();
+            var batch = _priceRefreshSchedule.NextBatch(
+                subscriptionIds,
+                viewModel.PriceRefreshSeconds);
+            if (batch.Count > 0)
+            {
+                await viewModel.RefreshPriceSubscriptionsSafelyAsync(operation, batch);
+            }
+        }
+        finally
+        {
+            _scheduledPriceRefreshRunning = false;
+        }
     }
 
     private async void OnNewsRefreshTimerTick(object? sender, EventArgs e)
@@ -222,6 +250,22 @@ public partial class MainWindow : Window
 
     private void ExitApplication(object? sender, RoutedEventArgs e) => RunSafely("Closing SmartTicker", Close);
 
+    private void RefreshPrices(object? sender, RoutedEventArgs e) =>
+        RunSafely("Starting manual price refresh", () =>
+        {
+            if (ViewModel is not { IsPaused: false })
+            {
+                return;
+            }
+
+            _priceRefreshTimer.Stop();
+            _priceRefreshSchedule.Reset();
+            _ = ExceptionSafety.RunAsync(
+                () => RefreshNextPriceBatchAsync("Manual price refresh"),
+                exception => ReportRecoverableError("Manual price refresh", exception));
+            _priceRefreshTimer.Start();
+        });
+
     private void ShowHelp(object? sender, RoutedEventArgs e) => RunSafely("Opening Help", () => HelpWindow.Open(this));
 
     private void ShowAbout(object? sender, RoutedEventArgs e) =>
@@ -280,7 +324,9 @@ public partial class MainWindow : Window
         ApplyRefreshIntervals();
         _priceRefreshTimer.Start();
         _newsRefreshTimer.Start();
-        _ = viewModel.RefreshPricesSafelyAsync("Initial price refresh");
+        _ = ExceptionSafety.RunAsync(
+            () => RefreshNextPriceBatchAsync("Initial price refresh"),
+            exception => ReportRecoverableError("Initial price refresh", exception));
         _ = viewModel.RefreshNewsSafelyAsync("Initial news refresh");
     }
 
@@ -292,6 +338,20 @@ public partial class MainWindow : Window
         if (e.PropertyName is nameof(MainViewModel.PriceRefreshSeconds) or nameof(MainViewModel.NewsRefreshSeconds))
         {
             ApplyRefreshIntervals();
+        }
+
+        if (e.PropertyName == nameof(MainViewModel.IsPaused) && ViewModel is { } viewModel)
+        {
+            if (viewModel.IsPaused)
+            {
+                _priceRefreshTimer.Stop();
+                _newsRefreshTimer.Stop();
+            }
+            else if (!_isClosing)
+            {
+                _priceRefreshTimer.Start();
+                _newsRefreshTimer.Start();
+            }
         }
 
         if (e.PropertyName is nameof(MainViewModel.UseStaticGroupedView) or nameof(MainViewModel.ShowNewsLine))
@@ -324,7 +384,7 @@ public partial class MainWindow : Window
             });
     }
 
-    // Reassigning Interval restarts the countdown, so a running timer picks the new value up immediately.
+    // Price refreshes use fixed one-second slots; News retains its configured whole-cycle timer.
     private void ApplyRefreshIntervals()
     {
         if (ViewModel is not { } viewModel)
@@ -332,7 +392,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        _priceRefreshTimer.Interval = TimeSpan.FromSeconds(viewModel.PriceRefreshSeconds);
+        _priceRefreshSchedule.Reset();
         _newsRefreshTimer.Interval = TimeSpan.FromSeconds(viewModel.NewsRefreshSeconds);
     }
 
@@ -340,6 +400,7 @@ public partial class MainWindow : Window
     {
         _priceRefreshTimer.Stop();
         _newsRefreshTimer.Stop();
+        _priceRefreshSchedule.Reset();
         if (_observedViewModel is not null)
         {
             _observedViewModel.PropertyChanged -= OnViewModelPropertyChanged;

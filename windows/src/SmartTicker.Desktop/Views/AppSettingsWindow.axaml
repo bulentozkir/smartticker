@@ -62,7 +62,8 @@
                                 <TextBlock Classes="caption" Text="Prices" VerticalAlignment="Center" />
                                 <NumericUpDown Value="{Binding PriceRefreshSeconds}" Minimum="30" Maximum="300" Increment="15"
                                                FormatString="0" Width="126" FontSize="15" FontWeight="SemiBold"
-                                               HorizontalContentAlignment="Center" />
+                                               HorizontalContentAlignment="Center"
+                                               ToolTip.Tip="Price requests are spread evenly across one-second slots in this interval." />
                                 <TextBlock Classes="caption" Text="sec" VerticalAlignment="Center" />
                                 <TextBlock Classes="caption" Text="News" VerticalAlignment="Center" Margin="14,0,0,0" />
                                 <NumericUpDown Value="{Binding NewsRefreshSeconds}" Minimum="30" Maximum="300" Increment="15"

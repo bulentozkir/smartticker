@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Specialized;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Globalization;
@@ -397,42 +398,53 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public bool IsNewsVisible => ShowNewsLine && Layout.ShowNews;
 
+    private IBrush _backgroundBrush = ToBackgroundBrush(
+        SmartTickerSettings.DefaultBackgroundColor,
+        SmartTickerSettings.DefaultOpacity);
+    private IBrush _symbolBrush = ToBrush(SmartTickerSettings.DefaultSymbolColor, SmartTickerSettings.DefaultSymbolColor);
+    private IBrush _extendedPriceBrush = ToBrush(
+        SmartTickerSettings.DefaultExtendedPriceColor,
+        SmartTickerSettings.DefaultExtendedPriceColor);
+    private IBrush _priceBrush = ToBrush(SmartTickerSettings.DefaultPriceColor, SmartTickerSettings.DefaultPriceColor);
+    private readonly IBrush[] _newsBrushCycle =
+    [
+        ToBrush(SmartTickerSettings.DefaultNewsColor, SmartTickerSettings.DefaultNewsColor),
+        ToBrush(SmartTickerSettings.DefaultNewsColor2, SmartTickerSettings.DefaultNewsColor2),
+        ToBrush(SmartTickerSettings.DefaultNewsColor3, SmartTickerSettings.DefaultNewsColor3),
+        ToBrush(SmartTickerSettings.DefaultNewsColor4, SmartTickerSettings.DefaultNewsColor4),
+    ];
+    private IBrush _priceUpBrush = ToBrush(SmartTickerSettings.DefaultPriceUpColor, SmartTickerSettings.DefaultPriceUpColor);
+    private IBrush _priceDownBrush = ToBrush(SmartTickerSettings.DefaultPriceDownColor, SmartTickerSettings.DefaultPriceDownColor);
+    private IBrush _alertBlinkBrush = ToBrush(
+        SmartTickerSettings.DefaultAlertBlinkColor,
+        SmartTickerSettings.DefaultAlertBlinkColor);
+
     // Alpha on the background keeps the desktop visible through the bar while the text stays crisp.
-    public IBrush BackgroundBrush
-    {
-        get
-        {
-            var color = Color.Parse(HexColor.TryNormalize(BackgroundColorHex, out var normalized)
-                ? normalized
-                : SmartTickerSettings.DefaultBackgroundColor);
-            var alpha = (byte)Math.Round(Math.Clamp(BackgroundOpacity, SmartTickerSettings.MinimumOpacity, SmartTickerSettings.MaximumOpacity) * 255);
-            return new SolidColorBrush(Color.FromArgb(alpha, color.R, color.G, color.B));
-        }
-    }
+    public IBrush BackgroundBrush => _backgroundBrush;
 
     public string BackgroundOpacityText => $"{BackgroundOpacity * 100:0}%";
 
-    public IBrush SymbolBrush => ToBrush(SymbolColorHex, SmartTickerSettings.DefaultSymbolColor);
+    public IBrush SymbolBrush => _symbolBrush;
 
-    public IBrush ExtendedPriceBrush => ToBrush(ExtendedPriceColorHex, SmartTickerSettings.DefaultExtendedPriceColor);
+    public IBrush ExtendedPriceBrush => _extendedPriceBrush;
 
-    public IBrush PriceBrush => ToBrush(PriceColorHex, SmartTickerSettings.DefaultPriceColor);
+    public IBrush PriceBrush => _priceBrush;
 
-    public IBrush NewsBrush => ToBrush(NewsColorHex, SmartTickerSettings.DefaultNewsColor);
+    public IBrush NewsBrush => _newsBrushCycle[0];
 
-    public IBrush NewsAlternateBrush => ToBrush(NewsColor2Hex, SmartTickerSettings.DefaultNewsColor2);
+    public IBrush NewsAlternateBrush => _newsBrushCycle[1];
 
-    public IBrush NewsBrush3 => ToBrush(NewsColor3Hex, SmartTickerSettings.DefaultNewsColor3);
+    public IBrush NewsBrush3 => _newsBrushCycle[2];
 
-    public IBrush NewsBrush4 => ToBrush(NewsColor4Hex, SmartTickerSettings.DefaultNewsColor4);
+    public IBrush NewsBrush4 => _newsBrushCycle[3];
 
-    private IReadOnlyList<IBrush> NewsBrushCycle => [NewsBrush, NewsAlternateBrush, NewsBrush3, NewsBrush4];
+    private IReadOnlyList<IBrush> NewsBrushCycle => _newsBrushCycle;
 
-    public IBrush PriceUpBrush => ToBrush(PriceUpColorHex, SmartTickerSettings.DefaultPriceUpColor);
+    public IBrush PriceUpBrush => _priceUpBrush;
 
-    public IBrush PriceDownBrush => ToBrush(PriceDownColorHex, SmartTickerSettings.DefaultPriceDownColor);
+    public IBrush PriceDownBrush => _priceDownBrush;
 
-    public IBrush AlertBlinkBrush => ToBrush(AlertBlinkColorHex, SmartTickerSettings.DefaultAlertBlinkColor);
+    public IBrush AlertBlinkBrush => _alertBlinkBrush;
 
     private static readonly IBrush AlertFlashTextBrush = new ImmutableSolidColorBrush(0xFF000000u);
 
@@ -445,6 +457,18 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private static IBrush ToBrush(string hex, string fallback) =>
         new SolidColorBrush(Color.Parse(HexColor.TryNormalize(hex, out var normalized) ? normalized : fallback));
+
+    private static IBrush ToBackgroundBrush(string hex, double opacity)
+    {
+        var color = Color.Parse(HexColor.TryNormalize(hex, out var normalized)
+            ? normalized
+            : SmartTickerSettings.DefaultBackgroundColor);
+        var alpha = (byte)Math.Round(Math.Clamp(
+            opacity,
+            SmartTickerSettings.MinimumOpacity,
+            SmartTickerSettings.MaximumOpacity) * 255);
+        return new SolidColorBrush(Color.FromArgb(alpha, color.R, color.G, color.B));
+    }
 
     private readonly IPriceSelectorDiscovery? _selectorDiscovery;
     private readonly INewsSelectorDiscovery? _newsSelectorDiscovery;
@@ -468,6 +492,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly Dictionary<Guid, DateTimeOffset> _blinkingUntil = [];
     private readonly Dictionary<Guid, DateTimeOffset> _priceChangeBlinkUntil = [];
     private readonly Dictionary<(Guid SubscriptionId, string Headline), DateTimeOffset> _newHeadlineBlinkUntil = [];
+    private readonly Dictionary<Guid, QuoteSnapshot> _latestQuotesBySubscription = [];
+    private readonly Dictionary<Guid, NewsSnapshot> _latestNewsBySubscription = [];
     private readonly AlertArmingState _arming = new();
     private bool _blinkOn;
     private readonly SemaphoreSlim _priceRefreshGate = new(1, 1);
@@ -510,12 +536,55 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _settingsStore = settingsStore;
         _newsFetcher = newsFetcher;
         _linkLauncher = linkLauncher;
+        LatestQuotes.CollectionChanged += OnLatestQuotesChanged;
+        LatestNews.CollectionChanged += OnLatestNewsChanged;
         _blinkTimer.Tick += (_, _) => RunSafely("Blink update", OnBlinkTick);
         SelectedSource = SourceAlternatives[0];
         LoadSettings();
         LoadAlerts();
         StartWatchingConfigFiles();
     }
+
+    private void OnLatestQuotesChanged(object? sender, NotifyCollectionChangedEventArgs change) =>
+        UpdateSnapshotIndex(change, _latestQuotesBySubscription, snapshot => snapshot.SubscriptionId);
+
+    private void OnLatestNewsChanged(object? sender, NotifyCollectionChangedEventArgs change) =>
+        UpdateSnapshotIndex(change, _latestNewsBySubscription, snapshot => snapshot.SubscriptionId);
+
+    private static void UpdateSnapshotIndex<TSnapshot>(
+        NotifyCollectionChangedEventArgs change,
+        Dictionary<Guid, TSnapshot> index,
+        Func<TSnapshot, Guid> subscriptionId)
+        where TSnapshot : class
+    {
+        if (change.Action == NotifyCollectionChangedAction.Reset)
+        {
+            index.Clear();
+            return;
+        }
+
+        if (change.OldItems is not null)
+        {
+            foreach (var snapshot in change.OldItems.OfType<TSnapshot>())
+            {
+                index.Remove(subscriptionId(snapshot));
+            }
+        }
+
+        if (change.NewItems is not null)
+        {
+            foreach (var snapshot in change.NewItems.OfType<TSnapshot>())
+            {
+                index[subscriptionId(snapshot)] = snapshot;
+            }
+        }
+    }
+
+    private QuoteSnapshot? LatestQuoteFor(Guid subscriptionId) =>
+        _latestQuotesBySubscription.GetValueOrDefault(subscriptionId);
+
+    private NewsSnapshot? LatestNewsFor(Guid subscriptionId) =>
+        _latestNewsBySubscription.GetValueOrDefault(subscriptionId);
 
     public string SourceSummary => string.Join("  •  ", SourceAlternatives.Select(source => source.Name));
 
@@ -1122,13 +1191,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             SelectedGroupQuote = null;
         }
 
-        var quote = LatestQuotes.FirstOrDefault(item => item.SubscriptionId == subscription.Id);
+        var quote = LatestQuoteFor(subscription.Id);
         if (quote is not null)
         {
             LatestQuotes.Remove(quote);
         }
 
-        var news = LatestNews.FirstOrDefault(item => item.SubscriptionId == subscription.Id);
+        var news = LatestNewsFor(subscription.Id);
         if (news is not null)
         {
             LatestNews.Remove(news);
@@ -1165,8 +1234,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         SaveSettings();
     }
 
-    [RelayCommand]
-    public async Task RefreshPricesAsync()
+    public Task RefreshPricesAsync() => RefreshPricesCoreAsync(null);
+
+    private async Task RefreshPricesCoreAsync(IReadOnlyCollection<Guid>? subscriptionIds)
     {
         if (_quoteFetcher is null || IsPaused || _isDisposed)
         {
@@ -1176,27 +1246,46 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         var entered = false;
         try
         {
-            entered = await _priceRefreshGate.WaitAsync(0, _lifetimeCancellation.Token);
-            if (!entered)
+            await _priceRefreshGate.WaitAsync(_lifetimeCancellation.Token);
+            entered = true;
+            if (IsPaused || _isDisposed)
             {
                 return;
             }
 
+            var requested = subscriptionIds?.ToHashSet();
             var priceSubscriptions = Subscriptions
-                .Where(item => item.CollectPrice && CanAccessSource(item.SourceUri))
+                .Where(item =>
+                    item.CollectPrice &&
+                    CanAccessSource(item.SourceUri) &&
+                    (requested is null || requested.Contains(item.Id)))
                 .ToArray();
+            if (priceSubscriptions.Length == 0)
+            {
+                return;
+            }
+
+            var results = await Task.WhenAll(priceSubscriptions.Select(FetchPriceAsync));
+            _lifetimeCancellation.Token.ThrowIfCancellationRequested();
             var changeBlinkUntil = DateTimeOffset.Now.AddSeconds(ChangeBlinkSeconds);
             var changed = false;
-            foreach (var subscription in priceSubscriptions)
+            var refreshed = false;
+            foreach (var result in results)
             {
-                var snapshot = await _quoteFetcher.FetchAsync(subscription, _lifetimeCancellation.Token);
-                _lifetimeCancellation.Token.ThrowIfCancellationRequested();
+                if (result.Error is { } error)
+                {
+                    ReportRecoverableError("Price refresh", error);
+                    continue;
+                }
+
+                var subscription = result.Subscription;
+                var snapshot = result.Snapshot!;
                 if (!Subscriptions.Any(item => item.Id == subscription.Id))
                 {
                     continue;
                 }
 
-                var previous = LatestQuotes.FirstOrDefault(item => item.SubscriptionId == subscription.Id);
+                var previous = LatestQuoteFor(subscription.Id);
                 if (HasPriceChanged(previous, snapshot))
                 {
                     _priceChangeBlinkUntil[subscription.Id] = changeBlinkUntil;
@@ -1209,6 +1298,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 }
 
                 LatestQuotes.Add(snapshot);
+                refreshed = true;
             }
 
             if (changed)
@@ -1216,8 +1306,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 StartBlinking();
             }
 
-            UpdatePriceRows();
-            EvaluateAlerts();
+            if (refreshed)
+            {
+                UpdatePriceRows();
+                EvaluateAlerts();
+            }
         }
         catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
         {
@@ -1235,11 +1328,47 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private async Task<PriceFetchResult> FetchPriceAsync(TickerSubscription subscription)
+    {
+        try
+        {
+            var snapshot = await _quoteFetcher!.FetchAsync(subscription, _lifetimeCancellation.Token);
+            return new PriceFetchResult(subscription, snapshot, null);
+        }
+        catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+        {
+            return new PriceFetchResult(subscription, null, exception);
+        }
+    }
+
+    private sealed record PriceFetchResult(
+        TickerSubscription Subscription,
+        QuoteSnapshot? Snapshot,
+        Exception? Error);
+
     public async Task RefreshPricesSafelyAsync(string operation)
     {
         try
         {
             await RefreshPricesAsync();
+        }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+        {
+            ReportRecoverableError(operation, exception);
+        }
+    }
+
+    internal async Task RefreshPriceSubscriptionsSafelyAsync(
+        string operation,
+        IReadOnlyCollection<Guid> subscriptionIds)
+    {
+        try
+        {
+            await RefreshPricesCoreAsync(subscriptionIds);
         }
         catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
@@ -1289,7 +1418,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                     };
                 }
 
-                var previous = LatestNews.FirstOrDefault(item => item.SubscriptionId == subscription.Id);
+                var previous = LatestNewsFor(subscription.Id);
                 foreach (var headline in NewHeadlinesSince(previous, snapshot))
                 {
                     _newHeadlineBlinkUntil[(subscription.Id, headline)] = changeBlinkUntil;
@@ -1923,10 +2052,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private void SyncApprovedSourceHosts() =>
         _websiteAccessPolicy.ReplaceApprovedHosts(_acknowledgements.ToArray());
 
-    partial void OnBackgroundColorHexChanged(string value) => ApplyColorChange(nameof(BackgroundBrush));
+    partial void OnBackgroundColorHexChanged(string value)
+    {
+        _backgroundBrush = ToBackgroundBrush(value, BackgroundOpacity);
+        ApplyColorChange(nameof(BackgroundBrush));
+    }
 
     partial void OnBackgroundOpacityChanged(double value)
     {
+        _backgroundBrush = ToBackgroundBrush(BackgroundColorHex, value);
         OnPropertyChanged(nameof(BackgroundOpacityText));
         ApplyColorChange(nameof(BackgroundBrush));
     }
@@ -1934,6 +2068,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     // News brushes are baked into segments, so the rows must be rebuilt.
     partial void OnNewsColorHexChanged(string value)
     {
+        _newsBrushCycle[0] = ToBrush(value, SmartTickerSettings.DefaultNewsColor);
         OnPropertyChanged(nameof(NewsBrush));
         UpdateNewsRows();
         SaveSettings();
@@ -1941,6 +2076,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnNewsColor2HexChanged(string value)
     {
+        _newsBrushCycle[1] = ToBrush(value, SmartTickerSettings.DefaultNewsColor2);
         OnPropertyChanged(nameof(NewsAlternateBrush));
         UpdateNewsRows();
         SaveSettings();
@@ -1948,6 +2084,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnNewsColor3HexChanged(string value)
     {
+        _newsBrushCycle[2] = ToBrush(value, SmartTickerSettings.DefaultNewsColor3);
         OnPropertyChanged(nameof(NewsBrush3));
         UpdateNewsRows();
         SaveSettings();
@@ -1955,6 +2092,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnNewsColor4HexChanged(string value)
     {
+        _newsBrushCycle[3] = ToBrush(value, SmartTickerSettings.DefaultNewsColor4);
         OnPropertyChanged(nameof(NewsBrush4));
         UpdateNewsRows();
         SaveSettings();
@@ -1963,6 +2101,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     // Price row brushes are baked into segments, so the rows must be rebuilt.
     partial void OnSymbolColorHexChanged(string value)
     {
+        _symbolBrush = ToBrush(value, SmartTickerSettings.DefaultSymbolColor);
         OnPropertyChanged(nameof(SymbolBrush));
         UpdatePriceRows();
         SaveSettings();
@@ -1970,6 +2109,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnPriceColorHexChanged(string value)
     {
+        _priceBrush = ToBrush(value, SmartTickerSettings.DefaultPriceColor);
         OnPropertyChanged(nameof(PriceBrush));
         UpdatePriceRows();
         SaveSettings();
@@ -1977,6 +2117,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnExtendedPriceColorHexChanged(string value)
     {
+        _extendedPriceBrush = ToBrush(value, SmartTickerSettings.DefaultExtendedPriceColor);
         OnPropertyChanged(nameof(ExtendedPriceBrush));
         UpdatePriceRows();
         SaveSettings();
@@ -1984,6 +2125,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnPriceUpColorHexChanged(string value)
     {
+        _priceUpBrush = ToBrush(value, SmartTickerSettings.DefaultPriceUpColor);
         OnPropertyChanged(nameof(PriceUpBrush));
         UpdatePriceRows();
         SaveSettings();
@@ -1991,6 +2133,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnPriceDownColorHexChanged(string value)
     {
+        _priceDownBrush = ToBrush(value, SmartTickerSettings.DefaultPriceDownColor);
         OnPropertyChanged(nameof(PriceDownBrush));
         UpdatePriceRows();
         SaveSettings();
@@ -1998,6 +2141,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnAlertBlinkColorHexChanged(string value)
     {
+        _alertBlinkBrush = ToBrush(value, SmartTickerSettings.DefaultAlertBlinkColor);
         OnPropertyChanged(nameof(AlertBlinkBrush));
         UpdatePriceRows();
         SaveSettings();
@@ -2083,7 +2227,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             .Where(item => item.CollectPrice)
             .Select(item =>
             {
-                var quote = LatestQuotes.FirstOrDefault(snapshot => snapshot.SubscriptionId == item.Id);
+                var quote = LatestQuoteFor(item.Id);
                 var alerting = IsAlerting(item.Id);
                 var marker = alerting ? AlertMarker : HasNoNews(item) ? NoNewsMarker : string.Empty;
                 var value = quote switch
@@ -2174,7 +2318,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private StaticQuoteRow BuildStaticQuoteRow(TickerSubscription subscription)
     {
-        var quote = LatestQuotes.FirstOrDefault(snapshot => snapshot.SubscriptionId == subscription.Id);
+        var quote = LatestQuoteFor(subscription.Id);
         var alerting = IsAlerting(subscription.Id);
         var marker = alerting ? AlertMarker : HasNoNews(subscription) ? NoNewsMarker : string.Empty;
         var lastText = quote switch
@@ -2332,7 +2476,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private IReadOnlyList<StaticNewsRow> BuildStaticNewsRows(TickerSubscription subscription)
     {
-        var news = LatestNews.FirstOrDefault(snapshot => snapshot.SubscriptionId == subscription.Id);
+        var news = LatestNewsFor(subscription.Id);
         if (news is { Success: true, Headlines.Count: > 0 })
         {
             var rows = new List<StaticNewsRow>(news.Headlines.Count);
@@ -2391,7 +2535,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return true;
         }
 
-        var news = LatestNews.FirstOrDefault(snapshot => snapshot.SubscriptionId == item.Id);
+        var news = LatestNewsFor(item.Id);
         return news is not null && (!news.Success || news.Headlines.Count == 0);
     }
 
@@ -2895,7 +3039,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         var fired = new List<AlertRule>();
         foreach (var rule in AlertRules)
         {
-            var quote = LatestQuotes.FirstOrDefault(snapshot => snapshot.SubscriptionId == rule.SubscriptionId);
+            var quote = LatestQuoteFor(rule.SubscriptionId);
             if (quote is not { Success: true, Price: { } price })
             {
                 _arming.Rearm(rule.Id);
@@ -2973,6 +3117,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        var updatePrices = _blinkingUntil.Count > 0 || _priceChangeBlinkUntil.Count > 0;
+        var updateNews = _newHeadlineBlinkUntil.Count > 0;
         var now = DateTimeOffset.Now;
         foreach (var key in _blinkingUntil.Where(pair => pair.Value <= now).Select(pair => pair.Key).ToArray())
         {
@@ -2999,8 +3145,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             _blinkOn = !_blinkOn;
         }
 
-        UpdatePriceRows();
-        UpdateNewsRows();
+        if (updatePrices)
+        {
+            UpdatePriceRows();
+        }
+
+        if (updateNews)
+        {
+            UpdateNewsRows();
+        }
     }
 
     private bool IsAlerting(Guid subscriptionId) => _blinkingUntil.ContainsKey(subscriptionId);
@@ -3039,7 +3192,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private IEnumerable<TickerSegment> BuildNewsSegments(TickerSubscription item)
     {
-        var news = LatestNews.FirstOrDefault(snapshot => snapshot.SubscriptionId == item.Id);
+        var news = LatestNewsFor(item.Id);
         if (news is not { Success: true })
         {
             return [];

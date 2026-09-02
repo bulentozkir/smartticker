@@ -8,10 +8,7 @@ public sealed class LocalJsonAlertStore : IAlertStore
 {
     public LocalJsonAlertStore(string? filePath = null)
     {
-        FilePath = filePath ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "SmartTicker",
-            "alerts.json");
+        FilePath = filePath ?? LocalDataPath.For("alerts.json");
     }
 
     public string FilePath { get; }

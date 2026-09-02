@@ -48,6 +48,32 @@ public sealed class PublicHtmlClientTests
         Assert.NotNull(cookieHandler.CookieContainer);
     }
 
+    [Fact]
+    public async Task GetStringAsync_DoesNotPostNetworkContinuationsToTheCallerContext()
+    {
+        var context = new RecordingSynchronizationContext();
+        var originalContext = SynchronizationContext.Current;
+        using var client = new PublicHtmlClient(
+            new WebsiteAccessPolicy(),
+            new DelayedHtmlHandler(),
+            new RejectingHandler());
+        Task<string> fetch;
+        try
+        {
+            SynchronizationContext.SetSynchronizationContext(context);
+            fetch = client.GetStringAsync(new Uri("https://1.1.1.1/quote"), CancellationToken.None);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(originalContext);
+        }
+
+        var html = await fetch;
+
+        Assert.Equal("<html>complete</html>", html);
+        Assert.Equal(0, context.PostCount);
+    }
+
     [Theory]
     [InlineData(WebsiteConsentDecision.Accept, "csrfToken=abc123&agree=agree", "reject=reject")]
     [InlineData(WebsiteConsentDecision.Reject, "csrfToken=abc123&reject=reject", "agree=agree")]
@@ -117,6 +143,31 @@ public sealed class PublicHtmlClientTests
             {
                 Content = new StringContent("<html>complete</html>", null, "text/html"),
             });
+        }
+    }
+
+    private sealed class DelayedHtmlHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken) => Task.Run(() =>
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("<html>complete</html>", null, "text/html"),
+                },
+                cancellationToken);
+    }
+
+    private sealed class RecordingSynchronizationContext : SynchronizationContext
+    {
+        private int _postCount;
+
+        public int PostCount => Volatile.Read(ref _postCount);
+
+        public override void Post(SendOrPostCallback callback, object? state)
+        {
+            Interlocked.Increment(ref _postCount);
+            ThreadPool.QueueUserWorkItem(_ => callback(state));
         }
     }
 

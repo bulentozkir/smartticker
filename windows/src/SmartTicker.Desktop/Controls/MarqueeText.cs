@@ -16,6 +16,7 @@ namespace SmartTicker.Desktop.Controls;
 public sealed class MarqueeText : UserControl
 {
     private const double CopyGap = 40;
+    private const double TargetPixelsPerFrame = 2.5;
 
     public static readonly StyledProperty<IReadOnlyList<TickerSegment>?> SegmentsProperty =
         AvaloniaProperty.Register<MarqueeText, IReadOnlyList<TickerSegment>?>(nameof(Segments));
@@ -43,13 +44,14 @@ public sealed class MarqueeText : UserControl
         AvaloniaProperty.Register<MarqueeText, FontWeight>(nameof(TickerFontWeight), FontWeight.Normal);
 
     private readonly Canvas _canvas = new() { ClipToBounds = true };
-    private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(16) };
+    private readonly DispatcherTimer _timer = new() { Interval = AnimationIntervalFor(50) };
     private readonly Stopwatch _clock = new();
     private readonly List<Control> _copies = [];
     private readonly Cursor _handCursor = new(StandardCursorType.Hand);
     private double _contentWidth;
     private double _contentHeight;
     private double _origin;
+    private bool _isAttached;
 
     public MarqueeText()
     {
@@ -123,9 +125,15 @@ public sealed class MarqueeText : UserControl
                 DispatcherPriority.Loaded));
         }
 
+        if (change.Property == PixelsPerSecondProperty)
+        {
+            _timer.Interval = AnimationIntervalFor(PixelsPerSecond);
+            _clock.Restart();
+        }
+
         if (change.Property == IsPausedProperty)
         {
-            _clock.Restart();
+            UpdateAnimationState();
         }
     }
 
@@ -133,9 +141,9 @@ public sealed class MarqueeText : UserControl
     {
         ExceptionSafety.Run(() =>
         {
+            _isAttached = true;
             RebuildCopies();
-            _clock.Restart();
-            _timer.Start();
+            UpdateAnimationState();
         });
     }
 
@@ -143,9 +151,26 @@ public sealed class MarqueeText : UserControl
     {
         ExceptionSafety.Run(() =>
         {
+            _isAttached = false;
             _timer.Stop();
             _clock.Stop();
         });
+    }
+
+    private void UpdateAnimationState()
+    {
+        if (!_isAttached || IsPaused || _copies.Count == 0 || Bounds.Width <= 0)
+        {
+            _timer.Stop();
+            _clock.Stop();
+            return;
+        }
+
+        _clock.Restart();
+        if (!_timer.IsEnabled)
+        {
+            _timer.Start();
+        }
     }
 
     private void RebuildCopies()
@@ -156,6 +181,7 @@ public sealed class MarqueeText : UserControl
         _copies.Clear();
         if (Segments is not { Count: > 0 })
         {
+            UpdateAnimationState();
             return;
         }
 
@@ -181,7 +207,7 @@ public sealed class MarqueeText : UserControl
             ? Math.Clamp(previousOrigin, -cycleWidth, Math.Max(0, Bounds.Width))
             : Math.Max(0, Bounds.Width / 2);
         PositionCopies(cycleWidth);
-        _clock.Restart();
+        UpdateAnimationState();
     }
 
     private Control CreateCopy()
@@ -305,5 +331,12 @@ public sealed class MarqueeText : UserControl
             Canvas.SetLeft(_copies[index], _origin + index * cycleWidth);
             Canvas.SetTop(_copies[index], top);
         }
+    }
+
+    internal static TimeSpan AnimationIntervalFor(int pixelsPerSecond)
+    {
+        var speed = Math.Clamp(pixelsPerSecond, 10, 200);
+        var milliseconds = Math.Clamp(TargetPixelsPerFrame * 1000 / speed, 33, 100);
+        return TimeSpan.FromMilliseconds(milliseconds);
     }
 }

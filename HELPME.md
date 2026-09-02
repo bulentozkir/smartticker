@@ -147,7 +147,7 @@ compare against. A fired alert keeps its own alert blink colour and takes preced
 
 | Command | Effect |
 | --- | --- |
-| **Refresh prices now** | Request all permitted entries that collect prices immediately when SmartTicker is not paused. |
+| **Refresh prices now** | Restart the staggered price cycle and request its first time slot when SmartTicker is not paused. |
 | **Refresh news now** | Request all permitted entries that collect news immediately when SmartTicker is not paused. |
 | **Pause / Resume** | Toggle refreshing and marquee movement. |
 | **View > Left-to-right scroll: Prices only** | Use only the horizontal price marquee. This is the default. |
@@ -346,12 +346,18 @@ automatically; there is no Apply button.
 | Price scroll speed | 20, 30, 40, 50, 65, 80, 100, or 120 px/sec | 50 | Price marquee speed. |
 | News rows | 1 through 8 | 1 | Number of parallel headline marquee rows. |
 | News scroll speed | 20, 30, 40, 50, 65, 80, 100, or 120 px/sec | 40 | News marquee speed. |
-| Price refresh | 30 through 300 seconds, in 15-second steps | 60 seconds | Automatic regular-price refresh interval. |
+| Price refresh | 30 through 300 seconds, in 15-second steps | 60 seconds | Time in which every permitted price entry receives one scheduled refresh. |
 | News refresh | 30 through 300 seconds, in 15-second steps | 300 seconds | Automatic headline refresh interval. |
 
 Price rows and price scroll speed are disabled while static grouped tables are active
 because that mode displays all price entries and never auto-scrolls either window.
 News row and speed settings are retained for the scrolling view.
+
+Price requests are distributed across one-second slots for the whole interval instead of
+starting together. For example, 60 quotes over 30 seconds schedules two quotes per second;
+five quotes over 30 seconds schedules one roughly every six seconds. If a source is slow,
+SmartTicker waits rather than launching missed slots together. Existing prices remain on
+screen until a complete replacement batch is ready.
 
 The website's policy, robots directives, server throttling, and requested backoff take
 priority over a configured interval. Avoid unnecessarily frequent requests.

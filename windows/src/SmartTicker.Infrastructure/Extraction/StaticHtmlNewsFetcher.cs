@@ -20,7 +20,9 @@ public sealed class StaticHtmlNewsFetcher : INewsFetcher, IDisposable
     {
         try
         {
-            var html = await _client.GetStringAsync(subscription.SourceUri, cancellationToken);
+            var html = await _client
+                .GetStringAsync(subscription.SourceUri, cancellationToken)
+                .ConfigureAwait(false);
             var extraction = _extractor.Extract(html, subscription.NewsCssSelector, subscription.SourceUri);
             return new NewsSnapshot(
                 subscription.Id,

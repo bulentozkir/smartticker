@@ -67,7 +67,7 @@
                               Click="OpenStaticNewsWindow"
                               IsVisible="{Binding IsStaticPricesWithNewsView}" />
                 </MenuItem>
-                <MenuItem Header="{Binding Text.MenuRefreshPrices}" Command="{Binding RefreshPricesCommand}" />
+                <MenuItem Header="{Binding Text.MenuRefreshPrices}" Click="RefreshPrices" />
                 <MenuItem Header="{Binding Text.MenuRefreshNews}" Command="{Binding RefreshNewsCommand}" />
                 <MenuItem Header="{Binding Text.MenuPauseResume}" Command="{Binding TogglePauseCommand}" />
                 <MenuItem Header="{Binding Text.MenuLanguage}">

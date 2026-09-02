@@ -8,10 +8,7 @@ public sealed class LocalJsonSettingsStore : ISettingsStore
 {
     public LocalJsonSettingsStore(string? filePath = null)
     {
-        FilePath = filePath ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "SmartTicker",
-            "settings.json");
+        FilePath = filePath ?? LocalDataPath.For("settings.json");
     }
 
     public string FilePath { get; }

@@ -83,7 +83,7 @@ source validation, group ordering, backups, static-table behavior, and alert rul
 - Automatic value detection, or pick an exact element with a CSS selector
 - After-hours prices and daily change percentages
 - Clickable headlines that open in your browser
-- Independent refresh intervals for prices and news, from 30 to 300 seconds
+- Independent refresh intervals from 30 to 300 seconds, with price requests spread across one-second slots instead of starting together
 
 **Price alerts**
 

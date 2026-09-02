@@ -2,6 +2,7 @@ using Avalonia.Media;
 using SmartTicker.Core.Models;
 using SmartTicker.Core.Services;
 using SmartTicker.Desktop.ViewModels;
+using SmartTicker.Desktop.Views;
 using SmartTicker.Infrastructure.Persistence;
 
 namespace SmartTicker.Desktop.Tests;
@@ -61,10 +62,14 @@ public sealed class SourceValidationTests
             settingsStore: store);
 
         Assert.Equal("#12AB34", viewModel.AlertBlinkColorHex);
-        Assert.Equal(Color.Parse("#12AB34"), Assert.IsType<SolidColorBrush>(viewModel.AlertBlinkBrush).Color);
+        var loadedBrush = Assert.IsType<SolidColorBrush>(viewModel.AlertBlinkBrush);
+        Assert.Equal(Color.Parse("#12AB34"), loadedBrush.Color);
+        Assert.Same(loadedBrush, viewModel.AlertBlinkBrush);
 
         viewModel.AlertBlinkColorHex = "#3456CD";
 
+        Assert.NotSame(loadedBrush, viewModel.AlertBlinkBrush);
+        Assert.Same(viewModel.AlertBlinkBrush, viewModel.AlertBlinkBrush);
         Assert.Equal("#3456CD", store.Saved!.AlertBlinkColor);
         var exported = SettingsImportValidator.Validate(viewModel.ExportSettingsJson());
         Assert.True(exported.Success);
@@ -634,6 +639,115 @@ public sealed class SourceValidationTests
     }
 
     [Fact]
+    public async Task ScheduledPriceRefresh_RequestsOnlyItsBatchAndUpdatesTheLaneOnce()
+    {
+        var first = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        var second = Subscription("AAPL", "Example", "https://example.com/AAPL");
+        var third = Subscription("NVDA", "Example", "https://example.com/NVDA");
+        var fetcher = new SuccessfulQuoteFetcher();
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: fetcher,
+            settingsStore: new TestSettingsStore(SmartTickerSettings.Default with
+            {
+                Subscriptions = [first, second, third],
+                AcknowledgedSources = ["example.com"],
+            }));
+        var lane = Assert.Single(viewModel.VisiblePriceRows);
+        var segmentNotifications = 0;
+        lane.PropertyChanged += (_, change) =>
+        {
+            if (change.PropertyName == nameof(TickerLane.Segments))
+            {
+                segmentNotifications++;
+            }
+        };
+
+        await viewModel.RefreshPriceSubscriptionsSafelyAsync(
+            "Scheduled price refresh",
+            [first.Id, third.Id]);
+
+        Assert.Equal([first.Id, third.Id], fetcher.Requests);
+        Assert.Equal([first.Id, third.Id], viewModel.LatestQuotes.Select(snapshot => snapshot.SubscriptionId));
+        Assert.Equal(1, segmentNotifications);
+    }
+
+    [Fact]
+    public async Task ScheduledPriceRefresh_KeepsRenderedSnapshotUntilReplacementIsReady()
+    {
+        var subscription = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        var fetcher = new HoldingSecondQuoteFetcher();
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: fetcher,
+            settingsStore: new TestSettingsStore(SmartTickerSettings.Default with
+            {
+                Subscriptions = [subscription],
+                AcknowledgedSources = ["example.com"],
+            }));
+        await viewModel.RefreshPricesAsync();
+        var originalSnapshot = Assert.Single(viewModel.LatestQuotes);
+        var originalSegments = Assert.Single(viewModel.VisiblePriceRows).Segments;
+
+        var refresh = viewModel.RefreshPriceSubscriptionsSafelyAsync(
+            "Scheduled price refresh",
+            [subscription.Id]);
+        await fetcher.SecondRequestStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Same(originalSnapshot, Assert.Single(viewModel.LatestQuotes));
+        Assert.Same(originalSegments, Assert.Single(viewModel.VisiblePriceRows).Segments);
+
+        fetcher.ReleaseSecondRequest.TrySetResult();
+        await refresh;
+
+        Assert.Equal(101m, Assert.Single(viewModel.LatestQuotes).Price);
+        Assert.NotSame(originalSegments, Assert.Single(viewModel.VisiblePriceRows).Segments);
+    }
+
+    [Fact]
+    public async Task ScheduledPriceRefresh_SpreadsSixtyQuotesAcrossThirtyConsolidatedBatches()
+    {
+        var subscriptions = Enumerable.Range(0, 60)
+            .Select(index => Subscription(
+                $"Q{index:00}",
+                "Example",
+                $"https://example.com/Q{index:00}"))
+            .ToArray();
+        var fetcher = new SuccessfulQuoteFetcher();
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: fetcher,
+            settingsStore: new TestSettingsStore(SmartTickerSettings.Default with
+            {
+                Subscriptions = subscriptions,
+                AcknowledgedSources = ["example.com"],
+                PriceRefreshSeconds = 30,
+            }));
+        var lane = Assert.Single(viewModel.VisiblePriceRows);
+        var segmentNotifications = 0;
+        lane.PropertyChanged += (_, change) =>
+        {
+            if (change.PropertyName == nameof(TickerLane.Segments))
+            {
+                segmentNotifications++;
+            }
+        };
+        var schedule = new PriceRefreshSchedule();
+        var subscriptionIds = subscriptions.Select(subscription => subscription.Id).ToArray();
+
+        for (var slot = 0; slot < 30; slot++)
+        {
+            var batch = schedule.NextBatch(subscriptionIds, 30);
+            Assert.Equal(2, batch.Count);
+            await viewModel.RefreshPriceSubscriptionsSafelyAsync("Scheduled price refresh", batch);
+        }
+
+        Assert.Equal(subscriptionIds, fetcher.Requests);
+        Assert.Equal(subscriptionIds, viewModel.LatestQuotes.Select(snapshot => snapshot.SubscriptionId));
+        Assert.Equal(30, segmentNotifications);
+    }
+
+    [Fact]
     public async Task NewsRefresh_ContainsProviderExceptions()
     {
         var subscription = Subscription("MSFT", "Example", "https://example.com/MSFT");
@@ -986,6 +1100,40 @@ public sealed class SourceValidationTests
                 DateTimeOffset.UtcNow,
                 true,
                 "ok"));
+    }
+
+    private sealed class HoldingSecondQuoteFetcher : IQuoteFetcher
+    {
+        private int _requestCount;
+
+        public TaskCompletionSource SecondRequestStarted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource ReleaseSecondRequest { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<QuoteSnapshot> FetchAsync(
+            TickerSubscription subscription,
+            CancellationToken cancellationToken = default)
+        {
+            var price = 100m;
+            if (Interlocked.Increment(ref _requestCount) == 2)
+            {
+                SecondRequestStarted.TrySetResult();
+                await ReleaseSecondRequest.Task.WaitAsync(cancellationToken);
+                price = 101m;
+            }
+
+            return new QuoteSnapshot(
+                subscription.Id,
+                subscription.Symbol,
+                subscription.SourceName,
+                price,
+                "USD",
+                DateTimeOffset.UtcNow,
+                true,
+                "ok");
+        }
     }
 
     private sealed class GrowingNewsFetcher : INewsFetcher

@@ -62,10 +62,51 @@ public sealed partial class TickerLane : ObservableObject
         double rowHeight,
         double fontSize)
     {
-        Segments = segments;
+        if (!SegmentsEqual(Segments, segments))
+        {
+            Segments = segments;
+        }
+
         PixelsPerSecond = pixelsPerSecond;
         IsPaused = isPaused;
         RowHeight = rowHeight;
         FontSize = fontSize;
+    }
+
+    private static bool SegmentsEqual(
+        IReadOnlyList<TickerSegment> current,
+        IReadOnlyList<TickerSegment> updated)
+    {
+        if (ReferenceEquals(current, updated))
+        {
+            return true;
+        }
+
+        if (current.Count != updated.Count)
+        {
+            return false;
+        }
+
+        for (var segmentIndex = 0; segmentIndex < current.Count; segmentIndex++)
+        {
+            var currentSegment = current[segmentIndex];
+            var updatedSegment = updated[segmentIndex];
+            if (currentSegment.Link != updatedSegment.Link ||
+                currentSegment.Highlight != updatedSegment.Highlight ||
+                currentSegment.Runs.Count != updatedSegment.Runs.Count)
+            {
+                return false;
+            }
+
+            for (var runIndex = 0; runIndex < currentSegment.Runs.Count; runIndex++)
+            {
+                if (currentSegment.Runs[runIndex] != updatedSegment.Runs[runIndex])
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 }

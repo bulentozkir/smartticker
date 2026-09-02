@@ -248,7 +248,10 @@ public sealed class QuoteGroupingUiContractTests
 
         Assert.Contains("ShutdownMode.OnMainWindowClose", app);
         Assert.Contains("Dispatcher.UIThread.UnhandledException", app);
-        Assert.Contains("RefreshPricesSafelyAsync", mainWindow);
+        Assert.Contains("Dispatcher.UIThread.InvokeAsync", app);
+        Assert.Contains("RefreshPriceSubscriptionsSafelyAsync", mainWindow);
+        Assert.Contains("PriceRefreshSchedule", mainWindow);
+        Assert.Contains("Interval = TimeSpan.FromSeconds(1)", mainWindow);
         Assert.Contains("RefreshNewsSafelyAsync", mainWindow);
         Assert.Contains("QueueStaticNewsWindowSync();", mainWindow);
         Assert.Contains("RunSafely(\"Applying a setting change\"", mainWindow);

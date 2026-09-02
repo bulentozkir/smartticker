@@ -55,14 +55,14 @@ internal sealed class PublicHtmlClient : IDisposable
         var currentUri = pageUri;
         for (var redirect = 0; redirect <= 3; redirect++)
         {
-            await ValidatePublicUriAsync(currentUri, cancellationToken);
+            await ValidatePublicUriAsync(currentUri, cancellationToken).ConfigureAwait(false);
             using var request = new HttpRequestMessage(HttpMethod.Get, currentUri);
             request.Headers.Accept.Clear();
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(acceptHeader));
             using var response = await httpClient.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
 
             if (IsRedirect(response.StatusCode))
             {
@@ -93,7 +93,7 @@ internal sealed class PublicHtmlClient : IDisposable
                     $"The URL returned {mediaType} instead of {string.Join(" or ", allowedMediaTypes)}.");
             }
 
-            var content = await ReadLimitedHtmlAsync(response.Content, cancellationToken);
+            var content = await ReadLimitedHtmlAsync(response.Content, cancellationToken).ConfigureAwait(false);
             if (acceptHeader == "text/html" &&
                 WebsiteConsentForm.TryParse(currentUri, content, out var consentForm))
             {
@@ -108,7 +108,7 @@ internal sealed class PublicHtmlClient : IDisposable
                     currentUri,
                     consentForm!,
                     allowedMediaTypes,
-                    cancellationToken);
+                    cancellationToken).ConfigureAwait(false);
             }
 
             return content;
@@ -148,13 +148,15 @@ internal sealed class PublicHtmlClient : IDisposable
             consentForm.Summary,
             consentForm.Accept.Label,
             consentForm.Reject.Label);
-        var decision = await _accessPolicy.RequestConsentAsync(requestDetails, cancellationToken);
+        var decision = await _accessPolicy
+            .RequestConsentAsync(requestDetails, cancellationToken)
+            .ConfigureAwait(false);
         if (decision == WebsiteConsentDecision.Cancel)
         {
             throw new HttpRequestException($"No privacy choice was submitted to {consentUri.Host}.");
         }
 
-        await ValidatePublicUriAsync(consentForm.ActionUri, cancellationToken);
+        await ValidatePublicUriAsync(consentForm.ActionUri, cancellationToken).ConfigureAwait(false);
         using var request = new HttpRequestMessage(HttpMethod.Post, consentForm.ActionUri)
         {
             Content = new FormUrlEncodedContent(consentForm.CreatePayload(decision)),
@@ -164,12 +166,12 @@ internal sealed class PublicHtmlClient : IDisposable
         var response = await _cookieHttpClient.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
         return await FollowConsentResponseAsync(
             response,
             consentForm.ActionUri,
             allowedMediaTypes,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<string> FollowConsentResponseAsync(
@@ -192,7 +194,7 @@ internal sealed class PublicHtmlClient : IDisposable
                     var nextUri = response.Headers.Location.IsAbsoluteUri
                         ? response.Headers.Location
                         : new Uri(responseUri, response.Headers.Location);
-                    await ValidatePublicUriAsync(nextUri, cancellationToken);
+                    await ValidatePublicUriAsync(nextUri, cancellationToken).ConfigureAwait(false);
                     response.Dispose();
                     responseUri = nextUri;
                     using var request = new HttpRequestMessage(HttpMethod.Get, nextUri);
@@ -200,7 +202,7 @@ internal sealed class PublicHtmlClient : IDisposable
                     response = await _cookieHttpClient.SendAsync(
                         request,
                         HttpCompletionOption.ResponseHeadersRead,
-                        cancellationToken);
+                        cancellationToken).ConfigureAwait(false);
                     continue;
                 }
 
@@ -212,7 +214,7 @@ internal sealed class PublicHtmlClient : IDisposable
                         $"The consent response returned {mediaType} instead of {string.Join(" or ", allowedMediaTypes)}.");
                 }
 
-                var content = await ReadLimitedHtmlAsync(response.Content, cancellationToken);
+                var content = await ReadLimitedHtmlAsync(response.Content, cancellationToken).ConfigureAwait(false);
                 if (WebsiteConsentForm.TryParse(responseUri, content, out _))
                 {
                     throw new HttpRequestException($"The privacy choice was not accepted by {responseUri.Host}.");
@@ -257,7 +259,9 @@ internal sealed class PublicHtmlClient : IDisposable
         {
             addresses = IPAddress.TryParse(uri.Host, out var literal)
                 ? [literal]
-                : await Dns.GetHostAddressesAsync(uri.DnsSafeHost, cancellationToken);
+                : await Dns
+                    .GetHostAddressesAsync(uri.DnsSafeHost, cancellationToken)
+                    .ConfigureAwait(false);
         }
         catch (SocketException exception)
         {
@@ -304,12 +308,14 @@ internal sealed class PublicHtmlClient : IDisposable
             throw new InvalidOperationException(TooLargeMessage);
         }
 
-        await using var input = await content.ReadAsStreamAsync(cancellationToken);
+        await using var input = await content
+            .ReadAsStreamAsync(cancellationToken)
+            .ConfigureAwait(false);
         using var output = new MemoryStream();
         var buffer = new byte[16 * 1024];
         while (true)
         {
-            var read = await input.ReadAsync(buffer, cancellationToken);
+            var read = await input.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
             if (read == 0)
             {
                 break;

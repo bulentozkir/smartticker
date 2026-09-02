@@ -49,11 +49,12 @@ public partial class App : Avalonia.Application
                 }
             };
             websiteAccessPolicy.ConsentPrompt = (request, cancellationToken) =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var dialog = new WebsiteConsentWindow { DataContext = request };
-                return dialog.ShowDialog<WebsiteConsentDecision>(mainWindow);
-            };
+                Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var dialog = new WebsiteConsentWindow { DataContext = request };
+                    return await dialog.ShowDialog<WebsiteConsentDecision>(mainWindow);
+                });
             try
             {
                 mainWindow.DataContext = new MainViewModel(
