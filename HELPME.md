@@ -129,10 +129,14 @@ marquee. It also prevents either manual refresh command from starting new work. 
 request that was already in progress is not forcibly cancelled solely by Pause and may
 finish before activity fully settles. Resume restarts the automatic timers.
 
-On Windows, SmartTicker uses a low-overhead software rendering path. Marquee timing adapts
+On Windows, SmartTicker automatically sets its OS process priority to **Low** and enables
+Windows **Efficiency mode** (EcoQoS) before starting the UI. There is no app setting for
+this behavior. It also uses a low-overhead software rendering path. Marquee timing adapts
 to the configured speed, and a paused, empty, or detached marquee stops its animation
 timer. Unchanged rows suppress redundant visual notifications. Alert flashing and the
-three-second brown change highlight are intentional and do not pause scrolling.
+three-second brown change highlight are intentional and do not pause scrolling. Linux
+process scheduling is left to the operating system. If Windows rejects either process
+setting, SmartTicker reports the failure to diagnostic tracing and continues starting.
 
 ### Open links
 

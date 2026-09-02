@@ -111,6 +111,7 @@ source validation, group ordering, backups, static-table behavior, and alert rul
 - No accounts, no sign-in, no cloud sync
 - No telemetry, analytics or crash reporting; configuration is stored locally as ordinary JSON
 - Advanced `SMARTTICKER_DATA_DIRECTORY` override for isolated diagnostic or test profiles
+- Automatically starts at Low OS priority with Windows Efficiency mode enabled
 - Formatted in-app Markdown help with a section navigator and offline fallback
 
 See [PRIVACY.md](PRIVACY.md) for exactly what is stored and what leaves your computer.
@@ -151,7 +152,7 @@ Available as an MSIX bundle and MSI installers for Windows (x64 and arm64), and 
 
 This release adds the four mutually exclusive display modes and makes scrolling Prices only the default, with a separate static News window, first-class quote groups, saved per-quote News filters, configurable alert colour, and three-second change highlights. Price requests are distributed across one-second slots instead of all starting together.
 
-Desktop hardening contains recoverable refresh, event, persistence, and window-lifetime failures. Windows uses a lower-overhead rendering path, the marquee adapts its timer cadence to scroll speed and stops it while paused or detached, and unchanged rows avoid redundant visual notifications. Brush and snapshot reuse further reduces routine allocation and lookup work.
+Desktop hardening contains recoverable refresh, event, persistence, and window-lifetime failures. On every Windows launch, SmartTicker sets its process priority to Low and enables Efficiency mode (EcoQoS) before starting the UI. Windows also uses a lower-overhead rendering path, the marquee adapts its timer cadence to scroll speed and stops it while paused or detached, and unchanged rows avoid redundant visual notifications. Brush and snapshot reuse further reduces routine allocation and lookup work.
 
 Each web request has a 20-second timeout. SmartTicker surfaces HTTP failures such as 403 and 429 and does not bypass access restrictions, but it does not automatically parse or enforce robots directives, crawl-delay values, or server backoff instructions. Choose sources and refresh intervals that comply with each website's current policies. JavaScript-only pages and pages that prohibit automated access may not be supported.
 
