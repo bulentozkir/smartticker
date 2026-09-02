@@ -1,4 +1,5 @@
 using Avalonia.Media;
+using System.Collections.Specialized;
 using SmartTicker.Core.Models;
 using SmartTicker.Core.Services;
 using SmartTicker.Desktop.ViewModels;
@@ -79,6 +80,75 @@ public sealed class SourceValidationTests
 
         Assert.Equal(SmartTickerSettings.DefaultAlertBlinkColor, viewModel.AlertBlinkColorHex);
         Assert.Equal(SmartTickerSettings.DefaultAlertBlinkColor, store.Saved.AlertBlinkColor);
+    }
+
+    [Fact]
+    public void ViewFontSizes_LoadApplySaveAndExportIndependently()
+    {
+        var store = new TestSettingsStore(SmartTickerSettings.Default with
+        {
+            ShowNewsLine = true,
+            ScrollingViewFontSize = 18,
+            StaticViewFontSize = 16,
+        });
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: store);
+
+        Assert.Equal(18, viewModel.ScrollingViewFontSize);
+        Assert.Equal(16, viewModel.StaticViewFontSize);
+        Assert.Equal(18, Assert.Single(viewModel.VisiblePriceRows).FontSize);
+        Assert.Equal(18, Assert.Single(viewModel.VisibleNewsRows).FontSize);
+
+        viewModel.ScrollingViewFontSize = 20;
+        viewModel.StaticViewFontSize = 19;
+
+        Assert.Equal(20, store.Saved!.ScrollingViewFontSize);
+        Assert.Equal(19, store.Saved.StaticViewFontSize);
+        Assert.Equal(20, Assert.Single(viewModel.VisiblePriceRows).FontSize);
+        Assert.Equal(20, Assert.Single(viewModel.VisibleNewsRows).FontSize);
+        var exported = SettingsImportValidator.Validate(viewModel.ExportSettingsJson());
+        Assert.True(exported.Success);
+        Assert.Equal(20, exported.Settings!.ScrollingViewFontSize);
+        Assert.Equal(19, exported.Settings.StaticViewFontSize);
+    }
+
+    [Fact]
+    public void WindowSizes_LoadSwitchCaptureSaveAndExportIndependently()
+    {
+        var store = new TestSettingsStore(SmartTickerSettings.Default with
+        {
+            ScrollingWindowSize = new WindowSizeSettings(1100, 80),
+            StaticPricesWindowSize = new WindowSizeSettings(1300, 700),
+            StaticNewsWindowSize = new WindowSizeSettings(720, 460),
+        });
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: store);
+
+        Assert.Equal(1100, viewModel.WindowWidth);
+        Assert.Equal(80, viewModel.WindowHeight);
+        Assert.Equal(720, viewModel.StaticNewsWindowWidth);
+        Assert.Equal(460, viewModel.StaticNewsWindowHeight);
+
+        viewModel.SetTickerViewCommand.Execute("static-prices");
+
+        Assert.Equal(1300, viewModel.WindowWidth);
+        Assert.Equal(700, viewModel.WindowHeight);
+        viewModel.CaptureMainWindowSize(1350, 750);
+        viewModel.CaptureStaticNewsWindowSize(780, 520);
+        viewModel.PersistSettings();
+
+        Assert.Equal(new WindowSizeSettings(1100, 80), store.Saved!.ScrollingWindowSize);
+        Assert.Equal(new WindowSizeSettings(1350, 750), store.Saved.StaticPricesWindowSize);
+        Assert.Equal(new WindowSizeSettings(780, 520), store.Saved.StaticNewsWindowSize);
+        var exported = SettingsImportValidator.Validate(viewModel.ExportSettingsJson());
+        Assert.True(exported.Success);
+        Assert.Equal(store.Saved.ScrollingWindowSize, exported.Settings!.ScrollingWindowSize);
+        Assert.Equal(store.Saved.StaticPricesWindowSize, exported.Settings.StaticPricesWindowSize);
+        Assert.Equal(store.Saved.StaticNewsWindowSize, exported.Settings.StaticNewsWindowSize);
     }
 
     [Fact]
@@ -218,7 +288,7 @@ public sealed class SourceValidationTests
         await viewModel.RefreshPricesAsync();
 
         Assert.True(viewModel.IsStaticGroupedPriceView);
-        Assert.Empty(viewModel.VisiblePriceRows);
+        Assert.Single(viewModel.VisiblePriceRows);
         Assert.Equal(["Mag 7", "Precious Metals"], viewModel.StaticQuoteGroups.Select(group => group.Name));
         var row = Assert.Single(viewModel.StaticQuoteGroups[0].Rows);
         Assert.Equal("⊗ MSFT", row.Symbol);
@@ -249,14 +319,14 @@ public sealed class SourceValidationTests
 
         Assert.True(viewModel.IsStaticTableTickerView);
         Assert.Single(viewModel.StaticQuoteGroups);
-        Assert.Empty(viewModel.VisiblePriceRows);
+        Assert.Single(viewModel.VisiblePriceRows);
         Assert.True(store.Saved!.UseStaticGroupedView);
 
         viewModel.SetTickerViewCommand.Execute("scrolling-prices");
 
         Assert.True(viewModel.IsScrollingTickerView);
         Assert.False(viewModel.ShowNewsLine);
-        Assert.Empty(viewModel.StaticQuoteGroups);
+        Assert.Single(viewModel.StaticQuoteGroups);
         Assert.Single(viewModel.VisiblePriceRows);
         Assert.False(store.Saved!.UseStaticGroupedView);
     }
@@ -322,7 +392,7 @@ public sealed class SourceValidationTests
         await viewModel.RefreshNewsAsync();
 
         Assert.True(viewModel.IsStaticGroupedNewsView);
-        Assert.Empty(viewModel.VisibleNewsRows);
+        Assert.Single(viewModel.VisibleNewsRows);
         var group = Assert.Single(viewModel.StaticNewsGroups);
         Assert.Equal("Mag 7", group.Name);
         var row = Assert.Single(group.Rows);
@@ -352,6 +422,9 @@ public sealed class SourceValidationTests
         await viewModel.RefreshNewsAsync();
 
         var group = Assert.Single(viewModel.StaticNewsGroups);
+        var resetCount = 0;
+        viewModel.StaticNewsGroups.CollectionChanged += (_, change) =>
+            resetCount += change.Action == NotifyCollectionChangedAction.Reset ? 1 : 0;
         Assert.Equal(["MSFT · Example", "AAPL · Example"], group.QuoteFilters.Select(filter => filter.Label));
         Assert.All(group.QuoteFilters, filter => Assert.True(filter.IsShown));
         Assert.Equal("All quotes", group.FilterSummary);
@@ -359,25 +432,33 @@ public sealed class SourceValidationTests
             ["MSFT", "AAPL", "MSFT", "AAPL", "MSFT", "AAPL"],
             group.Rows.Select(row => row.Symbol));
 
-        group.QuoteFilters.Single(filter => filter.SubscriptionId == microsoft.Id).IsShown = false;
+        var microsoftFilter = group.QuoteFilters.Single(filter => filter.SubscriptionId == microsoft.Id);
+        var appleFilter = group.QuoteFilters.Single(filter => filter.SubscriptionId == apple.Id);
+        var appleRow = group.Rows.First(row => row.SubscriptionId == apple.Id);
+        microsoftFilter.IsShown = false;
 
         Assert.All(group.Rows, row => Assert.Equal("AAPL", row.Symbol));
         Assert.Equal("3 of 6 headlines", group.CountText);
         Assert.Equal("AAPL", group.FilterSummary);
         Assert.Equal([microsoft.Id], store.Saved!.HiddenNewsQuotes);
 
-        group.QuoteFilters.Single(filter => filter.SubscriptionId == apple.Id).IsShown = false;
+        appleFilter.IsShown = false;
         Assert.Empty(group.Rows);
         Assert.Equal("No quotes", group.FilterSummary);
         Assert.Equal([microsoft.Id, apple.Id], store.Saved.HiddenNewsQuotes);
 
-        group.QuoteFilters.Single(filter => filter.SubscriptionId == apple.Id).IsShown = true;
+        appleFilter.IsShown = true;
         Assert.All(group.Rows, row => Assert.Equal("AAPL", row.Symbol));
         Assert.Equal([microsoft.Id], store.Saved.HiddenNewsQuotes);
 
         await viewModel.RefreshNewsAsync();
 
         var refreshed = Assert.Single(viewModel.StaticNewsGroups);
+        Assert.Same(group, refreshed);
+        Assert.Same(microsoftFilter, refreshed.QuoteFilters.Single(filter => filter.SubscriptionId == microsoft.Id));
+        Assert.Same(appleFilter, refreshed.QuoteFilters.Single(filter => filter.SubscriptionId == apple.Id));
+        Assert.Same(appleRow, refreshed.Rows.First(row => row.SubscriptionId == apple.Id));
+        Assert.Equal(0, resetCount);
         Assert.False(refreshed.QuoteFilters.Single(filter => filter.SubscriptionId == microsoft.Id).IsShown);
         Assert.True(refreshed.QuoteFilters.Single(filter => filter.SubscriptionId == apple.Id).IsShown);
         Assert.All(refreshed.Rows, row => Assert.Equal("AAPL", row.Symbol));
@@ -530,16 +611,25 @@ public sealed class SourceValidationTests
 
         await viewModel.RefreshPricesAsync();
 
-        Assert.Equal(Brushes.Transparent, Assert.Single(viewModel.StaticQuoteGroups).Rows.Single().Background);
+        var group = Assert.Single(viewModel.StaticQuoteGroups);
+        var row = Assert.Single(group.Rows);
+        var resetCount = 0;
+        viewModel.StaticQuoteGroups.CollectionChanged += (_, change) =>
+            resetCount += change.Action == NotifyCollectionChangedAction.Reset ? 1 : 0;
+        Assert.Equal(Brushes.Transparent, row.Background);
 
         await viewModel.RefreshPricesAsync();
 
         var changed = Assert.Single(viewModel.StaticQuoteGroups).Rows.Single();
+        Assert.Same(group, Assert.Single(viewModel.StaticQuoteGroups));
+        Assert.Same(row, changed);
         Assert.Equal(Color.Parse("#8B4513"), Assert.IsAssignableFrom<ISolidColorBrush>(changed.Background).Color);
 
         await viewModel.RefreshPricesAsync();
 
         var unchanged = Assert.Single(viewModel.StaticQuoteGroups).Rows.Single();
+        Assert.Same(row, unchanged);
+        Assert.Equal(0, resetCount);
         Assert.Equal(Color.Parse("#8B4513"), Assert.IsAssignableFrom<ISolidColorBrush>(unchanged.Background).Color);
     }
 
@@ -732,7 +822,7 @@ public sealed class SourceValidationTests
                 segmentNotifications++;
             }
         };
-        var schedule = new PriceRefreshSchedule();
+        var schedule = new StaggeredRefreshSchedule();
         var subscriptionIds = subscriptions.Select(subscription => subscription.Id).ToArray();
 
         for (var slot = 0; slot < 30; slot++)
@@ -765,6 +855,90 @@ public sealed class SourceValidationTests
 
         Assert.Contains("News refresh failed", viewModel.EntryMessage);
         Assert.Contains("news provider failed", viewModel.EntryMessage);
+    }
+
+    [Fact]
+    public async Task FailedPriceRefresh_RetainsLastSuccessfulSnapshotAndRenderedLane()
+    {
+        var subscription = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: new SuccessfulThenFailingQuoteFetcher(),
+            settingsStore: new TestSettingsStore(SmartTickerSettings.Default with
+            {
+                Subscriptions = [subscription],
+                AcknowledgedSources = ["example.com"],
+            }));
+        await viewModel.RefreshPricesAsync();
+        var snapshot = Assert.Single(viewModel.LatestQuotes);
+        var segments = Assert.Single(viewModel.VisiblePriceRows).Segments;
+
+        await viewModel.RefreshPricesAsync();
+
+        Assert.Same(snapshot, Assert.Single(viewModel.LatestQuotes));
+        Assert.Same(segments, Assert.Single(viewModel.VisiblePriceRows).Segments);
+        Assert.Contains("Price refresh failed", viewModel.EntryMessage);
+    }
+
+    [Fact]
+    public async Task FailedNewsRefresh_RetainsLastSuccessfulSnapshotAndRenderedLane()
+    {
+        var subscription = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: new TestSettingsStore(SmartTickerSettings.Default with
+            {
+                Subscriptions = [subscription],
+                AcknowledgedSources = ["example.com"],
+                ShowNewsLine = true,
+            }),
+            newsFetcher: new SuccessfulThenFailingNewsFetcher());
+        await viewModel.RefreshNewsAsync();
+        var snapshot = Assert.Single(viewModel.LatestNews);
+        var segments = Assert.Single(viewModel.VisibleNewsRows).Segments;
+
+        await viewModel.RefreshNewsAsync();
+
+        Assert.Same(snapshot, Assert.Single(viewModel.LatestNews));
+        Assert.Same(segments, Assert.Single(viewModel.VisibleNewsRows).Segments);
+        Assert.Contains("News refresh failed", viewModel.EntryMessage);
+    }
+
+    [Fact]
+    public async Task ScheduledNewsRefresh_RequestsOnlyItsBatchAndUpdatesTheLaneOnce()
+    {
+        var first = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        var second = Subscription("AAPL", "Example", "https://example.com/AAPL");
+        var third = Subscription("NVDA", "Example", "https://example.com/NVDA");
+        var fetcher = new SuccessfulNewsFetcher();
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: new TestSettingsStore(SmartTickerSettings.Default with
+            {
+                Subscriptions = [first, second, third],
+                AcknowledgedSources = ["example.com"],
+                ShowNewsLine = true,
+            }),
+            newsFetcher: fetcher);
+        var lane = Assert.Single(viewModel.VisibleNewsRows);
+        var segmentNotifications = 0;
+        lane.PropertyChanged += (_, change) =>
+        {
+            if (change.PropertyName == nameof(TickerLane.Segments))
+            {
+                segmentNotifications++;
+            }
+        };
+
+        await viewModel.RefreshNewsSubscriptionsSafelyAsync(
+            "Scheduled News refresh",
+            [first.Id, third.Id]);
+
+        Assert.Equal([first.Id, third.Id], fetcher.Requests);
+        Assert.Equal([first.Id, third.Id], viewModel.LatestNews.Select(snapshot => snapshot.SubscriptionId));
+        Assert.Equal(1, segmentNotifications);
     }
 
     [Fact]
@@ -1044,6 +1218,55 @@ public sealed class SourceValidationTests
             TickerSubscription subscription,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("news provider failed");
+    }
+
+    private sealed class SuccessfulThenFailingQuoteFetcher : IQuoteFetcher
+    {
+        private int _calls;
+
+        public Task<QuoteSnapshot> FetchAsync(
+            TickerSubscription subscription,
+            CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref _calls) > 1)
+            {
+                throw new InvalidOperationException("price provider failed");
+            }
+
+            return Task.FromResult(new QuoteSnapshot(
+                subscription.Id,
+                subscription.Symbol,
+                subscription.SourceName,
+                100m,
+                "USD",
+                DateTimeOffset.UtcNow,
+                true,
+                "ok"));
+        }
+    }
+
+    private sealed class SuccessfulThenFailingNewsFetcher : INewsFetcher
+    {
+        private int _calls;
+
+        public Task<NewsSnapshot> FetchAsync(
+            TickerSubscription subscription,
+            CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref _calls) > 1)
+            {
+                throw new InvalidOperationException("news provider failed");
+            }
+
+            return Task.FromResult(new NewsSnapshot(
+                subscription.Id,
+                subscription.Symbol,
+                subscription.SourceName,
+                [new NewsHeadline("Headline", new Uri("https://example.com/news"))],
+                DateTimeOffset.UtcNow,
+                true,
+                "ok"));
+        }
     }
 
     private sealed class CancellableQuoteFetcher : IQuoteFetcher

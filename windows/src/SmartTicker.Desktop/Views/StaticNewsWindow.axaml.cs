@@ -1,6 +1,8 @@
 using System;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Threading;
 using SmartTicker.Desktop.ViewModels;
 
 namespace SmartTicker.Desktop.Views;
@@ -8,10 +10,39 @@ namespace SmartTicker.Desktop.Views;
 public partial class StaticNewsWindow : Window
 {
     private string? _draggedGroupName;
+    private readonly DispatcherTimer _sizeSaveTimer = new(DispatcherPriority.Background)
+    {
+        Interval = TimeSpan.FromMilliseconds(300),
+    };
+    private Size? _pendingSize;
 
     public StaticNewsWindow()
     {
         InitializeComponent();
+        WindowReachability.Attach(this);
+        _sizeSaveTimer.Tick += (_, _) => RunSafely("Saving News window size", () =>
+        {
+            _sizeSaveTimer.Stop();
+            if (_pendingSize is { } size && ViewModel is { } viewModel)
+            {
+                _pendingSize = null;
+                viewModel.CaptureStaticNewsWindowSize(size.Width, size.Height);
+                viewModel.PersistSettings();
+            }
+        });
+        SizeChanged += (_, e) => RunSafely("Resizing News window", () =>
+        {
+            _pendingSize = e.NewSize;
+            _sizeSaveTimer.Stop();
+            _sizeSaveTimer.Start();
+        });
+        Closed += (_, _) => RunSafely("Saving final News window size", () =>
+        {
+            _sizeSaveTimer.Stop();
+            _pendingSize = null;
+            ViewModel?.CaptureStaticNewsWindowSize(Bounds.Width, Bounds.Height);
+            ViewModel?.PersistSettings();
+        });
     }
 
     private MainViewModel? ViewModel => DataContext as MainViewModel;

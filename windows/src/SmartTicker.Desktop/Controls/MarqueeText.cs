@@ -52,13 +52,14 @@ public sealed class MarqueeText : UserControl
     private double _contentHeight;
     private double _origin;
     private bool _isAttached;
+    private bool _rebuildQueued;
 
     public MarqueeText()
     {
         ClipToBounds = true;
         Content = _canvas;
         _timer.Tick += (sender, args) => ExceptionSafety.Run(() => OnAnimationTick(sender, args));
-        SizeChanged += (_, _) => ExceptionSafety.Run(RebuildCopies);
+        SizeChanged += (_, _) => ExceptionSafety.Run(QueueRebuild);
         AttachedToVisualTree += OnAttachedToVisualTree;
         DetachedFromVisualTree += OnDetachedFromVisualTree;
     }
@@ -120,9 +121,7 @@ public sealed class MarqueeText : UserControl
             change.Property == TickerFontSizeProperty ||
             change.Property == TickerFontWeightProperty)
         {
-            ExceptionSafety.Run(() => Dispatcher.UIThread.Post(
-                () => ExceptionSafety.Run(RebuildCopies),
-                DispatcherPriority.Loaded));
+            QueueRebuild();
         }
 
         if (change.Property == PixelsPerSecondProperty)
@@ -177,10 +176,14 @@ public sealed class MarqueeText : UserControl
     {
         var hadContent = _copies.Count > 0 && _contentWidth > 1;
         var previousOrigin = _origin;
-        _canvas.Children.Clear();
-        _copies.Clear();
         if (Segments is not { Count: > 0 })
         {
+            foreach (var oldCopy in _copies)
+            {
+                _canvas.Children.Remove(oldCopy);
+            }
+
+            _copies.Clear();
             UpdateAnimationState();
             return;
         }
@@ -191,23 +194,52 @@ public sealed class MarqueeText : UserControl
         _contentHeight = first.DesiredSize.Height;
         var cycleWidth = _contentWidth + CopyGap;
         var copyCount = Math.Max(2, (int)Math.Ceiling(Math.Max(Bounds.Width, 1) / cycleWidth) + 2);
+        var replacements = new List<Control>(copyCount) { first };
 
-        _copies.Add(first);
-        _canvas.Children.Add(first);
         for (var index = 1; index < copyCount; index++)
         {
-            var copy = CreateCopy();
-            _copies.Add(copy);
-            _canvas.Children.Add(copy);
+            replacements.Add(CreateCopy());
         }
 
-        // A refresh (price tick or alert blink) rebuilds the copies, so the crawl position is carried
-        // over; resetting it here would restart the scroll on every update.
+        // Keep the phase within the new cycle so changed text does not restart the crawl.
         _origin = hadContent
-            ? Math.Clamp(previousOrigin, -cycleWidth, Math.Max(0, Bounds.Width))
+            ? previousOrigin > 0
+                ? Math.Min(previousOrigin, Math.Max(0, Bounds.Width))
+                : -((-previousOrigin) % cycleWidth)
             : Math.Max(0, Bounds.Width / 2);
-        PositionCopies(cycleWidth);
+        PositionCopies(replacements, cycleWidth);
+
+        // Attach replacements before removing current copies; the canvas is never transiently blank.
+        foreach (var replacement in replacements)
+        {
+            _canvas.Children.Add(replacement);
+        }
+
+        foreach (var oldCopy in _copies)
+        {
+            _canvas.Children.Remove(oldCopy);
+        }
+
+        _copies.Clear();
+        _copies.AddRange(replacements);
         UpdateAnimationState();
+    }
+
+    private void QueueRebuild()
+    {
+        if (_rebuildQueued)
+        {
+            return;
+        }
+
+        _rebuildQueued = true;
+        ExceptionSafety.Run(
+            () => Dispatcher.UIThread.Post(() => ExceptionSafety.Run(() =>
+            {
+                _rebuildQueued = false;
+                RebuildCopies();
+            }), DispatcherPriority.Background),
+            _ => _rebuildQueued = false);
     }
 
     private Control CreateCopy()
@@ -320,16 +352,16 @@ public sealed class MarqueeText : UserControl
             _origin += cycleWidth;
         }
 
-        PositionCopies(cycleWidth);
+        PositionCopies(_copies, cycleWidth);
     }
 
-    private void PositionCopies(double cycleWidth)
+    private void PositionCopies(IReadOnlyList<Control> copies, double cycleWidth)
     {
         var top = Math.Max(0, (Bounds.Height - _contentHeight) / 2);
-        for (var index = 0; index < _copies.Count; index++)
+        for (var index = 0; index < copies.Count; index++)
         {
-            Canvas.SetLeft(_copies[index], _origin + index * cycleWidth);
-            Canvas.SetTop(_copies[index], top);
+            Canvas.SetLeft(copies[index], _origin + index * cycleWidth);
+            Canvas.SetTop(copies[index], top);
         }
     }
 

@@ -28,6 +28,7 @@ public partial class HelpWindow : Window
     public HelpWindow()
     {
         InitializeComponent();
+        WindowReachability.Attach(this);
         Opened += async (_, _) => await ExceptionSafety.RunAsync(
             LoadHelpAsync,
             exception =>

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -13,24 +14,39 @@ namespace SmartTicker.Desktop.Views;
 
 public partial class MainWindow : Window
 {
-    private readonly DispatcherTimer _priceRefreshTimer = new(DispatcherPriority.Background)
+    private readonly DispatcherTimer _refreshTimer = new(DispatcherPriority.Background)
     {
         Interval = TimeSpan.FromSeconds(1),
     };
-    private readonly DispatcherTimer _newsRefreshTimer = new(DispatcherPriority.Background);
-    private readonly PriceRefreshSchedule _priceRefreshSchedule = new();
+    private readonly DispatcherTimer _windowSizeSaveTimer = new(DispatcherPriority.Background)
+    {
+        Interval = TimeSpan.FromMilliseconds(300),
+    };
+    private readonly StaggeredRefreshSchedule _priceRefreshSchedule = new();
+    private readonly StaggeredRefreshSchedule _newsRefreshSchedule = new();
     private MainViewModel? _observedViewModel;
     private string? _draggedGroupName;
     private StaticNewsWindow? _staticNewsWindow;
     private bool _staticNewsSyncQueued;
-    private bool _scheduledPriceRefreshRunning;
+    private bool _newsRefreshesFirst;
     private bool _isClosing;
+    private Size? _pendingMainWindowSize;
 
     public MainWindow()
     {
         InitializeComponent();
-        _priceRefreshTimer.Tick += OnPriceRefreshTimerTick;
-        _newsRefreshTimer.Tick += OnNewsRefreshTimerTick;
+        WindowReachability.Attach(this);
+        _refreshTimer.Tick += OnRefreshTimerTick;
+        _windowSizeSaveTimer.Tick += (_, _) => RunSafely("Saving window size", () =>
+        {
+            _windowSizeSaveTimer.Stop();
+            if (_pendingMainWindowSize is { } size && ViewModel is { } viewModel)
+            {
+                _pendingMainWindowSize = null;
+                viewModel.CaptureMainWindowSize(size.Width, size.Height);
+                viewModel.PersistSettings();
+            }
+        });
         DataContextChanged += (_, _) => RunSafely("Applying window data", () =>
         {
             ConfigureFlowTimers();
@@ -42,6 +58,7 @@ public partial class MainWindow : Window
         Opened += (_, _) => RunSafely("Opening SmartTicker", () =>
         {
             ConfigurePassiveWindow();
+            WindowReachability.EnsureReachable(this);
             SyncStaticNewsWindow();
             ExceptionSafety.Run(
                 () => Dispatcher.UIThread.Post(() => RunSafely("Opening Quotes", () =>
@@ -59,7 +76,9 @@ public partial class MainWindow : Window
         {
             if (ViewModel is { } viewModel)
             {
-                viewModel.WindowHeight = e.NewSize.Height;
+                _pendingMainWindowSize = e.NewSize;
+                _windowSizeSaveTimer.Stop();
+                _windowSizeSaveTimer.Start();
             }
         });
         Closing += (_, _) => _isClosing = true;
@@ -69,58 +88,76 @@ public partial class MainWindow : Window
             RunSafely("Closing static News", CloseStaticNewsWindow);
             RunSafely("Releasing pointer capture", ReleasePointerCapture);
             RunSafely("Stopping refresh timers", StopFlowTimers);
+            RunSafely("Saving final window size", () =>
+            {
+                _windowSizeSaveTimer.Stop();
+                _pendingMainWindowSize = null;
+                ViewModel?.CaptureMainWindowSize(Bounds.Width, Bounds.Height);
+                ViewModel?.PersistSettings();
+            });
             RunSafely("Closing SmartTicker", () => ViewModel?.Dispose());
         };
     }
 
     private MainViewModel? ViewModel => DataContext as MainViewModel;
 
-    private async void OnPriceRefreshTimerTick(object? sender, EventArgs e)
-    {
-        await ExceptionSafety.RunAsync(
-            () => RefreshNextPriceBatchAsync("Automatic price refresh"),
-            exception => ReportRecoverableError("Automatic price refresh", exception));
-    }
+    private void OnRefreshTimerTick(object? sender, EventArgs e) =>
+        RunSafely("Scheduling data refresh", () => StartNextRefreshSlots(
+            "Automatic price refresh",
+            "Automatic News refresh"));
 
-    private async Task RefreshNextPriceBatchAsync(string operation)
+    private void StartNextRefreshSlots(string priceOperation, string newsOperation)
     {
-        if (_isClosing || _scheduledPriceRefreshRunning || ViewModel is not { IsPaused: false } viewModel)
+        if (_isClosing || ViewModel is not { IsPaused: false } viewModel)
         {
             return;
         }
 
-        _scheduledPriceRefreshRunning = true;
-        try
+        var priceIds = viewModel.Subscriptions
+            .Where(subscription => subscription.CollectPrice)
+            .Select(subscription => subscription.Id)
+            .ToArray();
+        var newsIds = viewModel.Subscriptions
+            .Where(subscription => subscription.CollectNews)
+            .Select(subscription => subscription.Id)
+            .ToArray();
+        var priceBatch = _priceRefreshSchedule.NextBatch(priceIds, viewModel.PriceRefreshSeconds);
+        var newsBatch = _newsRefreshSchedule.NextBatch(newsIds, viewModel.NewsRefreshSeconds);
+
+        if (_newsRefreshesFirst)
         {
-            var subscriptionIds = viewModel.Subscriptions
-                .Where(subscription => subscription.CollectPrice)
-                .Select(subscription => subscription.Id)
-                .ToArray();
-            var batch = _priceRefreshSchedule.NextBatch(
-                subscriptionIds,
-                viewModel.PriceRefreshSeconds);
-            if (batch.Count > 0)
-            {
-                await viewModel.RefreshPriceSubscriptionsSafelyAsync(operation, batch);
-            }
+            StartNewsBatch(viewModel, newsOperation, newsBatch);
+            StartPriceBatch(viewModel, priceOperation, priceBatch);
         }
-        finally
+        else
         {
-            _scheduledPriceRefreshRunning = false;
+            StartPriceBatch(viewModel, priceOperation, priceBatch);
+            StartNewsBatch(viewModel, newsOperation, newsBatch);
+        }
+
+        _newsRefreshesFirst = !_newsRefreshesFirst;
+    }
+
+    private static void StartPriceBatch(
+        MainViewModel viewModel,
+        string operation,
+        IReadOnlyCollection<Guid> batch)
+    {
+        if (batch.Count > 0)
+        {
+            _ = viewModel.RefreshPriceSubscriptionsSafelyAsync(operation, batch);
         }
     }
 
-    private async void OnNewsRefreshTimerTick(object? sender, EventArgs e)
+    private static void StartNewsBatch(
+        MainViewModel viewModel,
+        string operation,
+        IReadOnlyCollection<Guid> batch)
     {
-        await ExceptionSafety.RunAsync(
-            async () =>
-            {
-                if (!_isClosing && ViewModel is { IsPaused: false } viewModel)
-                {
-                    await viewModel.RefreshNewsSafelyAsync("Automatic news refresh");
-                }
-            },
-            exception => ReportRecoverableError("Automatic news refresh", exception));
+        if (batch.Count > 0)
+        {
+            _ = viewModel.RefreshNewsSubscriptionsSafelyAsync(operation, batch);
+        }
     }
 
     private void BeginWindowDrag(object? sender, PointerPressedEventArgs e)
@@ -258,12 +295,38 @@ public partial class MainWindow : Window
                 return;
             }
 
-            _priceRefreshTimer.Stop();
+            _refreshTimer.Stop();
             _priceRefreshSchedule.Reset();
-            _ = ExceptionSafety.RunAsync(
-                () => RefreshNextPriceBatchAsync("Manual price refresh"),
-                exception => ReportRecoverableError("Manual price refresh", exception));
-            _priceRefreshTimer.Start();
+            var ids = ViewModel.Subscriptions
+                .Where(subscription => subscription.CollectPrice)
+                .Select(subscription => subscription.Id)
+                .ToArray();
+            StartPriceBatch(
+                ViewModel,
+                "Manual price refresh",
+                _priceRefreshSchedule.NextBatch(ids, ViewModel.PriceRefreshSeconds));
+            _refreshTimer.Start();
+        });
+
+    private void RefreshNews(object? sender, RoutedEventArgs e) =>
+        RunSafely("Starting manual News refresh", () =>
+        {
+            if (ViewModel is not { IsPaused: false } viewModel)
+            {
+                return;
+            }
+
+            _refreshTimer.Stop();
+            _newsRefreshSchedule.Reset();
+            var ids = viewModel.Subscriptions
+                .Where(subscription => subscription.CollectNews)
+                .Select(subscription => subscription.Id)
+                .ToArray();
+            StartNewsBatch(
+                viewModel,
+                "Manual News refresh",
+                _newsRefreshSchedule.NextBatch(ids, viewModel.NewsRefreshSeconds));
+            _refreshTimer.Start();
         });
 
     private void ShowHelp(object? sender, RoutedEventArgs e) => RunSafely("Opening Help", () => HelpWindow.Open(this));
@@ -306,8 +369,7 @@ public partial class MainWindow : Window
 
     private void ConfigureFlowTimers()
     {
-        _priceRefreshTimer.Stop();
-        _newsRefreshTimer.Stop();
+        _refreshTimer.Stop();
 
         if (_observedViewModel is not null)
         {
@@ -321,13 +383,12 @@ public partial class MainWindow : Window
         }
 
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
-        ApplyRefreshIntervals();
-        _priceRefreshTimer.Start();
-        _newsRefreshTimer.Start();
-        _ = ExceptionSafety.RunAsync(
-            () => RefreshNextPriceBatchAsync("Initial price refresh"),
-            exception => ReportRecoverableError("Initial price refresh", exception));
-        _ = viewModel.RefreshNewsSafelyAsync("Initial news refresh");
+        ResetRefreshSchedules();
+        if (!viewModel.IsPaused)
+        {
+            _refreshTimer.Start();
+            StartNextRefreshSlots("Initial price refresh", "Initial News refresh");
+        }
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e) =>
@@ -335,22 +396,26 @@ public partial class MainWindow : Window
 
     private void ApplyViewModelPropertyChange(PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(MainViewModel.PriceRefreshSeconds) or nameof(MainViewModel.NewsRefreshSeconds))
+        if (e.PropertyName == nameof(MainViewModel.PriceRefreshSeconds))
         {
-            ApplyRefreshIntervals();
+            _priceRefreshSchedule.Reset();
+        }
+
+        if (e.PropertyName == nameof(MainViewModel.NewsRefreshSeconds))
+        {
+            _newsRefreshSchedule.Reset();
         }
 
         if (e.PropertyName == nameof(MainViewModel.IsPaused) && ViewModel is { } viewModel)
         {
             if (viewModel.IsPaused)
             {
-                _priceRefreshTimer.Stop();
-                _newsRefreshTimer.Stop();
+                _refreshTimer.Stop();
             }
             else if (!_isClosing)
             {
-                _priceRefreshTimer.Start();
-                _newsRefreshTimer.Start();
+                ResetRefreshSchedules();
+                _refreshTimer.Start();
             }
         }
 
@@ -384,23 +449,16 @@ public partial class MainWindow : Window
             });
     }
 
-    // Price refreshes use fixed one-second slots; News retains its configured whole-cycle timer.
-    private void ApplyRefreshIntervals()
+    private void ResetRefreshSchedules()
     {
-        if (ViewModel is not { } viewModel)
-        {
-            return;
-        }
-
         _priceRefreshSchedule.Reset();
-        _newsRefreshTimer.Interval = TimeSpan.FromSeconds(viewModel.NewsRefreshSeconds);
+        _newsRefreshSchedule.Reset();
     }
 
     private void StopFlowTimers()
     {
-        _priceRefreshTimer.Stop();
-        _newsRefreshTimer.Stop();
-        _priceRefreshSchedule.Reset();
+        _refreshTimer.Stop();
+        ResetRefreshSchedules();
         if (_observedViewModel is not null)
         {
             _observedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
@@ -439,6 +497,11 @@ public partial class MainWindow : Window
                 }
             };
             _staticNewsWindow = newsWindow;
+            if (ViewModel is { } viewModel)
+            {
+                newsWindow.Width = viewModel.StaticNewsWindowWidth;
+                newsWindow.Height = viewModel.StaticNewsWindowHeight;
+            }
             PositionStaticNewsWindow(newsWindow);
             newsWindow.Show();
         }

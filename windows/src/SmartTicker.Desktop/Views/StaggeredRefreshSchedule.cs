@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace SmartTicker.Desktop.Views;
 
-internal sealed class PriceRefreshSchedule
+internal sealed class StaggeredRefreshSchedule
 {
     private Guid[] _subscriptionIds = [];
     private int _intervalSeconds;

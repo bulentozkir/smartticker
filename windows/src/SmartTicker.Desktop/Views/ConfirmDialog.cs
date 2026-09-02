@@ -42,6 +42,7 @@ internal static class ConfirmDialog
                 },
             },
         };
+        WindowReachability.Attach(dialog);
 
         confirm.Click += (_, _) =>
         {

@@ -8,6 +8,7 @@ public partial class AlertsWindow : Window
     public AlertsWindow()
     {
         InitializeComponent();
+        WindowReachability.Attach(this);
     }
 
     private void ShowHelp(object? sender, RoutedEventArgs e) =>

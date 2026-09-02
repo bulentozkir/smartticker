@@ -25,6 +25,7 @@ public partial class AppSettingsWindow : Window
     public AppSettingsWindow()
     {
         InitializeComponent();
+        WindowReachability.Attach(this);
     }
 
     private void ShowHelp(object? sender, RoutedEventArgs e) => HelpWindow.Open(this);

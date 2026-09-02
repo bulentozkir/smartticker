@@ -10,11 +10,10 @@
         x:DataType="vm:MainViewModel"
         Icon="/Assets/SmartTicker.ico"
         Title="SmartTicker"
-        Width="980"
+        Width="{Binding WindowWidth}"
         Height="{Binding WindowHeight}"
         MinWidth="420"
         MinHeight="50"
-        MaxHeight="900"
         CanResize="True"
         WindowDecorations="None"
         Topmost="True"
@@ -68,7 +67,7 @@
                               IsVisible="{Binding IsStaticPricesWithNewsView}" />
                 </MenuItem>
                 <MenuItem Header="{Binding Text.MenuRefreshPrices}" Click="RefreshPrices" />
-                <MenuItem Header="{Binding Text.MenuRefreshNews}" Command="{Binding RefreshNewsCommand}" />
+                <MenuItem Header="{Binding Text.MenuRefreshNews}" Click="RefreshNews" />
                 <MenuItem Header="{Binding Text.MenuPauseResume}" Command="{Binding TogglePauseCommand}" />
                 <MenuItem Header="{Binding Text.MenuLanguage}">
                     <MenuItem Header="English" ToggleType="Radio" GroupName="AppLanguage"
@@ -257,16 +256,20 @@
                                                                           Margin="12,7">
                                                                         <TextBlock Text="{Binding Symbol}" FontWeight="SemiBold"
                                                                                    Foreground="{Binding SymbolForeground}"
+                                                                                   FontSize="{Binding $parent[Window].((vm:MainViewModel)DataContext).StaticViewFontSize}"
                                                                                    TextTrimming="CharacterEllipsis" />
                                                                         <TextBlock Grid.Column="1" Text="{Binding LastText}"
                                                                                    Foreground="{Binding LastForeground}"
+                                                                                   FontSize="{Binding $parent[Window].((vm:MainViewModel)DataContext).StaticViewFontSize}"
                                                                                    TextAlignment="Right" FontWeight="SemiBold"
                                                                                    ToolTip.Tip="{Binding SessionSummary}" />
                                                                         <TextBlock Grid.Column="2" Text="{Binding ChangeText}"
                                                                                    Foreground="{Binding ChangeForeground}"
+                                                                                   FontSize="{Binding $parent[Window].((vm:MainViewModel)DataContext).StaticViewFontSize}"
                                                                                    TextAlignment="Right" />
                                                                         <TextBlock Grid.Column="3" Text="{Binding ChangePercentText}"
                                                                                    Foreground="{Binding ChangeForeground}"
+                                                                                   FontSize="{Binding $parent[Window].((vm:MainViewModel)DataContext).StaticViewFontSize}"
                                                                                    TextAlignment="Right" />
                                                                     </Grid>
                                                                 </Border>

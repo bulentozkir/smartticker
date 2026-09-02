@@ -26,6 +26,11 @@ public class SettingsImportValidatorTests
       "newsRowCount": 1,
       "priceScrollSpeed": 50,
       "newsScrollSpeed": 40,
+    "scrollingViewFontSize": 17,
+    "staticViewFontSize": 15,
+    "scrollingWindowSize": { "width": 1200, "height": 90 },
+    "staticPricesWindowSize": { "width": 1400, "height": 720 },
+    "staticNewsWindowSize": { "width": 760, "height": 480 },
       "acknowledgedSources": ["finance.yahoo.com"],
       "showPriceLine": true,
       "showNewsLine": false,
@@ -50,6 +55,11 @@ public class SettingsImportValidatorTests
         Assert.Equal(2, settings.PriceRowCount);
         Assert.False(settings.ShowNewsLine);
         Assert.True(settings.UseStaticGroupedView);
+        Assert.Equal(17, settings.ScrollingViewFontSize);
+        Assert.Equal(15, settings.StaticViewFontSize);
+        Assert.Equal(new WindowSizeSettings(1200, 90), settings.ScrollingWindowSize);
+        Assert.Equal(new WindowSizeSettings(1400, 720), settings.StaticPricesWindowSize);
+        Assert.Equal(new WindowSizeSettings(760, 480), settings.StaticNewsWindowSize);
         Assert.Equal("#F85149", settings.PriceDownColor);
         Assert.Equal(["finance.yahoo.com"], settings.AcknowledgedSources);
         Assert.Equal(["Mega-Cap Tech"], settings.QuoteGroupNames);
@@ -127,6 +137,54 @@ public class SettingsImportValidatorTests
 
         Assert.False(result.Success);
         Assert.Contains(result.Errors, error => error.Contains("outside the allowed range 1-8"));
+    }
+
+    [Theory]
+    [InlineData("scrollingViewFontSize", 8)]
+    [InlineData("scrollingViewFontSize", 25)]
+    [InlineData("staticViewFontSize", 8)]
+    [InlineData("staticViewFontSize", 25)]
+    public void Validate_RejectsOutOfRangeViewFontSizes(string setting, int value)
+    {
+        var result = SettingsImportValidator.Validate($$"""{ "version": 1, "{{setting}}": {{value}} }""");
+
+        Assert.False(result.Success);
+        Assert.Contains(result.Errors, error =>
+            error.Contains($"'{setting}'") && error.Contains("outside the allowed range 9-24"));
+    }
+
+    [Fact]
+    public void Validate_MissingViewFontSizesUsesDefaults()
+    {
+        var result = SettingsImportValidator.Validate("{ \"version\": 1 }");
+
+        Assert.True(result.Success);
+        Assert.Equal(SmartTickerSettings.DefaultScrollingViewFontSize, result.Settings!.ScrollingViewFontSize);
+        Assert.Equal(SmartTickerSettings.DefaultStaticViewFontSize, result.Settings.StaticViewFontSize);
+    }
+
+    [Fact]
+    public void Validate_RejectsMalformedOrOutOfRangeWindowSizes()
+    {
+        var result = SettingsImportValidator.Validate(
+            """{"version":1,"scrollingWindowSize":{"width":419,"height":901},"staticPricesWindowSize":12,"staticNewsWindowSize":{"depth":340}}""");
+
+        Assert.False(result.Success);
+        Assert.Contains(result.Errors, error => error.Contains("'scrollingWindowSize.width'") && error.Contains("420-7680"));
+        Assert.Contains(result.Errors, error => error.Contains("'scrollingWindowSize.height'") && error.Contains("50-900"));
+        Assert.Contains(result.Errors, error => error.Contains("'staticPricesWindowSize' must be an object"));
+        Assert.Contains(result.Errors, error => error.Contains("'staticNewsWindowSize.depth' is not a SmartTicker setting"));
+    }
+
+    [Fact]
+    public void Validate_MissingWindowSizesUsesDefaults()
+    {
+        var result = SettingsImportValidator.Validate("{ \"version\": 1 }");
+
+        Assert.True(result.Success);
+        Assert.Equal(SmartTickerSettings.DefaultScrollingWindowSize, result.Settings!.ScrollingWindowSize);
+        Assert.Equal(SmartTickerSettings.DefaultStaticPricesWindowSize, result.Settings.StaticPricesWindowSize);
+        Assert.Equal(SmartTickerSettings.DefaultStaticNewsWindowSize, result.Settings.StaticNewsWindowSize);
     }
 
     [Fact]

@@ -76,6 +76,90 @@ public sealed class QuoteGroupingUiContractTests
     }
 
     [Fact]
+    public void AppSettings_ExposesSeparateScrollingAndStaticFontSizes()
+    {
+        var settings = LoadView("AppSettingsWindow.axaml");
+        var mainWindow = LoadView("MainWindow.axaml");
+        var newsWindow = LoadView("StaticNewsWindow.axaml");
+
+        var fontSizeInputs = settings.Descendants()
+            .Where(element => element.Name.LocalName == "NumericUpDown")
+            .Where(element => (string?)element.Attribute("Value") is
+                "{Binding ScrollingViewFontSize}" or "{Binding StaticViewFontSize}")
+            .ToArray();
+        Assert.Equal(2, fontSizeInputs.Length);
+        Assert.All(fontSizeInputs, input =>
+        {
+            Assert.Equal("9", (string?)input.Attribute("Minimum"));
+            Assert.Equal("24", (string?)input.Attribute("Maximum"));
+            Assert.Equal("1", (string?)input.Attribute("Increment"));
+        });
+
+        const string staticBinding =
+            "{Binding $parent[Window].((vm:MainViewModel)DataContext).StaticViewFontSize}";
+        Assert.Equal(4, mainWindow.Descendants().Count(element =>
+            (string?)element.Attribute("FontSize") == staticBinding));
+        Assert.Equal(2, newsWindow.Descendants().Count(element =>
+            (string?)element.Attribute("FontSize") == staticBinding));
+        Assert.Equal(2, mainWindow.Descendants().Count(element =>
+            (string?)element.Attribute("TickerFontSize") == "{Binding FontSize}"));
+    }
+
+    [Fact]
+    public void AppSettings_ExposesThreePersistedWindowSizePairs()
+    {
+        var settings = LoadView("AppSettingsWindow.axaml");
+        var mainWindow = LoadView("MainWindow.axaml");
+        var newsWindow = LoadView("StaticNewsWindow.axaml");
+        var values = settings.Descendants()
+            .Where(element => element.Name.LocalName == "NumericUpDown")
+            .Select(element => (string?)element.Attribute("Value"))
+            .ToArray();
+
+        Assert.Contains("{Binding ScrollingWindowWidth}", values);
+        Assert.Contains("{Binding ScrollingWindowHeight}", values);
+        Assert.Contains("{Binding StaticPricesWindowWidth}", values);
+        Assert.Contains("{Binding StaticPricesWindowHeight}", values);
+        Assert.Contains("{Binding StaticNewsWindowWidth}", values);
+        Assert.Contains("{Binding StaticNewsWindowHeight}", values);
+        Assert.Equal("{Binding WindowWidth}", (string?)mainWindow.Root!.Attribute("Width"));
+        Assert.Equal("{Binding WindowHeight}", (string?)mainWindow.Root.Attribute("Height"));
+        Assert.Equal("{Binding StaticNewsWindowWidth}", (string?)newsWindow.Root!.Attribute("Width"));
+        Assert.Equal("{Binding StaticNewsWindowHeight}", (string?)newsWindow.Root.Attribute("Height"));
+    }
+
+    [Fact]
+    public void EveryWindowUsesTheSharedReachabilityGuard()
+    {
+        foreach (var fileName in new[]
+                 {
+                     "AboutWindow.axaml.cs",
+                     "AlertsWindow.axaml.cs",
+                     "AppSettingsWindow.axaml.cs",
+                     "HelpWindow.axaml.cs",
+                     "MainWindow.axaml.cs",
+                     "QuoteGroupsWindow.axaml.cs",
+                     "SettingsWindow.axaml.cs",
+                     "SourcePermissionWindow.axaml.cs",
+                     "StaticNewsWindow.axaml.cs",
+                     "WebsiteConsentWindow.axaml.cs",
+                 })
+        {
+            Assert.Contains("WindowReachability.Attach(this);", File.ReadAllText(ViewPath(fileName)));
+        }
+
+        foreach (var fileName in new[]
+                 {
+                     "ConfirmDialog.cs",
+                     "EditConfigFileWorkflow.cs",
+                     "SampleConfigImportWorkflow.cs",
+                 })
+        {
+            Assert.Contains("WindowReachability.Attach(dialog);", File.ReadAllText(ViewPath(fileName)));
+        }
+    }
+
+    [Fact]
     public void MainWindow_StaticTableHasExpectedColumnsAndGroupSource()
     {
         var document = LoadView("MainWindow.axaml");
@@ -143,8 +227,8 @@ public sealed class QuoteGroupingUiContractTests
         Assert.Equal("True", (string?)newsWindow.Root!.Attribute("CanResize"));
         Assert.Equal("True", (string?)newsWindow.Root.Attribute("Topmost"));
         Assert.Equal("SmartTicker News", (string?)newsWindow.Root.Attribute("Title"));
-        Assert.Equal("680", (string?)newsWindow.Root.Attribute("Width"));
-        Assert.Equal("340", (string?)newsWindow.Root.Attribute("Height"));
+        Assert.Equal("{Binding StaticNewsWindowWidth}", (string?)newsWindow.Root.Attribute("Width"));
+        Assert.Equal("{Binding StaticNewsWindowHeight}", (string?)newsWindow.Root.Attribute("Height"));
         Assert.Equal("Manual", (string?)newsWindow.Root.Attribute("WindowStartupLocation"));
         Assert.Contains(newsWindow.Descendants(), element =>
             (string?)element.Attribute("ItemsSource") == "{Binding StaticNewsGroups}");
@@ -250,12 +334,14 @@ public sealed class QuoteGroupingUiContractTests
         Assert.Contains("Dispatcher.UIThread.UnhandledException", app);
         Assert.Contains("Dispatcher.UIThread.InvokeAsync", app);
         Assert.Contains("RefreshPriceSubscriptionsSafelyAsync", mainWindow);
-        Assert.Contains("PriceRefreshSchedule", mainWindow);
+        Assert.Contains("StaggeredRefreshSchedule", mainWindow);
         Assert.Contains("Interval = TimeSpan.FromSeconds(1)", mainWindow);
-        Assert.Contains("RefreshNewsSafelyAsync", mainWindow);
+        Assert.Contains("RefreshNewsSubscriptionsSafelyAsync", mainWindow);
+        Assert.Contains("_newsRefreshSchedule", mainWindow);
         Assert.Contains("QueueStaticNewsWindowSync();", mainWindow);
         Assert.Contains("RunSafely(\"Applying a setting change\"", mainWindow);
-        Assert.Contains("ExceptionSafety.RunAsync", mainWindow);
+        Assert.Contains("RunSafely(\"Scheduling data refresh\"", mainWindow);
+        Assert.DoesNotContain("async void OnRefreshTimerTick", mainWindow);
         Assert.Contains("ExceptionSafety.Run", File.ReadAllText(ViewPath("../Controls/MarqueeText.cs")));
         Assert.Contains("ExceptionSafety.RunAsync", File.ReadAllText(ViewPath("AppSettingsWindow.axaml.cs")));
         Assert.Contains("ExceptionSafety.RunAsync", File.ReadAllText(ViewPath("SettingsWindow.axaml.cs")));

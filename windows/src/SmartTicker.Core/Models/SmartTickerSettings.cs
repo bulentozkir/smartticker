@@ -2,6 +2,8 @@ using System.Text.Json.Serialization;
 
 namespace SmartTicker.Core.Models;
 
+public sealed record WindowSizeSettings(int Width, int Height);
+
 public sealed record SmartTickerSettings(
     int Version,
     TickerSubscription[] Subscriptions,
@@ -35,6 +37,23 @@ public sealed record SmartTickerSettings(
     public const int DefaultPriceRefreshSeconds = 60;
     public const int DefaultNewsRefreshSeconds = 300;
 
+    public const int MinimumViewFontSize = 9;
+    public const int MaximumViewFontSize = 24;
+    public const int DefaultScrollingViewFontSize = 14;
+    public const int DefaultStaticViewFontSize = 13;
+
+    public const int MinimumWindowWidth = 420;
+    public const int MaximumWindowWidth = 7680;
+    public const int MinimumScrollingWindowHeight = 50;
+    public const int MaximumScrollingWindowHeight = 900;
+    public const int MinimumStaticPricesWindowHeight = 420;
+    public const int MinimumStaticNewsWindowHeight = 240;
+    public const int MaximumStaticWindowHeight = 4320;
+
+    public static WindowSizeSettings DefaultScrollingWindowSize { get; } = new(980, 64);
+    public static WindowSizeSettings DefaultStaticPricesWindowSize { get; } = new(980, 420);
+    public static WindowSizeSettings DefaultStaticNewsWindowSize { get; } = new(680, 340);
+
     // Below this the ticker stops being legible against a busy desktop.
     public const double MinimumOpacity = 0.2;
     public const double MaximumOpacity = 1.0;
@@ -45,6 +64,16 @@ public sealed record SmartTickerSettings(
     public int PriceRefreshSeconds { get; init; } = DefaultPriceRefreshSeconds;
 
     public int NewsRefreshSeconds { get; init; } = DefaultNewsRefreshSeconds;
+
+    public int ScrollingViewFontSize { get; init; } = DefaultScrollingViewFontSize;
+
+    public int StaticViewFontSize { get; init; } = DefaultStaticViewFontSize;
+
+    public WindowSizeSettings ScrollingWindowSize { get; init; } = DefaultScrollingWindowSize;
+
+    public WindowSizeSettings StaticPricesWindowSize { get; init; } = DefaultStaticPricesWindowSize;
+
+    public WindowSizeSettings StaticNewsWindowSize { get; init; } = DefaultStaticNewsWindowSize;
 
     public string[] AcknowledgedSources { get; init; } = [];
 
@@ -127,10 +156,35 @@ public sealed record SmartTickerSettings(
             : DefaultOpacity,
         PriceScrollSpeed = Math.Clamp(PriceScrollSpeed, 10, 200),
         NewsScrollSpeed = Math.Clamp(NewsScrollSpeed, 10, 200),
+        ScrollingViewFontSize = Math.Clamp(ScrollingViewFontSize, MinimumViewFontSize, MaximumViewFontSize),
+        StaticViewFontSize = Math.Clamp(StaticViewFontSize, MinimumViewFontSize, MaximumViewFontSize),
+        ScrollingWindowSize = NormalizeWindowSize(
+            ScrollingWindowSize,
+            DefaultScrollingWindowSize,
+            MinimumScrollingWindowHeight,
+            MaximumScrollingWindowHeight),
+        StaticPricesWindowSize = NormalizeWindowSize(
+            StaticPricesWindowSize,
+            DefaultStaticPricesWindowSize,
+            MinimumStaticPricesWindowHeight,
+            MaximumStaticWindowHeight),
+        StaticNewsWindowSize = NormalizeWindowSize(
+            StaticNewsWindowSize,
+            DefaultStaticNewsWindowSize,
+            MinimumStaticNewsWindowHeight,
+            MaximumStaticWindowHeight),
         PriceRefreshSeconds = Math.Clamp(PriceRefreshSeconds, MinimumRefreshSeconds, MaximumRefreshSeconds),
         NewsRefreshSeconds = Math.Clamp(NewsRefreshSeconds, MinimumRefreshSeconds, MaximumRefreshSeconds),
         Language = AppLanguages.Normalize(Language),
     };
+
+    private static WindowSizeSettings NormalizeWindowSize(
+        WindowSizeSettings? size,
+        WindowSizeSettings fallback,
+        int minimumHeight,
+        int maximumHeight) => new(
+            Math.Clamp(size?.Width ?? fallback.Width, MinimumWindowWidth, MaximumWindowWidth),
+            Math.Clamp(size?.Height ?? fallback.Height, minimumHeight, maximumHeight));
 
     private static string[] NormalizeQuoteGroupNames(
         IEnumerable<string>? names,

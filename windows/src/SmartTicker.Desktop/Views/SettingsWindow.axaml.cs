@@ -11,6 +11,7 @@ public partial class SettingsWindow : Window
     public SettingsWindow()
     {
         InitializeComponent();
+        WindowReachability.Attach(this);
         DataContextChanged += (_, _) => ExceptionSafety.Run(() =>
         {
             if (DataContext is MainViewModel viewModel)

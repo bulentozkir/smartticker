@@ -83,7 +83,10 @@ source validation, group ordering, backups, static-table behavior, and alert rul
 - Automatic value detection, or pick an exact element with a CSS selector
 - After-hours prices and daily change percentages
 - Clickable headlines that open in your browser
-- Independent refresh intervals from 30 to 300 seconds; price requests are spread across one-second slots, while News sources are read sequentially in each configured News cycle
+- Independent refresh intervals from 30 to 300 seconds, with both Price and News requests spread across their own one-second slots
+- Separate 9–24 point font sizes for scrolling rows and static rows
+- Separate persisted width/height settings for scrolling, static Prices, and static News windows
+- Every window keeps its top-left drag/title corner at positive on-screen coordinates so it remains reachable
 
 **Price alerts**
 
@@ -99,6 +102,7 @@ source validation, group ordering, backups, static-table behavior, and alert rul
 - Quote groups with explicit create, update, delete, associate, and ungroup actions
 - Gapless static tiles that fill the available width and pack under the shortest column
 - Adjustable window transparency
+- Manual resizing updates the saved size for the active scrolling, static Prices, or static News view
 - Configurable colours for the background, quote names, prices, after-hours values, rising and falling changes, alert blinking, and four separate news colours
 
 **Everything else**
@@ -134,7 +138,7 @@ Quotes are added one symbol and source at a time, with optional CSS selectors an
 
 ![Quotes window showing the entry form and configured entries](docs/screenshots/quotes.png)
 
-App Settings covers rows, scrolling speed, refresh intervals, start at sign-in, window transparency and every colour.
+App Settings covers rows, scrolling speed, separate scrolling/static font sizes, three view-specific window sizes, refresh intervals, start at sign-in, window transparency and every colour.
 
 ![App Settings window](docs/screenshots/app-settings.png)
 
@@ -150,9 +154,9 @@ Settings and alert rules can be exported and imported independently.
 
 Available as an MSIX bundle and MSI installers for Windows (x64 and arm64), and a `.deb` for Debian-based Linux. See [releases](releases/README.md).
 
-This release adds the four mutually exclusive display modes and makes scrolling Prices only the default, with a separate static News window, first-class quote groups, saved per-quote News filters, configurable alert colour, and three-second change highlights. Price requests are distributed across one-second slots instead of all starting together.
+This release adds the four mutually exclusive display modes and makes scrolling Prices only the default, with a separate static News window, first-class quote groups, saved per-quote News filters, configurable alert colour, and three-second change highlights. Price and News requests are distributed across independent one-second slots instead of all starting together.
 
-Desktop hardening contains recoverable refresh, event, persistence, and window-lifetime failures. On every Windows launch, SmartTicker sets its process priority to Low and enables Efficiency mode (EcoQoS) before starting the UI. Windows also uses a lower-overhead rendering path, the marquee adapts its timer cadence to scroll speed and stops it while paused or detached, and unchanged rows avoid redundant visual notifications. Brush and snapshot reuse further reduces routine allocation and lookup work.
+Desktop hardening contains recoverable refresh, event, persistence, and window-lifetime failures. A failed refresh retains the last successful price or headlines when available. On every Windows launch, SmartTicker sets its process priority to Low and enables Efficiency mode (EcoQoS) before starting the UI. Windows also uses a lower-overhead rendering path, the marquee adapts its timer cadence to scroll speed and stops it while paused or detached, and unchanged rows avoid redundant visual notifications. Brush and snapshot reuse further reduces routine allocation and lookup work.
 
 Each web request has a 20-second timeout. SmartTicker surfaces HTTP failures such as 403 and 429 and does not bypass access restrictions, but it does not automatically parse or enforce robots directives, crawl-delay values, or server backoff instructions. Choose sources and refresh intervals that comply with each website's current policies. JavaScript-only pages and pages that prohibit automated access may not be supported.
 

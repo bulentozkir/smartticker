@@ -102,8 +102,8 @@ view: Prices only** closes it; selecting **Static view: Prices with News** opens
 again. Either scrolling choice closes the separate News window; the scrolling
 Prices-with-News choice restores the news marquee in the main ticker.
 
-Switching to static mode expands a short ticker window to a usable table height. You
-can then resize it from any edge or corner.
+Switching modes applies the saved size for that view. The scrolling ticker, static Prices
+window, and static News window each keep an independent width and height.
 
 ### Move the ticker
 
@@ -115,11 +115,14 @@ or clicking content cannot accidentally start a window move.
 
 Move the pointer onto any edge or corner until a resize cursor appears, then press and
 drag. The lower-right corner has a small visible resize mark. The minimum window width
-is 420 pixels. The height is limited to 50 through 900 pixels.
+is 420 pixels. Scrolling height is 50 through 900 pixels, static Prices height is 420
+through 4320 pixels, and static News height is 240 through 4320 pixels.
 
-The configured price and news row counts determine the normal height. A manual window
-size or position is not part of the settings backup and can reset when row or line
-visibility settings change.
+Manual resizing updates the saved dimensions for the active view after the drag settles.
+All three size pairs are included in a settings backup. Window positions are not stored.
+Whenever a window opens or moves, SmartTicker keeps at least its top-left 32-pixel corner
+inside a screen working area and clamps global X and Y to at least 1. This keeps the move
+grip or title corner reachable with the mouse even after a monitor is disconnected.
 
 ### Pause and resume
 
@@ -358,27 +361,43 @@ automatically; there is no Apply button.
 | Price scroll speed | 20, 30, 40, 50, 65, 80, 100, or 120 px/sec | 50 | Price marquee speed. |
 | News rows | 1 through 8 | 1 | Number of parallel headline marquee rows. |
 | News scroll speed | 20, 30, 40, 50, 65, 80, 100, or 120 px/sec | 40 | News marquee speed. |
+| Scrolling font size | 9 through 24 pt | 14 pt | Price and News text in scrolling rows. |
+| Static font size | 9 through 24 pt | 13 pt | Quote and headline text in static rows. |
 | Price refresh | 30 through 300 seconds, in 15-second steps | 60 seconds | Time in which every permitted price entry receives one scheduled refresh. |
-| News refresh | 30 through 300 seconds, in 15-second steps | 300 seconds | Automatic headline refresh interval. |
+| News refresh | 30 through 300 seconds, in 15-second steps | 300 seconds | Time in which every permitted News entry receives one scheduled refresh. |
 
 Price rows and price scroll speed are disabled while static grouped tables are active
 because that mode displays all price entries and never auto-scrolls either window.
 News row and speed settings are retained for the scrolling view.
 
-Price requests are distributed across one-second slots for the whole interval instead of
-starting together. For example, 60 quotes over 30 seconds schedules two quotes per second;
-five quotes over 30 seconds schedules one roughly every six seconds. If a source is slow,
-SmartTicker waits rather than launching missed slots together. Existing prices remain on
-screen until a complete replacement batch is ready. News currently uses one whole-cycle
-timer and requests permitted News entries sequentially; News requests are not divided
-into one-second slots. **Refresh news now** starts that whole News cycle.
+Price and News requests are independently distributed across one-second slots for their
+whole intervals instead of starting together. For example, 60 entries over 30 seconds
+schedules two entries per second; five entries over 30 seconds schedules one roughly
+every six seconds. At most four source requests run at once, duplicate work for the same
+entry and stream is skipped, and missed slots are not replayed in a burst. **Refresh
+prices now** or **Refresh news now** restarts only that stream and requests its first slot.
+Existing successful prices and headlines remain visible while replacement data is read.
 
-Each HTTP request has a fixed 20-second timeout. A slow News source can therefore delay
-later sources in the same News cycle, although network reads and HTML extraction run away
-from the UI dispatcher. SmartTicker reports failures such as HTTP 403 and 429 and does not
-bypass restrictions. It does not automatically parse or enforce robots directives,
+Each HTTP request has a fixed 20-second timeout. A slow source does not hold the UI
+dispatcher or prevent later slots from using remaining request capacity. SmartTicker
+reports failures such as HTTP 403 and 429 and does not bypass restrictions. It does not
+automatically parse or enforce robots directives,
 crawl-delay values, or server backoff instructions, so choose compliant sources and avoid
 unnecessarily frequent requests.
+
+### Window sizes
+
+App Settings stores three independent size pairs:
+
+| Window | Width | Height | Default |
+| --- | --- | --- | --- |
+| Scrolling view | 420–7680 px | 50–900 px | 980 × 64 px |
+| Static Prices view | 420–7680 px | 420–4320 px | 980 × 420 px |
+| Static News view | 420–7680 px | 240–4320 px | 680 × 340 px |
+
+Changing a value applies immediately when that window or view is active. The published
+sample demonstrates 1200 × 96 scrolling, 1200 × 720 static Prices, and 760 × 480 static
+News, with 15-point scrolling text and 14-point static text.
 
 Use the four choices under **View** to choose whether News is displayed and whether the
 layout scrolls or remains static. Changing the view never deletes configured entries.
@@ -471,7 +490,8 @@ Color fields accept `#RRGGBB` hexadecimal values and also provide a color picker
 | Alert blink | `#FF00FF` | Triggered price alerts, alternating with black. |
 
 **Reset to defaults** restores every color above and 100% background opacity. It does
-not reset rows, speeds, sources, refresh intervals, alerts, or language.
+not reset rows, speeds, font sizes, window sizes, sources, refresh intervals, alerts, or
+language.
 
 ### Backup and restore
 
@@ -482,7 +502,8 @@ provides separate buttons for each backup type.
 
 - **Export settings...** writes configured entries, group assignments, group definitions,
 	hidden news quotes, entry order, selectors, the scrolling/static quote-view choice,
-	approved hosts, line visibility, rows, speeds, refresh intervals, startup preference,
+	approved hosts, line visibility, rows, speeds, scrolling/static font sizes, all three
+	window size pairs, refresh intervals, startup preference,
 	website access option, colors including the alert blink colour, transparency, and
 	language.
 - **Import settings...** validates the entire file before changing anything. A rejected
@@ -669,9 +690,10 @@ accordance with the website's terms, license, robots directives, and applicable 
 
 ### A quote shows unavailable or no price
 
-A source request times out after 20 seconds. A failed refresh can replace that quote's
-current snapshot with **Unavailable** until a later refresh succeeds; read the validation
-or refresh error before changing selectors.
+A source request times out after 20 seconds. If that quote has a successful earlier
+snapshot, a failed refresh keeps it visible; otherwise the quote shows **Unavailable**
+until a later refresh succeeds. Read the validation or refresh error before changing
+selectors.
 
 1. Open **Quotes...**, edit the entry, and check the Full URL.
 2. Confirm **Price** is selected.
@@ -695,8 +717,8 @@ or refresh error before changing selectors.
 - Confirm **News** is selected.
 - Validate the source and run **Discover news**.
 - Ensure the selector returns links with visible headline text.
-- A failed or timed-out News request can leave that source without headlines until a
-	later News cycle succeeds. Each request times out after 20 seconds.
+- A failed or timed-out News request keeps earlier successful headlines when available.
+	A source with no successful result stays empty until a later slot succeeds.
 - A headline disappears after reaching its configured repeat limit for this session.
 - In static News, confirm the intended quote is checked under **Show news for**.
 

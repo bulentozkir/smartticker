@@ -9,6 +9,7 @@ public partial class WebsiteConsentWindow : Window
     public WebsiteConsentWindow()
     {
         InitializeComponent();
+        WindowReachability.Attach(this);
     }
 
     private void Accept(object? sender, RoutedEventArgs e) =>

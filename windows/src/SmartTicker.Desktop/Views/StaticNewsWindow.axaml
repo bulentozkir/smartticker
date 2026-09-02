@@ -6,14 +6,15 @@
         x:DataType="vm:MainViewModel"
         Icon="/Assets/SmartTicker.ico"
         Title="SmartTicker News"
-        Width="680"
-        Height="340"
+        Width="{Binding StaticNewsWindowWidth}"
+        Height="{Binding StaticNewsWindowHeight}"
         MinWidth="420"
         MinHeight="240"
         CanResize="True"
         Topmost="True"
         ShowInTaskbar="True"
         WindowStartupLocation="Manual"
+        FontSize="{Binding StaticViewFontSize}"
         Background="#10151D">
     <Grid RowDefinitions="Auto,*" Margin="16" RowSpacing="10">
         <StackPanel Spacing="3">
@@ -111,9 +112,11 @@
                                                         <Grid ColumnDefinitions="100,*" ColumnSpacing="10" Margin="12,7">
                                                             <TextBlock Text="{Binding Symbol}" FontWeight="SemiBold"
                                                                        Foreground="{Binding SymbolForeground}"
+                                                                       FontSize="{Binding $parent[Window].((vm:MainViewModel)DataContext).StaticViewFontSize}"
                                                                        TextTrimming="CharacterEllipsis" />
                                                             <TextBlock Grid.Column="1" Text="{Binding Headline}"
                                                                        Foreground="{Binding HeadlineForeground}"
+                                                                       FontSize="{Binding $parent[Window].((vm:MainViewModel)DataContext).StaticViewFontSize}"
                                                                        TextTrimming="CharacterEllipsis" />
                                                         </Grid>
                                                     </Border>

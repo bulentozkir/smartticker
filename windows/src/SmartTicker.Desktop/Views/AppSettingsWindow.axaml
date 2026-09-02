@@ -32,7 +32,7 @@
                 <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
                     <StackPanel Spacing="14">
                         <TextBlock Classes="section" Text="Ticker rows and speed" />
-                        <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="14">
+                        <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="14">
                             <TextBlock Grid.Row="0" Classes="lbl" Text="Price display" VerticalAlignment="Center" />
                             <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="10">
                                 <TextBlock Classes="caption" Text="Rows" VerticalAlignment="Center" />
@@ -72,6 +72,70 @@
                                 <TextBlock Classes="caption" Text="sec" VerticalAlignment="Center" />
                             </StackPanel>
 
+                            <TextBlock Grid.Row="3" Classes="lbl" Text="Font size" VerticalAlignment="Center" />
+                            <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                                <TextBlock Classes="caption" Text="Scrolling" VerticalAlignment="Center" />
+                                <NumericUpDown Value="{Binding ScrollingViewFontSize}" Minimum="9" Maximum="24" Increment="1"
+                                               FormatString="0" Width="104" FontSize="15" FontWeight="SemiBold"
+                                               HorizontalContentAlignment="Center"
+                                               ToolTip.Tip="Text size for scrolling price and News rows." />
+                                <TextBlock Classes="caption" Text="pt" VerticalAlignment="Center" />
+                                <TextBlock Classes="caption" Text="Static" VerticalAlignment="Center" Margin="14,0,0,0" />
+                                <NumericUpDown Value="{Binding StaticViewFontSize}" Minimum="9" Maximum="24" Increment="1"
+                                               FormatString="0" Width="104" FontSize="15" FontWeight="SemiBold"
+                                               HorizontalContentAlignment="Center"
+                                               ToolTip.Tip="Text size for static quote and News rows." />
+                                <TextBlock Classes="caption" Text="pt" VerticalAlignment="Center" />
+                            </StackPanel>
+
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="18">
+                    <StackPanel Spacing="14">
+                        <TextBlock Classes="section" Text="Window sizes" />
+                        <TextBlock Classes="caption" TextWrapping="Wrap"
+                                   Text="Sizes apply immediately. Width and height are stored separately for each view." />
+                        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="14">
+                            <TextBlock Grid.Row="0" Classes="lbl" Text="Scrolling view" VerticalAlignment="Center" />
+                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                                <TextBlock Classes="caption" Text="Width" VerticalAlignment="Center" />
+                                <NumericUpDown Value="{Binding ScrollingWindowWidth}" Minimum="420" Maximum="7680" Increment="10"
+                                               FormatString="0" Width="120" FontSize="15" FontWeight="SemiBold"
+                                               HorizontalContentAlignment="Center" />
+                                <TextBlock Classes="caption" Text="Height" VerticalAlignment="Center" Margin="14,0,0,0" />
+                                <NumericUpDown Value="{Binding ScrollingWindowHeight}" Minimum="50" Maximum="900" Increment="10"
+                                               FormatString="0" Width="120" FontSize="15" FontWeight="SemiBold"
+                                               HorizontalContentAlignment="Center" />
+                                <TextBlock Classes="caption" Text="px" VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Row="1" Classes="lbl" Text="Static Prices view" VerticalAlignment="Center" />
+                            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                                <TextBlock Classes="caption" Text="Width" VerticalAlignment="Center" />
+                                <NumericUpDown Value="{Binding StaticPricesWindowWidth}" Minimum="420" Maximum="7680" Increment="10"
+                                               FormatString="0" Width="120" FontSize="15" FontWeight="SemiBold"
+                                               HorizontalContentAlignment="Center" />
+                                <TextBlock Classes="caption" Text="Height" VerticalAlignment="Center" Margin="14,0,0,0" />
+                                <NumericUpDown Value="{Binding StaticPricesWindowHeight}" Minimum="420" Maximum="4320" Increment="10"
+                                               FormatString="0" Width="120" FontSize="15" FontWeight="SemiBold"
+                                               HorizontalContentAlignment="Center" />
+                                <TextBlock Classes="caption" Text="px" VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Row="2" Classes="lbl" Text="Static News view" VerticalAlignment="Center" />
+                            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                                <TextBlock Classes="caption" Text="Width" VerticalAlignment="Center" />
+                                <NumericUpDown Value="{Binding StaticNewsWindowWidth}" Minimum="420" Maximum="7680" Increment="10"
+                                               FormatString="0" Width="120" FontSize="15" FontWeight="SemiBold"
+                                               HorizontalContentAlignment="Center" />
+                                <TextBlock Classes="caption" Text="Height" VerticalAlignment="Center" Margin="14,0,0,0" />
+                                <NumericUpDown Value="{Binding StaticNewsWindowHeight}" Minimum="240" Maximum="4320" Increment="10"
+                                               FormatString="0" Width="120" FontSize="15" FontWeight="SemiBold"
+                                               HorizontalContentAlignment="Center" />
+                                <TextBlock Classes="caption" Text="px" VerticalAlignment="Center" />
+                            </StackPanel>
                         </Grid>
                     </StackPanel>
                 </Border>

@@ -21,6 +21,11 @@ public sealed class LocalJsonSettingsStoreTests
             {
                 UseStaticGroupedView = true,
                 AlertBlinkColor = "#123ABC",
+                ScrollingViewFontSize = 18,
+                StaticViewFontSize = 16,
+                ScrollingWindowSize = new WindowSizeSettings(1100, 80),
+                StaticPricesWindowSize = new WindowSizeSettings(1300, 700),
+                StaticNewsWindowSize = new WindowSizeSettings(720, 460),
                 QuoteGroupNames = ["Mega-Cap Tech", "Empty"],
                 HiddenNewsQuotes = [subscription!.Id],
             };
@@ -35,6 +40,11 @@ public sealed class LocalJsonSettingsStoreTests
             Assert.Equal(30, actual.NewsScrollSpeed);
             Assert.True(actual.UseStaticGroupedView);
             Assert.Equal("#123ABC", actual.AlertBlinkColor);
+            Assert.Equal(18, actual.ScrollingViewFontSize);
+            Assert.Equal(16, actual.StaticViewFontSize);
+            Assert.Equal(new WindowSizeSettings(1100, 80), actual.ScrollingWindowSize);
+            Assert.Equal(new WindowSizeSettings(1300, 700), actual.StaticPricesWindowSize);
+            Assert.Equal(new WindowSizeSettings(720, 460), actual.StaticNewsWindowSize);
             Assert.Equal(["Mega-Cap Tech", "Empty"], actual.QuoteGroupNames);
             Assert.Equal([subscription!.Id], actual.HiddenNewsQuotes);
             var restored = Assert.Single(actual.Subscriptions);
@@ -43,6 +53,11 @@ public sealed class LocalJsonSettingsStoreTests
             Assert.Equal(9, restored.NewsRepeatLimit);
             Assert.Contains("\"priceScrollSpeed\": 65", File.ReadAllText(path));
             Assert.Contains("\"alertBlinkColor\": \"#123ABC\"", File.ReadAllText(path));
+            Assert.Contains("\"scrollingViewFontSize\": 18", File.ReadAllText(path));
+            Assert.Contains("\"staticViewFontSize\": 16", File.ReadAllText(path));
+            Assert.Contains("\"scrollingWindowSize\"", File.ReadAllText(path));
+            Assert.Contains("\"staticPricesWindowSize\"", File.ReadAllText(path));
+            Assert.Contains("\"staticNewsWindowSize\"", File.ReadAllText(path));
             Assert.Contains("\"quoteGroups\"", File.ReadAllText(path));
             Assert.Contains($"\"hiddenNewsQuotes\": [\r\n    \"{subscription!.Id}\"", File.ReadAllText(path).ReplaceLineEndings("\r\n"));
         }

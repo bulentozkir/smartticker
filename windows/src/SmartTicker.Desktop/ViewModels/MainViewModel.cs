@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
@@ -223,6 +224,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial int NewsRowCount { get; set; } = 1;
 
+    [ObservableProperty]
+    public partial int ScrollingViewFontSize { get; set; } = SmartTickerSettings.DefaultScrollingViewFontSize;
+
+    [ObservableProperty]
+    public partial int StaticViewFontSize { get; set; } = SmartTickerSettings.DefaultStaticViewFontSize;
+
     public IReadOnlyList<SourcePreset> SourceAlternatives => KnownSourceCatalog.All;
 
     public IReadOnlyList<int> RowCountOptions { get; } = Enumerable.Range(1, 8).ToArray();
@@ -250,7 +257,28 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public ObservableCollection<NewsSnapshot> LatestNews { get; } = [];
 
     [ObservableProperty]
+    public partial double WindowWidth { get; set; } = SmartTickerSettings.DefaultScrollingWindowSize.Width;
+
+    [ObservableProperty]
     public partial double WindowHeight { get; set; } = TickerLayoutCalculator.NaturalHeight(1, 1);
+
+    [ObservableProperty]
+    public partial int ScrollingWindowWidth { get; set; } = SmartTickerSettings.DefaultScrollingWindowSize.Width;
+
+    [ObservableProperty]
+    public partial int ScrollingWindowHeight { get; set; } = SmartTickerSettings.DefaultScrollingWindowSize.Height;
+
+    [ObservableProperty]
+    public partial int StaticPricesWindowWidth { get; set; } = SmartTickerSettings.DefaultStaticPricesWindowSize.Width;
+
+    [ObservableProperty]
+    public partial int StaticPricesWindowHeight { get; set; } = SmartTickerSettings.DefaultStaticPricesWindowSize.Height;
+
+    [ObservableProperty]
+    public partial int StaticNewsWindowWidth { get; set; } = SmartTickerSettings.DefaultStaticNewsWindowSize.Width;
+
+    [ObservableProperty]
+    public partial int StaticNewsWindowHeight { get; set; } = SmartTickerSettings.DefaultStaticNewsWindowSize.Height;
 
     [ObservableProperty]
     public partial bool ShowPriceLine { get; set; } = true;
@@ -494,16 +522,20 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly Dictionary<(Guid SubscriptionId, string Headline), DateTimeOffset> _newHeadlineBlinkUntil = [];
     private readonly Dictionary<Guid, QuoteSnapshot> _latestQuotesBySubscription = [];
     private readonly Dictionary<Guid, NewsSnapshot> _latestNewsBySubscription = [];
+    private readonly Dictionary<Guid, string> _priceRefreshErrors = [];
+    private readonly Dictionary<Guid, string> _newsRefreshErrors = [];
     private readonly AlertArmingState _arming = new();
     private bool _blinkOn;
-    private readonly SemaphoreSlim _priceRefreshGate = new(1, 1);
-    private readonly SemaphoreSlim _newsRefreshGate = new(1, 1);
+    private readonly RefreshWorkCoordinator _refreshCoordinator = new(4);
+    private int _refreshGeneration;
     private readonly NewsRepeatFilter _newsRepeatFilter = new();
     private readonly HashSet<Guid> _hiddenNewsQuotes = [];
     private readonly List<string> _quoteGroupNames = [];
     private SourceAcknowledgementLedger _acknowledgements = new();
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private bool _isApplyingSettings;
+    private bool _isCapturingWindowSize;
+    private bool _isApplyingConfiguredWindowSize;
     private volatile bool _isDisposed;
     private bool _settingsPersistenceBlocked;
 
@@ -1243,16 +1275,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var entered = false;
         try
         {
-            await _priceRefreshGate.WaitAsync(_lifetimeCancellation.Token);
-            entered = true;
-            if (IsPaused || _isDisposed)
-            {
-                return;
-            }
-
+            var generation = Volatile.Read(ref _refreshGeneration);
             var requested = subscriptionIds?.ToHashSet();
             var priceSubscriptions = Subscriptions
                 .Where(item =>
@@ -1260,88 +1285,55 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                     CanAccessSource(item.SourceUri) &&
                     (requested is null || requested.Contains(item.Id)))
                 .ToArray();
-            if (priceSubscriptions.Length == 0)
+            var work = priceSubscriptions
+                .Select(subscription =>
+                {
+                    var lease = _refreshCoordinator.TryAcquire(RefreshStream.Prices, subscription.Id);
+                    return lease is null ? null : FetchPriceAsync(subscription, lease);
+                })
+                .Where(task => task is not null)
+                .Select(task => task!)
+                .ToArray();
+            if (work.Length == 0)
             {
                 return;
             }
 
-            var results = await Task.WhenAll(priceSubscriptions.Select(FetchPriceAsync));
+            var results = await Task.WhenAll(work).ConfigureAwait(false);
             _lifetimeCancellation.Token.ThrowIfCancellationRequested();
-            var changeBlinkUntil = DateTimeOffset.Now.AddSeconds(ChangeBlinkSeconds);
-            var changed = false;
-            var refreshed = false;
-            foreach (var result in results)
-            {
-                if (result.Error is { } error)
-                {
-                    ReportRecoverableError("Price refresh", error);
-                    continue;
-                }
-
-                var subscription = result.Subscription;
-                var snapshot = result.Snapshot!;
-                if (!Subscriptions.Any(item => item.Id == subscription.Id))
-                {
-                    continue;
-                }
-
-                var previous = LatestQuoteFor(subscription.Id);
-                if (HasPriceChanged(previous, snapshot))
-                {
-                    _priceChangeBlinkUntil[subscription.Id] = changeBlinkUntil;
-                    changed = true;
-                }
-
-                if (previous is not null)
-                {
-                    LatestQuotes.Remove(previous);
-                }
-
-                LatestQuotes.Add(snapshot);
-                refreshed = true;
-            }
-
-            if (changed)
-            {
-                StartBlinking();
-            }
-
-            if (refreshed)
-            {
-                UpdatePriceRows();
-                EvaluateAlerts();
-            }
+            await RunOnUiThreadAsync(() => CommitPriceResults(results, generation)).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
         {
         }
         catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
-            ReportRecoverableError("Price refresh", exception);
-        }
-        finally
-        {
-            if (entered)
-            {
-                _priceRefreshGate.Release();
-            }
+            await RunOnUiThreadAsync(() => ReportRecoverableError("Price refresh", exception))
+                .ConfigureAwait(false);
         }
     }
 
-    private async Task<PriceFetchResult> FetchPriceAsync(TickerSubscription subscription)
+    private async Task<PriceFetchResult> FetchPriceAsync(
+        TickerSubscription subscription,
+        IDisposable lease)
     {
-        try
+        using (lease)
         {
-            var snapshot = await _quoteFetcher!.FetchAsync(subscription, _lifetimeCancellation.Token);
-            return new PriceFetchResult(subscription, snapshot, null);
-        }
-        catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
-        {
-            return new PriceFetchResult(subscription, null, exception);
+            try
+            {
+                var snapshot = await _quoteFetcher!
+                    .FetchAsync(subscription, _lifetimeCancellation.Token)
+                    .ConfigureAwait(false);
+                return new PriceFetchResult(subscription, snapshot, null);
+            }
+            catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+            {
+                return new PriceFetchResult(subscription, null, exception);
+            }
         }
     }
 
@@ -1349,6 +1341,91 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         TickerSubscription Subscription,
         QuoteSnapshot? Snapshot,
         Exception? Error);
+
+    private void CommitPriceResults(IReadOnlyList<PriceFetchResult> results, int generation)
+    {
+        if (_isDisposed || IsPaused || generation != Volatile.Read(ref _refreshGeneration))
+        {
+            return;
+        }
+
+        var changeBlinkUntil = DateTimeOffset.Now.AddSeconds(ChangeBlinkSeconds);
+        var changed = false;
+        var renderedStateChanged = false;
+        var successfulRefresh = false;
+        foreach (var result in results)
+        {
+            var subscription = Subscriptions.FirstOrDefault(item => item.Id == result.Subscription.Id);
+            if (subscription is null || subscription != result.Subscription)
+            {
+                continue;
+            }
+
+            var previous = LatestQuoteFor(subscription.Id);
+            var failure = result.Error?.Message ?? (result.Snapshot is { Success: false } failed ? failed.Status : null);
+            if (failure is not null)
+            {
+                renderedStateChanged |= !_priceRefreshErrors.TryGetValue(subscription.Id, out var oldError) ||
+                    oldError != failure;
+                _priceRefreshErrors[subscription.Id] = failure;
+                EntryMessage = $"Price refresh failed: {failure}";
+                if (previous is { Success: true })
+                {
+                    continue;
+                }
+
+                var failedSnapshot = result.Snapshot ?? new QuoteSnapshot(
+                    subscription.Id,
+                    subscription.Symbol,
+                    subscription.SourceName,
+                    null,
+                    null,
+                    DateTimeOffset.UtcNow,
+                    false,
+                    failure);
+                ReplaceQuoteSnapshot(previous, failedSnapshot);
+                renderedStateChanged = true;
+                continue;
+            }
+
+            var snapshot = result.Snapshot!;
+            renderedStateChanged |= _priceRefreshErrors.Remove(subscription.Id);
+            if (HasPriceChanged(previous, snapshot))
+            {
+                _priceChangeBlinkUntil[subscription.Id] = changeBlinkUntil;
+                changed = true;
+            }
+
+            ReplaceQuoteSnapshot(previous, snapshot);
+            renderedStateChanged = true;
+            successfulRefresh = true;
+        }
+
+        if (changed)
+        {
+            StartBlinking();
+        }
+
+        if (renderedStateChanged)
+        {
+            UpdatePriceRows();
+        }
+
+        if (successfulRefresh)
+        {
+            EvaluateAlerts();
+        }
+    }
+
+    private void ReplaceQuoteSnapshot(QuoteSnapshot? previous, QuoteSnapshot current)
+    {
+        if (previous is not null)
+        {
+            LatestQuotes.Remove(previous);
+        }
+
+        LatestQuotes.Add(current);
+    }
 
     public async Task RefreshPricesSafelyAsync(string operation)
     {
@@ -1376,85 +1453,165 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    [RelayCommand]
-    public async Task RefreshNewsAsync()
+    public Task RefreshNewsAsync() => RefreshNewsCoreAsync(null);
+
+    private async Task RefreshNewsCoreAsync(IReadOnlyCollection<Guid>? subscriptionIds)
     {
         if (_newsFetcher is null || IsPaused || _isDisposed)
         {
             return;
         }
 
-        var entered = false;
         try
         {
-            entered = await _newsRefreshGate.WaitAsync(0, _lifetimeCancellation.Token);
-            if (!entered)
+            var generation = Volatile.Read(ref _refreshGeneration);
+            var requested = subscriptionIds?.ToHashSet();
+            var newsSubscriptions = Subscriptions
+                .Where(item =>
+                    item.CollectNews &&
+                    CanAccessSource(item.SourceUri) &&
+                    (requested is null || requested.Contains(item.Id)))
+                .ToArray();
+            var work = newsSubscriptions
+                .Select(subscription =>
+                {
+                    var lease = _refreshCoordinator.TryAcquire(RefreshStream.News, subscription.Id);
+                    return lease is null ? null : FetchNewsAsync(subscription, lease);
+                })
+                .Where(task => task is not null)
+                .Select(task => task!)
+                .ToArray();
+            if (work.Length == 0)
             {
                 return;
             }
 
-            var newsSubscriptions = Subscriptions
-                .Where(item => item.CollectNews && CanAccessSource(item.SourceUri))
-                .ToArray();
-            var changeBlinkUntil = DateTimeOffset.Now.AddSeconds(ChangeBlinkSeconds);
-            var changed = false;
-            foreach (var subscription in newsSubscriptions)
-            {
-                var snapshot = await _newsFetcher.FetchAsync(subscription, _lifetimeCancellation.Token);
-                _lifetimeCancellation.Token.ThrowIfCancellationRequested();
-                if (!Subscriptions.Any(item => item.Id == subscription.Id))
-                {
-                    continue;
-                }
-
-                if (snapshot.Success)
-                {
-                    snapshot = snapshot with
-                    {
-                        Headlines = _newsRepeatFilter.Filter(
-                            subscription.Id,
-                            snapshot.Headlines,
-                            subscription.NewsRepeatLimit),
-                    };
-                }
-
-                var previous = LatestNewsFor(subscription.Id);
-                foreach (var headline in NewHeadlinesSince(previous, snapshot))
-                {
-                    _newHeadlineBlinkUntil[(subscription.Id, headline)] = changeBlinkUntil;
-                    changed = true;
-                }
-
-                if (previous is not null)
-                {
-                    LatestNews.Remove(previous);
-                }
-
-                LatestNews.Add(snapshot);
-            }
-
-            if (changed)
-            {
-                StartBlinking();
-            }
-
-            UpdateNewsRows();
-            UpdatePriceRows();
+            var results = await Task.WhenAll(work).ConfigureAwait(false);
+            _lifetimeCancellation.Token.ThrowIfCancellationRequested();
+            await RunOnUiThreadAsync(() => CommitNewsResults(results, generation)).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
         {
         }
         catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
-            ReportRecoverableError("News refresh", exception);
+            await RunOnUiThreadAsync(() => ReportRecoverableError("News refresh", exception))
+                .ConfigureAwait(false);
         }
-        finally
+    }
+
+    private async Task<NewsFetchResult> FetchNewsAsync(
+        TickerSubscription subscription,
+        IDisposable lease)
+    {
+        using (lease)
         {
-            if (entered)
+            try
             {
-                _newsRefreshGate.Release();
+                var snapshot = await _newsFetcher!
+                    .FetchAsync(subscription, _lifetimeCancellation.Token)
+                    .ConfigureAwait(false);
+                return new NewsFetchResult(subscription, snapshot, null);
+            }
+            catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+            {
+                return new NewsFetchResult(subscription, null, exception);
             }
         }
+    }
+
+    private sealed record NewsFetchResult(
+        TickerSubscription Subscription,
+        NewsSnapshot? Snapshot,
+        Exception? Error);
+
+    private void CommitNewsResults(IReadOnlyList<NewsFetchResult> results, int generation)
+    {
+        if (_isDisposed || IsPaused || generation != Volatile.Read(ref _refreshGeneration))
+        {
+            return;
+        }
+
+        var changeBlinkUntil = DateTimeOffset.Now.AddSeconds(ChangeBlinkSeconds);
+        var changed = false;
+        var renderedStateChanged = false;
+        foreach (var result in results)
+        {
+            var subscription = Subscriptions.FirstOrDefault(item => item.Id == result.Subscription.Id);
+            if (subscription is null || subscription != result.Subscription)
+            {
+                continue;
+            }
+
+            var previous = LatestNewsFor(subscription.Id);
+            var failure = result.Error?.Message ?? (result.Snapshot is { Success: false } failed ? failed.Status : null);
+            if (failure is not null)
+            {
+                renderedStateChanged |= !_newsRefreshErrors.TryGetValue(subscription.Id, out var oldError) ||
+                    oldError != failure;
+                _newsRefreshErrors[subscription.Id] = failure;
+                EntryMessage = $"News refresh failed: {failure}";
+                if (previous is { Success: true })
+                {
+                    continue;
+                }
+
+                var failedSnapshot = result.Snapshot ?? new NewsSnapshot(
+                    subscription.Id,
+                    subscription.Symbol,
+                    subscription.SourceName,
+                    [],
+                    DateTimeOffset.UtcNow,
+                    false,
+                    failure);
+                ReplaceNewsSnapshot(previous, failedSnapshot);
+                renderedStateChanged = true;
+                continue;
+            }
+
+            var snapshot = result.Snapshot!;
+            _newsRefreshErrors.Remove(subscription.Id);
+            snapshot = snapshot with
+            {
+                Headlines = _newsRepeatFilter.Filter(
+                    subscription.Id,
+                    snapshot.Headlines,
+                    subscription.NewsRepeatLimit),
+            };
+            foreach (var headline in NewHeadlinesSince(previous, snapshot))
+            {
+                _newHeadlineBlinkUntil[(subscription.Id, headline)] = changeBlinkUntil;
+                changed = true;
+            }
+
+            ReplaceNewsSnapshot(previous, snapshot);
+            renderedStateChanged = true;
+        }
+
+        if (changed)
+        {
+            StartBlinking();
+        }
+
+        if (renderedStateChanged)
+        {
+            UpdateNewsRows();
+            UpdatePriceRows();
+        }
+    }
+
+    private void ReplaceNewsSnapshot(NewsSnapshot? previous, NewsSnapshot current)
+    {
+        if (previous is not null)
+        {
+            LatestNews.Remove(previous);
+        }
+
+        LatestNews.Add(current);
     }
 
     public async Task RefreshNewsSafelyAsync(string operation)
@@ -1467,6 +1624,31 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             ReportRecoverableError(operation, exception);
         }
+    }
+
+    internal async Task RefreshNewsSubscriptionsSafelyAsync(
+        string operation,
+        IReadOnlyCollection<Guid> subscriptionIds)
+    {
+        try
+        {
+            await RefreshNewsCoreAsync(subscriptionIds);
+        }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+        {
+            ReportRecoverableError(operation, exception);
+        }
+    }
+
+    private static async Task RunOnUiThreadAsync(Action action)
+    {
+        if (Avalonia.Application.Current is null || Dispatcher.UIThread.CheckAccess())
+        {
+            action();
+            return;
+        }
+
+        await Dispatcher.UIThread.InvokeAsync(action, DispatcherPriority.Background);
     }
 
     public void ReportRecoverableError(string operation, Exception exception)
@@ -1858,6 +2040,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnIsPausedChanged(bool value)
     {
+        Interlocked.Increment(ref _refreshGeneration);
         OnPropertyChanged(nameof(StatusGlyph));
         OnPropertyChanged(nameof(StatusColor));
         OnPropertyChanged(nameof(StatusText));
@@ -1898,10 +2081,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        if (!UseStaticGroupedView)
-        {
-            WindowHeight = TickerLayoutCalculator.NaturalHeight(value, NewsRowCount, ShowPriceLine, ShowNewsLine);
-        }
         UpdateVisibleRows();
         SaveSettings();
     }
@@ -1915,25 +2094,211 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        WindowHeight = UseStaticGroupedView && ShowPriceLine
-            ? Math.Max(WindowHeight, 420)
-            : TickerLayoutCalculator.NaturalHeight(PriceRowCount, value, ShowPriceLine, ShowNewsLine);
         UpdateVisibleRows();
         SaveSettings();
+    }
+
+    partial void OnScrollingViewFontSizeChanged(int value)
+    {
+        var clamped = Math.Clamp(
+            value,
+            SmartTickerSettings.MinimumViewFontSize,
+            SmartTickerSettings.MaximumViewFontSize);
+        if (value != clamped)
+        {
+            ScrollingViewFontSize = clamped;
+            return;
+        }
+
+        UpdatePriceRows();
+        UpdateNewsRows();
+        SaveSettings();
+    }
+
+    partial void OnStaticViewFontSizeChanged(int value)
+    {
+        var clamped = Math.Clamp(
+            value,
+            SmartTickerSettings.MinimumViewFontSize,
+            SmartTickerSettings.MaximumViewFontSize);
+        if (value != clamped)
+        {
+            StaticViewFontSize = clamped;
+            return;
+        }
+
+        SaveSettings();
+    }
+
+    partial void OnScrollingWindowWidthChanged(int value) =>
+        ApplyWindowDimension(
+            value,
+            SmartTickerSettings.MinimumWindowWidth,
+            SmartTickerSettings.MaximumWindowWidth,
+            newValue => ScrollingWindowWidth = newValue,
+            isActive: !UseStaticGroupedView,
+            isWidth: true);
+
+    partial void OnScrollingWindowHeightChanged(int value) =>
+        ApplyWindowDimension(
+            value,
+            SmartTickerSettings.MinimumScrollingWindowHeight,
+            SmartTickerSettings.MaximumScrollingWindowHeight,
+            newValue => ScrollingWindowHeight = newValue,
+            isActive: !UseStaticGroupedView,
+            isWidth: false);
+
+    partial void OnStaticPricesWindowWidthChanged(int value) =>
+        ApplyWindowDimension(
+            value,
+            SmartTickerSettings.MinimumWindowWidth,
+            SmartTickerSettings.MaximumWindowWidth,
+            newValue => StaticPricesWindowWidth = newValue,
+            isActive: UseStaticGroupedView,
+            isWidth: true);
+
+    partial void OnStaticPricesWindowHeightChanged(int value) =>
+        ApplyWindowDimension(
+            value,
+            SmartTickerSettings.MinimumStaticPricesWindowHeight,
+            SmartTickerSettings.MaximumStaticWindowHeight,
+            newValue => StaticPricesWindowHeight = newValue,
+            isActive: UseStaticGroupedView,
+            isWidth: false);
+
+    partial void OnStaticNewsWindowWidthChanged(int value) =>
+        ApplyWindowDimension(
+            value,
+            SmartTickerSettings.MinimumWindowWidth,
+            SmartTickerSettings.MaximumWindowWidth,
+            newValue => StaticNewsWindowWidth = newValue,
+            isActive: false,
+            isWidth: true);
+
+    partial void OnStaticNewsWindowHeightChanged(int value) =>
+        ApplyWindowDimension(
+            value,
+            SmartTickerSettings.MinimumStaticNewsWindowHeight,
+            SmartTickerSettings.MaximumStaticWindowHeight,
+            newValue => StaticNewsWindowHeight = newValue,
+            isActive: false,
+            isWidth: false);
+
+    private void ApplyWindowDimension(
+        int value,
+        int minimum,
+        int maximum,
+        Action<int> assignClamped,
+        bool isActive,
+        bool isWidth)
+    {
+        var clamped = Math.Clamp(value, minimum, maximum);
+        if (value != clamped)
+        {
+            assignClamped(clamped);
+            return;
+        }
+
+        if (isActive)
+        {
+            if (isWidth)
+            {
+                WindowWidth = value;
+            }
+            else
+            {
+                WindowHeight = value;
+            }
+        }
+
+        if (!_isCapturingWindowSize)
+        {
+            SaveSettings();
+        }
+    }
+
+    internal void CaptureMainWindowSize(double width, double height)
+    {
+        var capturedWidth = Math.Clamp(
+            (int)Math.Round(width),
+            SmartTickerSettings.MinimumWindowWidth,
+            SmartTickerSettings.MaximumWindowWidth);
+        var minimumHeight = UseStaticGroupedView
+            ? SmartTickerSettings.MinimumStaticPricesWindowHeight
+            : SmartTickerSettings.MinimumScrollingWindowHeight;
+        var maximumHeight = UseStaticGroupedView
+            ? SmartTickerSettings.MaximumStaticWindowHeight
+            : SmartTickerSettings.MaximumScrollingWindowHeight;
+        var capturedHeight = Math.Clamp((int)Math.Round(height), minimumHeight, maximumHeight);
+
+        _isCapturingWindowSize = true;
+        try
+        {
+            WindowWidth = capturedWidth;
+            WindowHeight = capturedHeight;
+            if (UseStaticGroupedView)
+            {
+                StaticPricesWindowWidth = capturedWidth;
+                StaticPricesWindowHeight = capturedHeight;
+            }
+            else
+            {
+                ScrollingWindowWidth = capturedWidth;
+                ScrollingWindowHeight = capturedHeight;
+            }
+        }
+        finally
+        {
+            _isCapturingWindowSize = false;
+        }
+    }
+
+    internal void CaptureStaticNewsWindowSize(double width, double height)
+    {
+        _isCapturingWindowSize = true;
+        try
+        {
+            StaticNewsWindowWidth = Math.Clamp(
+                (int)Math.Round(width),
+                SmartTickerSettings.MinimumWindowWidth,
+                SmartTickerSettings.MaximumWindowWidth);
+            StaticNewsWindowHeight = Math.Clamp(
+                (int)Math.Round(height),
+                SmartTickerSettings.MinimumStaticNewsWindowHeight,
+                SmartTickerSettings.MaximumStaticWindowHeight);
+        }
+        finally
+        {
+            _isCapturingWindowSize = false;
+        }
+    }
+
+    private void ApplyConfiguredMainWindowSize()
+    {
+        _isApplyingConfiguredWindowSize = true;
+        try
+        {
+            WindowWidth = UseStaticGroupedView ? StaticPricesWindowWidth : ScrollingWindowWidth;
+            WindowHeight = UseStaticGroupedView ? StaticPricesWindowHeight : ScrollingWindowHeight;
+        }
+        finally
+        {
+            _isApplyingConfiguredWindowSize = false;
+        }
     }
 
     partial void OnWindowHeightChanged(double value)
     {
         OnPropertyChanged(nameof(IsNewsVisible));
         OnPropertyChanged(nameof(IsScrollingNewsView));
-        UpdateVisibleRows();
+        if (!_isApplyingSettings && !_isApplyingConfiguredWindowSize)
+        {
+            UpdateVisibleRows();
+        }
     }
 
     partial void OnShowPriceLineChanged(bool value)
     {
-        WindowHeight = UseStaticGroupedView && value
-            ? Math.Max(WindowHeight, 420)
-            : TickerLayoutCalculator.NaturalHeight(PriceRowCount, NewsRowCount, value, ShowNewsLine);
         OnPropertyChanged(nameof(IsPriceVisible));
         OnPropertyChanged(nameof(IsScrollingPriceView));
         OnPropertyChanged(nameof(IsStaticGroupedPriceView));
@@ -1946,9 +2311,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnShowNewsLineChanged(bool value)
     {
-        WindowHeight = UseStaticGroupedView && ShowPriceLine
-            ? Math.Max(WindowHeight, 420)
-            : TickerLayoutCalculator.NaturalHeight(PriceRowCount, NewsRowCount, ShowPriceLine, value);
         OnPropertyChanged(nameof(IsNewsVisible));
         OnPropertyChanged(nameof(IsScrollingNewsView));
         OnPropertyChanged(nameof(IsStaticGroupedNewsView));
@@ -1963,9 +2325,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnUseStaticGroupedViewChanged(bool value)
     {
-        WindowHeight = value && ShowPriceLine
-            ? Math.Max(WindowHeight, 420)
-            : TickerLayoutCalculator.NaturalHeight(PriceRowCount, NewsRowCount, ShowPriceLine, ShowNewsLine);
+        ApplyConfiguredMainWindowSize();
         OnPropertyChanged(nameof(IsScrollingPriceView));
         OnPropertyChanged(nameof(IsStaticGroupedPriceView));
         OnPropertyChanged(nameof(IsScrollingTickerView));
@@ -2207,21 +2567,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         var layout = Layout;
         if (!ShowPriceLine)
         {
-            VisiblePriceRows.Clear();
-            StaticQuoteGroups.Clear();
-            OnPropertyChanged(nameof(HasStaticQuoteGroups));
             return;
         }
 
-        if (UseStaticGroupedView)
-        {
-            VisiblePriceRows.Clear();
-            UpdateStaticQuoteGroups();
-            return;
-        }
-
-        StaticQuoteGroups.Clear();
-        OnPropertyChanged(nameof(HasStaticQuoteGroups));
+        UpdateStaticQuoteGroups();
 
         var rows = Subscriptions
             .Where(item => item.CollectPrice)
@@ -2291,7 +2640,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             PriceScrollSpeed,
             IsPaused,
             layout.RowHeight,
-            layout.PriceFontSize,
+            ScrollingViewFontSize,
             "Add an authorized webpage in Settings");
     }
 
@@ -2307,10 +2656,26 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 group.Select(BuildStaticQuoteRow).ToArray()))
             .ToArray();
 
-        StaticQuoteGroups.Clear();
-        foreach (var group in groups)
+        for (var index = 0; index < groups.Length; index++)
         {
-            StaticQuoteGroups.Add(group);
+            var existingIndex = IndexOfGroup(StaticQuoteGroups, groups[index].Name, index);
+            if (existingIndex < 0)
+            {
+                StaticQuoteGroups.Insert(index, groups[index]);
+                continue;
+            }
+
+            if (existingIndex != index)
+            {
+                StaticQuoteGroups.Move(existingIndex, index);
+            }
+
+            StaticQuoteGroups[index].UpdateRows(groups[index].Rows);
+        }
+
+        while (StaticQuoteGroups.Count > groups.Length)
+        {
+            StaticQuoteGroups.RemoveAt(StaticQuoteGroups.Count - 1);
         }
 
         OnPropertyChanged(nameof(HasStaticQuoteGroups));
@@ -2399,26 +2764,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         var layout = Layout;
         if (!ShowNewsLine)
         {
-            VisibleNewsRows.Clear();
-            StaticNewsGroups.Clear();
-            OnPropertyChanged(nameof(HasStaticNewsGroups));
             return;
         }
 
-        if (UseStaticGroupedView)
-        {
-            VisibleNewsRows.Clear();
-            UpdateStaticNewsGroups();
-            return;
-        }
-
-        StaticNewsGroups.Clear();
-        OnPropertyChanged(nameof(HasStaticNewsGroups));
-        if (!layout.ShowNews)
-        {
-            VisibleNewsRows.Clear();
-            return;
-        }
+        UpdateStaticNewsGroups();
 
         var groups = Subscriptions
             .Where(item => item.CollectNews)
@@ -2437,7 +2786,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             NewsScrollSpeed,
             IsPaused,
             layout.RowHeight,
-            layout.NewsFontSize,
+            ScrollingViewFontSize,
             "Add a news source in Settings");
     }
 
@@ -2453,9 +2802,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 .Select(item => (IReadOnlyList<StaticNewsRow>)BuildStaticNewsRows(item))
                 .ToArray();
             var rows = RoundRobinSequencer.Interleave(quoteRows)
-                .Select(row => row with
+                .Select(row =>
                 {
-                    HeadlineForeground = NewsBrushCycle[colorIndex++ % NewsBrushCycle.Count],
+                    row.HeadlineForeground = NewsBrushCycle[colorIndex++ % NewsBrushCycle.Count];
+                    return row;
                 })
                 .ToArray();
             groups.Add(new StaticNewsGroup(
@@ -2465,13 +2815,52 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 SetStaticNewsQuoteVisibility));
         }
 
-        StaticNewsGroups.Clear();
-        foreach (var group in groups)
+        for (var index = 0; index < groups.Count; index++)
         {
-            StaticNewsGroups.Add(group);
+            var existingIndex = IndexOfGroup(StaticNewsGroups, groups[index].Name, index);
+            if (existingIndex < 0)
+            {
+                StaticNewsGroups.Insert(index, groups[index]);
+                continue;
+            }
+
+            if (existingIndex != index)
+            {
+                StaticNewsGroups.Move(existingIndex, index);
+            }
+
+            StaticNewsGroups[index].UpdateRows(groups[index].AllRows, _hiddenNewsQuotes);
+        }
+
+        while (StaticNewsGroups.Count > groups.Count)
+        {
+            StaticNewsGroups.RemoveAt(StaticNewsGroups.Count - 1);
         }
 
         OnPropertyChanged(nameof(HasStaticNewsGroups));
+    }
+
+    private static int IndexOfGroup<TGroup>(
+        IReadOnlyList<TGroup> groups,
+        string name,
+        int startIndex)
+        where TGroup : class
+    {
+        for (var index = startIndex; index < groups.Count; index++)
+        {
+            var groupName = groups[index] switch
+            {
+                StaticQuoteGroup quoteGroup => quoteGroup.Name,
+                StaticNewsGroup newsGroup => newsGroup.Name,
+                _ => null,
+            };
+            if (string.Equals(groupName, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     private IReadOnlyList<StaticNewsRow> BuildStaticNewsRows(TickerSubscription subscription)
@@ -3262,6 +3651,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         _isDisposed = true;
+        Interlocked.Increment(ref _refreshGeneration);
         SaveSettings();
         ExceptionSafety.Run(_blinkTimer.Stop);
         ExceptionSafety.Run(_configReloadTimer.Stop);
@@ -3373,6 +3763,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             NewsRowCount = settings.NewsRowCount;
             PriceScrollSpeed = settings.PriceScrollSpeed;
             NewsScrollSpeed = settings.NewsScrollSpeed;
+            ScrollingViewFontSize = settings.ScrollingViewFontSize;
+            StaticViewFontSize = settings.StaticViewFontSize;
+            ScrollingWindowWidth = settings.ScrollingWindowSize.Width;
+            ScrollingWindowHeight = settings.ScrollingWindowSize.Height;
+            StaticPricesWindowWidth = settings.StaticPricesWindowSize.Width;
+            StaticPricesWindowHeight = settings.StaticPricesWindowSize.Height;
+            StaticNewsWindowWidth = settings.StaticNewsWindowSize.Width;
+            StaticNewsWindowHeight = settings.StaticNewsWindowSize.Height;
             // Every selectable View mode includes prices; migrate the retired hidden-price state.
             ShowPriceLine = true;
             ShowNewsLine = settings.ShowNewsLine;
@@ -3395,6 +3793,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             PriceRefreshSeconds = settings.PriceRefreshSeconds;
             NewsRefreshSeconds = settings.NewsRefreshSeconds;
             Language = settings.Language;
+            ApplyConfiguredMainWindowSize();
         }
         finally
         {
@@ -3432,6 +3831,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         AlertBlinkColor = AlertBlinkColorHex,
         PriceRefreshSeconds = PriceRefreshSeconds,
         NewsRefreshSeconds = NewsRefreshSeconds,
+        ScrollingViewFontSize = ScrollingViewFontSize,
+        StaticViewFontSize = StaticViewFontSize,
+        ScrollingWindowSize = new WindowSizeSettings(ScrollingWindowWidth, ScrollingWindowHeight),
+        StaticPricesWindowSize = new WindowSizeSettings(StaticPricesWindowWidth, StaticPricesWindowHeight),
+        StaticNewsWindowSize = new WindowSizeSettings(StaticNewsWindowWidth, StaticNewsWindowHeight),
         Language = Language,
     };
 

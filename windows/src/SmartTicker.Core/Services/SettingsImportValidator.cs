@@ -33,6 +33,11 @@ public static class SettingsImportValidator
         "priceScrollSpeed",
         "backgroundOpacity",
         "newsScrollSpeed",
+        "scrollingViewFontSize",
+        "staticViewFontSize",
+        "scrollingWindowSize",
+        "staticPricesWindowSize",
+        "staticNewsWindowSize",
         "priceRefreshSeconds",
         "newsRefreshSeconds",
         "acknowledgedSources",
@@ -55,6 +60,12 @@ public static class SettingsImportValidator
         "priceDownColor",
         "alertBlinkColor",
         "language",
+    };
+
+    private static readonly HashSet<string> WindowSizeProperties = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "width",
+        "height",
     };
 
     private static readonly HashSet<string> SubscriptionProperties = new(StringComparer.OrdinalIgnoreCase)
@@ -132,6 +143,43 @@ public static class SettingsImportValidator
                     SmartTickerSettings.MinimumRefreshSeconds,
                     SmartTickerSettings.MaximumRefreshSeconds,
                     SmartTickerSettings.DefaultNewsRefreshSeconds,
+                    errors),
+                ScrollingViewFontSize = ReadInt(
+                    root,
+                    string.Empty,
+                    "scrollingViewFontSize",
+                    SmartTickerSettings.MinimumViewFontSize,
+                    SmartTickerSettings.MaximumViewFontSize,
+                    SmartTickerSettings.DefaultScrollingViewFontSize,
+                    errors),
+                StaticViewFontSize = ReadInt(
+                    root,
+                    string.Empty,
+                    "staticViewFontSize",
+                    SmartTickerSettings.MinimumViewFontSize,
+                    SmartTickerSettings.MaximumViewFontSize,
+                    SmartTickerSettings.DefaultStaticViewFontSize,
+                    errors),
+                ScrollingWindowSize = ReadWindowSize(
+                    root,
+                    "scrollingWindowSize",
+                    SmartTickerSettings.DefaultScrollingWindowSize,
+                    SmartTickerSettings.MinimumScrollingWindowHeight,
+                    SmartTickerSettings.MaximumScrollingWindowHeight,
+                    errors),
+                StaticPricesWindowSize = ReadWindowSize(
+                    root,
+                    "staticPricesWindowSize",
+                    SmartTickerSettings.DefaultStaticPricesWindowSize,
+                    SmartTickerSettings.MinimumStaticPricesWindowHeight,
+                    SmartTickerSettings.MaximumStaticWindowHeight,
+                    errors),
+                StaticNewsWindowSize = ReadWindowSize(
+                    root,
+                    "staticNewsWindowSize",
+                    SmartTickerSettings.DefaultStaticNewsWindowSize,
+                    SmartTickerSettings.MinimumStaticNewsWindowHeight,
+                    SmartTickerSettings.MaximumStaticWindowHeight,
                     errors),
                 ShowPriceLine = ReadBool(root, string.Empty, "showPriceLine", true, errors),
                 ShowNewsLine = ReadBool(root, string.Empty, "showNewsLine", false, errors),
@@ -559,6 +607,38 @@ public static class SettingsImportValidator
         }
 
         return value;
+    }
+
+    private static WindowSizeSettings ReadWindowSize(
+        Dictionary<string, JsonElement> root,
+        string name,
+        WindowSizeSettings fallback,
+        int minimumHeight,
+        int maximumHeight,
+        List<string> errors)
+    {
+        if (!root.TryGetValue(name, out var element))
+        {
+            return fallback;
+        }
+
+        var map = ReadObject(element, name, errors);
+        if (map is null)
+        {
+            return fallback;
+        }
+
+        ReportUnknown(map, WindowSizeProperties, name, errors);
+        return new WindowSizeSettings(
+            ReadInt(
+                map,
+                name,
+                "width",
+                SmartTickerSettings.MinimumWindowWidth,
+                SmartTickerSettings.MaximumWindowWidth,
+                fallback.Width,
+                errors),
+            ReadInt(map, name, "height", minimumHeight, maximumHeight, fallback.Height, errors));
     }
 
     private static int ReadInt(

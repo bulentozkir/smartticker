@@ -9,6 +9,7 @@ public partial class SourcePermissionWindow : Window
     public SourcePermissionWindow()
     {
         InitializeComponent();
+        WindowReachability.Attach(this);
     }
 
     private void Approve(object? sender, RoutedEventArgs e) =>

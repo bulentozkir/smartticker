@@ -77,6 +77,11 @@ public sealed class SampleSettingsFileTests
             Assert.Null(item.ExtendedCssSelector);
             Assert.Null(item.ExtendedChangeCssSelector);
         });
+        Assert.Equal(15, result.Settings!.ScrollingViewFontSize);
+        Assert.Equal(14, result.Settings.StaticViewFontSize);
+        Assert.Equal(new WindowSizeSettings(1200, 96), result.Settings.ScrollingWindowSize);
+        Assert.Equal(new WindowSizeSettings(1200, 720), result.Settings.StaticPricesWindowSize);
+        Assert.Equal(new WindowSizeSettings(760, 480), result.Settings.StaticNewsWindowSize);
     }
 
     // A colour pinned here overrides the app default on import, so the sample must not fall behind.

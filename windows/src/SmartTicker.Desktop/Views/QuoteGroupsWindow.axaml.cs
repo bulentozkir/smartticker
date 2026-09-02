@@ -9,6 +9,7 @@ public partial class QuoteGroupsWindow : Window
     public QuoteGroupsWindow()
     {
         InitializeComponent();
+        WindowReachability.Attach(this);
         Opened += (_, _) => ExceptionSafety.Run(
             () => (DataContext as MainViewModel)?.PrepareQuoteGroupManager(),
             exception => (DataContext as MainViewModel)?.ReportRecoverableError("Opening Quote Groups", exception));

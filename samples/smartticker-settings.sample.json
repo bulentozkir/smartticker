@@ -5,6 +5,20 @@
   "priceScrollSpeed": 50,
   "newsScrollSpeed": 40,
   "priceRefreshSeconds": 30,
+  "scrollingViewFontSize": 15,
+  "staticViewFontSize": 14,
+  "scrollingWindowSize": {
+    "width": 1200,
+    "height": 96
+  },
+  "staticPricesWindowSize": {
+    "width": 1200,
+    "height": 720
+  },
+  "staticNewsWindowSize": {
+    "width": 760,
+    "height": 480
+  },
   "newsRefreshSeconds": 300,
   "showPriceLine": true,
   "showNewsLine": false,
