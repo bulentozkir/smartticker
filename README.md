@@ -2,7 +2,7 @@
 
 <img src="windows/packaging/Assets/AppIcon256.png" alt="SmartTicker logo" width="128" />
 
-SmartTicker is a compact, always-on-top desktop ticker. It shows a scrolling line of prices and a second line of news headlines, drawn from public web pages that you choose yourself.
+SmartTicker is a compact, always-on-top desktop ticker for prices and optional news headlines drawn from public web pages that you choose yourself. It starts with a scrolling Prices-only view and can switch to a two-line price-and-news marquee or separate static Prices and News views.
 
 Unlike apps tied to a single data provider, SmartTicker lets you point each entry at any public page. Add a symbol, paste the page address, and SmartTicker reads the value from it. Stocks, ETFs, indices, commodities, currencies and crypto all work the same way, because you decide where each number comes from.
 
@@ -83,7 +83,7 @@ source validation, group ordering, backups, static-table behavior, and alert rul
 - Automatic value detection, or pick an exact element with a CSS selector
 - After-hours prices and daily change percentages
 - Clickable headlines that open in your browser
-- Independent refresh intervals from 30 to 300 seconds, with price requests spread across one-second slots instead of starting together
+- Independent refresh intervals from 30 to 300 seconds; price requests are spread across one-second slots, while News sources are read sequentially in each configured News cycle
 
 **Price alerts**
 
@@ -110,6 +110,7 @@ source validation, group ordering, backups, static-table behavior, and alert rul
 - Advanced: open the live settings or alert-rules JSON in your text editor; a saved edit reloads immediately, and malformed JSON or a schema error is rejected with your current configuration kept
 - No accounts, no sign-in, no cloud sync
 - No telemetry, analytics or crash reporting; configuration is stored locally as ordinary JSON
+- Advanced `SMARTTICKER_DATA_DIRECTORY` override for isolated diagnostic or test profiles
 - Formatted in-app Markdown help with a section navigator and offline fallback
 
 See [PRIVACY.md](PRIVACY.md) for exactly what is stored and what leaves your computer.
@@ -148,7 +149,13 @@ Settings and alert rules can be exported and imported independently.
 
 Available as an MSIX bundle and MSI installers for Windows (x64 and arm64), and a `.deb` for Debian-based Linux. See [releases](releases/README.md).
 
-Website policies, robots directives, crawl delays, and server-requested backoff take precedence over configured refresh intervals. JavaScript-only pages and pages that prohibit automated access may not be supported.
+This release adds the four mutually exclusive display modes and makes scrolling Prices only the default, with a separate static News window, first-class quote groups, saved per-quote News filters, configurable alert colour, and three-second change highlights. Price requests are distributed across one-second slots instead of all starting together.
+
+Desktop hardening contains recoverable refresh, event, persistence, and window-lifetime failures. Windows uses a lower-overhead rendering path, the marquee adapts its timer cadence to scroll speed and stops it while paused or detached, and unchanged rows avoid redundant visual notifications. Brush and snapshot reuse further reduces routine allocation and lookup work.
+
+Each web request has a 20-second timeout. SmartTicker surfaces HTTP failures such as 403 and 429 and does not bypass access restrictions, but it does not automatically parse or enforce robots directives, crawl-delay values, or server backoff instructions. Choose sources and refresh intervals that comply with each website's current policies. JavaScript-only pages and pages that prohibit automated access may not be supported.
+
+For advanced diagnostics or isolated profiles, set `SMARTTICKER_DATA_DIRECTORY` before starting SmartTicker. Both `settings.json` and `alerts.json` are then read from and written directly to that directory instead of the platform default. This does not copy or import an existing profile; Settings export/import remains the normal backup workflow.
 
 ## Data and financial disclaimer
 

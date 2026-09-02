@@ -125,7 +125,14 @@ visibility settings change.
 
 Select the status button below the move grip, or right-click and select
 **Pause / Resume**. Pausing stops automatic price and news refreshes and freezes the
-marquee. Resume to restart normal activity.
+marquee. It also prevents either manual refresh command from starting new work. A source
+request that was already in progress is not forcibly cancelled solely by Pause and may
+finish before activity fully settles. Resume restarts the automatic timers.
+
+On Windows, SmartTicker uses a low-overhead software rendering path. Marquee timing adapts
+to the configured speed, and a paused, empty, or detached marquee stops its animation
+timer. Unchanged rows suppress redundant visual notifications. Alert flashing and the
+three-second brown change highlight are intentional and do not pause scrolling.
 
 ### Open links
 
@@ -316,9 +323,10 @@ permission not approved, JavaScript-only content, or a stale selector.
 ### News repeat limit
 
 **Show max _N_ times** accepts 1 through 100 and defaults to 5. SmartTicker counts one
-showing for each news refresh in which the same headline title appears. Once the title
-has appeared in the configured number of refreshes, it is retired for the rest of the
-current application session. Editing or removing that entry clears its repeat history.
+showing for each completed News refresh cycle in which the same headline title is
+returned. Once the title has appeared in the configured number of cycles, it is retired
+for the rest of the current application session. Editing or removing that entry clears
+its repeat history.
 
 ### Edit, order, and remove entries
 
@@ -357,10 +365,16 @@ Price requests are distributed across one-second slots for the whole interval in
 starting together. For example, 60 quotes over 30 seconds schedules two quotes per second;
 five quotes over 30 seconds schedules one roughly every six seconds. If a source is slow,
 SmartTicker waits rather than launching missed slots together. Existing prices remain on
-screen until a complete replacement batch is ready.
+screen until a complete replacement batch is ready. News currently uses one whole-cycle
+timer and requests permitted News entries sequentially; News requests are not divided
+into one-second slots. **Refresh news now** starts that whole News cycle.
 
-The website's policy, robots directives, server throttling, and requested backoff take
-priority over a configured interval. Avoid unnecessarily frequent requests.
+Each HTTP request has a fixed 20-second timeout. A slow News source can therefore delay
+later sources in the same News cycle, although network reads and HTML extraction run away
+from the UI dispatcher. SmartTicker reports failures such as HTTP 403 and 429 and does not
+bypass restrictions. It does not automatically parse or enforce robots directives,
+crawl-delay values, or server backoff instructions, so choose compliant sources and avoid
+unnecessarily frequent requests.
 
 Use the four choices under **View** to choose whether News is displayed and whether the
 layout scrolls or remains static. Changing the view never deletes configured entries.
@@ -610,6 +624,31 @@ On Linux, .NET uses the current user's local application-data directory, normall
 ~/.local/share/SmartTicker/alerts.json
 ```
 
+### Use an isolated data directory
+
+Advanced diagnostics and test runs can set `SMARTTICKER_DATA_DIRECTORY` before launching
+SmartTicker. When the value is not blank, both files are placed directly in that resolved
+directory as `settings.json` and `alerts.json`; the platform defaults above are not used
+for that process. Prefer an absolute path and make sure it is writable.
+
+PowerShell example:
+
+```powershell
+$env:SMARTTICKER_DATA_DIRECTORY = 'D:\SmartTicker-Profile'
+& 'C:\Program Files\SmartTicker\SmartTicker.Desktop.exe'
+```
+
+Linux shell example:
+
+```bash
+SMARTTICKER_DATA_DIRECTORY="$HOME/.local/share/SmartTicker-Test" smartticker
+```
+
+Set the variable before process startup. SmartTicker does not copy the default profile
+into the selected directory, so an empty directory starts with an empty configuration.
+Instances pointed at the same directory can observe each other's saved edits. Use the
+normal Settings and Alert Rules export/import commands for backups and profile transfer.
+
 The Alerts window displays the exact alert file path in use. Writes use a temporary
 file followed by replacement so a partially written file is not treated as current
 configuration.
@@ -625,6 +664,10 @@ accordance with the website's terms, license, robots directives, and applicable 
 ## Troubleshooting
 
 ### A quote shows unavailable or no price
+
+A source request times out after 20 seconds. A failed refresh can replace that quote's
+current snapshot with **Unavailable** until a later refresh succeeds; read the validation
+or refresh error before changing selectors.
 
 1. Open **Quotes...**, edit the entry, and check the Full URL.
 2. Confirm **Price** is selected.
@@ -648,6 +691,8 @@ accordance with the website's terms, license, robots directives, and applicable 
 - Confirm **News** is selected.
 - Validate the source and run **Discover news**.
 - Ensure the selector returns links with visible headline text.
+- A failed or timed-out News request can leave that source without headlines until a
+	later News cycle succeeds. Each request times out after 20 seconds.
 - A headline disappears after reaching its configured repeat limit for this session.
 - In static News, confirm the intended quote is checked under **Show news for**.
 
