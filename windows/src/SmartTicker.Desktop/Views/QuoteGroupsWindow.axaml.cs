@@ -9,7 +9,9 @@ public partial class QuoteGroupsWindow : Window
     public QuoteGroupsWindow()
     {
         InitializeComponent();
-        Opened += (_, _) => (DataContext as MainViewModel)?.PrepareQuoteGroupManager();
+        Opened += (_, _) => ExceptionSafety.Run(
+            () => (DataContext as MainViewModel)?.PrepareQuoteGroupManager(),
+            exception => (DataContext as MainViewModel)?.ReportRecoverableError("Opening Quote Groups", exception));
     }
 
     public static void Open(Window owner, object? dataContext)
@@ -19,7 +21,8 @@ public partial class QuoteGroupsWindow : Window
         window.Activate();
     }
 
-    private void ShowHelp(object? sender, RoutedEventArgs e) => HelpWindow.Open(this);
+    private void ShowHelp(object? sender, RoutedEventArgs e) =>
+        ExceptionSafety.Run(() => HelpWindow.Open(this));
 
-    private void CloseWindow(object? sender, RoutedEventArgs e) => Close();
+    private void CloseWindow(object? sender, RoutedEventArgs e) => ExceptionSafety.Run(Close);
 }

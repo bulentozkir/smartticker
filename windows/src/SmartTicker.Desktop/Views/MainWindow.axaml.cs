@@ -17,96 +17,124 @@ public partial class MainWindow : Window
     private MainViewModel? _observedViewModel;
     private string? _draggedGroupName;
     private StaticNewsWindow? _staticNewsWindow;
+    private bool _staticNewsSyncQueued;
+    private bool _isClosing;
 
     public MainWindow()
     {
         InitializeComponent();
-        _priceRefreshTimer.Tick += async (_, _) =>
-        {
-            if (ViewModel is { IsPaused: false } viewModel)
-            {
-                await viewModel.RefreshPricesAsync();
-            }
-        };
-        _newsRefreshTimer.Tick += async (_, _) =>
-        {
-            if (ViewModel is { IsPaused: false } viewModel)
-            {
-                await viewModel.RefreshNewsAsync();
-            }
-        };
-        DataContextChanged += (_, _) =>
+        _priceRefreshTimer.Tick += OnPriceRefreshTimerTick;
+        _newsRefreshTimer.Tick += OnNewsRefreshTimerTick;
+        DataContextChanged += (_, _) => RunSafely("Applying window data", () =>
         {
             ConfigureFlowTimers();
             if (IsVisible)
             {
-                SyncStaticNewsWindow();
+                QueueStaticNewsWindowSync();
             }
-        };
-        Opened += (_, _) =>
+        });
+        Opened += (_, _) => RunSafely("Opening SmartTicker", () =>
         {
             ConfigurePassiveWindow();
             SyncStaticNewsWindow();
-            // A fresh install shows an empty bar with no obvious next step, so the starter offer comes to the user.
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (ViewModel is { ShowStarterPrompt: true })
+            ExceptionSafety.Run(
+                () => Dispatcher.UIThread.Post(() => RunSafely("Opening Quotes", () =>
                 {
-                    new SettingsWindow { DataContext = DataContext }.Show(this);
-                }
-            });
-        };
-        Deactivated += (_, _) => ReleasePointerCapture();
-        PointerReleased += (_, _) => ReleasePointerCapture();
-        SizeChanged += (_, e) =>
+                    if (!_isClosing && ViewModel is { ShowStarterPrompt: true })
+                    {
+                        new SettingsWindow { DataContext = DataContext }.Show(this);
+                    }
+                })),
+                exception => ReportRecoverableError("Queueing the Quotes window", exception));
+        });
+        Deactivated += (_, _) => RunSafely("Releasing pointer capture", ReleasePointerCapture);
+        PointerReleased += (_, _) => RunSafely("Releasing pointer capture", ReleasePointerCapture);
+        SizeChanged += (_, e) => RunSafely("Resizing SmartTicker", () =>
         {
             if (ViewModel is { } viewModel)
             {
                 viewModel.WindowHeight = e.NewSize.Height;
             }
-        };
+        });
+        Closing += (_, _) => _isClosing = true;
         Closed += (_, _) =>
         {
-            CloseStaticNewsWindow();
-            ReleasePointerCapture();
-            StopFlowTimers();
-            ViewModel?.Dispose();
+            _isClosing = true;
+            RunSafely("Closing static News", CloseStaticNewsWindow);
+            RunSafely("Releasing pointer capture", ReleasePointerCapture);
+            RunSafely("Stopping refresh timers", StopFlowTimers);
+            RunSafely("Closing SmartTicker", () => ViewModel?.Dispose());
         };
     }
 
     private MainViewModel? ViewModel => DataContext as MainViewModel;
 
+    private async void OnPriceRefreshTimerTick(object? sender, EventArgs e)
+    {
+        await ExceptionSafety.RunAsync(
+            async () =>
+            {
+                if (!_isClosing && ViewModel is { IsPaused: false } viewModel)
+                {
+                    await viewModel.RefreshPricesSafelyAsync("Automatic price refresh");
+                }
+            },
+            exception => ReportRecoverableError("Automatic price refresh", exception));
+    }
+
+    private async void OnNewsRefreshTimerTick(object? sender, EventArgs e)
+    {
+        await ExceptionSafety.RunAsync(
+            async () =>
+            {
+                if (!_isClosing && ViewModel is { IsPaused: false } viewModel)
+                {
+                    await viewModel.RefreshNewsSafelyAsync("Automatic news refresh");
+                }
+            },
+            exception => ReportRecoverableError("Automatic news refresh", exception));
+    }
+
     private void BeginWindowDrag(object? sender, PointerPressedEventArgs e)
     {
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        RunSafely("Moving SmartTicker", () =>
         {
-            e.Handled = true;
-            ReleasePointerCapture();
-            BeginMoveDrag(e);
-        }
+            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                e.Handled = true;
+                ReleasePointerCapture();
+                BeginMoveDrag(e);
+            }
+        });
     }
 
     private void BeginWindowResize(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is Control { Tag: string edgeName } &&
-            e.GetCurrentPoint(this).Properties.IsLeftButtonPressed &&
-            Enum.TryParse<WindowEdge>(edgeName, out var edge))
+        RunSafely("Resizing SmartTicker", () =>
         {
-            e.Handled = true;
-            ReleasePointerCapture();
-            BeginResizeDrag(edge, e);
-        }
+            if (sender is Control { Tag: string edgeName } &&
+                e.GetCurrentPoint(this).Properties.IsLeftButtonPressed &&
+                Enum.TryParse<WindowEdge>(edgeName, out var edge))
+            {
+                e.Handled = true;
+                ReleasePointerCapture();
+                BeginResizeDrag(edge, e);
+            }
+        });
     }
 
     private void OpenStaticQuote(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is Border { DataContext: StaticQuoteRow row } &&
-            e.ClickCount == 2 &&
-            e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        RunSafely("Opening quote source", () =>
         {
-            e.Handled = true;
-            ViewModel?.OpenLinkCommand.Execute(row.SourceUri);
-        }
+            if (sender is Border { DataContext: StaticQuoteRow row } &&
+                e.ClickCount == 2 &&
+                e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                e.Handled = true;
+                ViewModel?.OpenLinkCommand.Execute(row.SourceUri);
+            }
+        });
     }
 
     private async void BeginGroupDrag(object? sender, PointerPressedEventArgs e)
@@ -123,6 +151,10 @@ public partial class MainWindow : Window
             {
                 await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
             }
+            catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+            {
+                ReportRecoverableError("Reordering groups", exception);
+            }
             finally
             {
                 _draggedGroupName = null;
@@ -132,27 +164,33 @@ public partial class MainWindow : Window
 
     private void GroupDragOver(object? sender, DragEventArgs e)
     {
-        var canMove = sender is Control control &&
-            _draggedGroupName is not null &&
-            TryGetGroupName(control.DataContext, out var targetName) &&
-            !string.Equals(_draggedGroupName, targetName, StringComparison.OrdinalIgnoreCase);
-        e.DragEffects = canMove ? DragDropEffects.Move : DragDropEffects.None;
-        e.Handled = true;
+        RunSafely("Reordering groups", () =>
+        {
+            var canMove = sender is Control control &&
+                _draggedGroupName is not null &&
+                TryGetGroupName(control.DataContext, out var targetName) &&
+                !string.Equals(_draggedGroupName, targetName, StringComparison.OrdinalIgnoreCase);
+            e.DragEffects = canMove ? DragDropEffects.Move : DragDropEffects.None;
+            e.Handled = true;
+        });
     }
 
     private void GroupDrop(object? sender, DragEventArgs e)
     {
-        if (sender is Control control &&
-            _draggedGroupName is { } sourceName &&
-            TryGetGroupName(control.DataContext, out var targetName) &&
-            !string.Equals(sourceName, targetName, StringComparison.OrdinalIgnoreCase))
+        RunSafely("Reordering groups", () =>
         {
-            var placeAfter = e.GetPosition(control).X >= control.Bounds.Width / 2;
-            ViewModel?.MoveQuoteGroup(sourceName, targetName, placeAfter);
-            e.DragEffects = DragDropEffects.Move;
-        }
+            if (sender is Control control &&
+                _draggedGroupName is { } sourceName &&
+                TryGetGroupName(control.DataContext, out var targetName) &&
+                !string.Equals(sourceName, targetName, StringComparison.OrdinalIgnoreCase))
+            {
+                var placeAfter = e.GetPosition(control).X >= control.Bounds.Width / 2;
+                ViewModel?.MoveQuoteGroup(sourceName, targetName, placeAfter);
+                e.DragEffects = DragDropEffects.Move;
+            }
 
-        e.Handled = true;
+            e.Handled = true;
+        });
     }
 
     private static bool TryGetGroupName(object? value, out string groupName)
@@ -182,32 +220,44 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ExitApplication(object? sender, RoutedEventArgs e) => Close();
+    private void ExitApplication(object? sender, RoutedEventArgs e) => RunSafely("Closing SmartTicker", Close);
 
-    private void ShowHelp(object? sender, RoutedEventArgs e) => HelpWindow.Open(this);
+    private void ShowHelp(object? sender, RoutedEventArgs e) => RunSafely("Opening Help", () => HelpWindow.Open(this));
 
-    private void ShowAbout(object? sender, RoutedEventArgs e) => new AboutWindow { DataContext = DataContext }.ShowDialog(this);
+    private void ShowAbout(object? sender, RoutedEventArgs e) =>
+        RunSafely("Opening About", () => new AboutWindow { DataContext = DataContext }.ShowDialog(this));
 
     private void OpenSettings(object? sender, RoutedEventArgs e)
     {
-        var settings = new SettingsWindow { DataContext = DataContext };
-        settings.Show(this);
+        RunSafely("Opening Quotes", () =>
+        {
+            var settings = new SettingsWindow { DataContext = DataContext };
+            settings.Show(this);
+        });
     }
 
-    private void OpenQuoteGroups(object? sender, RoutedEventArgs e) => QuoteGroupsWindow.Open(this, DataContext);
+    private void OpenQuoteGroups(object? sender, RoutedEventArgs e) =>
+        RunSafely("Opening Quote Groups", () => QuoteGroupsWindow.Open(this, DataContext));
 
-    private void OpenStaticNewsWindow(object? sender, RoutedEventArgs e) => ShowStaticNewsWindow();
+    private void OpenStaticNewsWindow(object? sender, RoutedEventArgs e) =>
+        RunSafely("Opening static News", ShowStaticNewsWindow);
 
     private void OpenAppSettings(object? sender, RoutedEventArgs e)
     {
-        var settings = new AppSettingsWindow { DataContext = DataContext };
-        settings.Show(this);
+        RunSafely("Opening App Settings", () =>
+        {
+            var settings = new AppSettingsWindow { DataContext = DataContext };
+            settings.Show(this);
+        });
     }
 
     private void OpenAlerts(object? sender, RoutedEventArgs e)
     {
-        var alerts = new AlertsWindow { DataContext = DataContext };
-        alerts.Show(this);
+        RunSafely("Opening Alerts", () =>
+        {
+            var alerts = new AlertsWindow { DataContext = DataContext };
+            alerts.Show(this);
+        });
     }
 
     private void ConfigureFlowTimers()
@@ -230,11 +280,14 @@ public partial class MainWindow : Window
         ApplyRefreshIntervals();
         _priceRefreshTimer.Start();
         _newsRefreshTimer.Start();
-        _ = viewModel.RefreshPricesAsync();
-        _ = viewModel.RefreshNewsAsync();
+        _ = viewModel.RefreshPricesSafelyAsync("Initial price refresh");
+        _ = viewModel.RefreshNewsSafelyAsync("Initial news refresh");
     }
 
-    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e) =>
+        RunSafely("Applying a setting change", () => ApplyViewModelPropertyChange(e));
+
+    private void ApplyViewModelPropertyChange(PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(MainViewModel.PriceRefreshSeconds) or nameof(MainViewModel.NewsRefreshSeconds))
         {
@@ -243,8 +296,32 @@ public partial class MainWindow : Window
 
         if (e.PropertyName is nameof(MainViewModel.UseStaticGroupedView) or nameof(MainViewModel.ShowNewsLine))
         {
-            SyncStaticNewsWindow();
+            QueueStaticNewsWindowSync();
         }
+    }
+
+    private void QueueStaticNewsWindowSync()
+    {
+        if (_staticNewsSyncQueued || _isClosing)
+        {
+            return;
+        }
+
+        _staticNewsSyncQueued = true;
+        ExceptionSafety.Run(
+            () => Dispatcher.UIThread.Post(() => RunSafely("Synchronizing static News", () =>
+            {
+                _staticNewsSyncQueued = false;
+                if (!_isClosing)
+                {
+                    SyncStaticNewsWindow();
+                }
+            }), DispatcherPriority.Loaded),
+            exception =>
+            {
+                _staticNewsSyncQueued = false;
+                ReportRecoverableError("Queueing static News", exception);
+            });
     }
 
     // Reassigning Interval restarts the countdown, so a running timer picks the new value up immediately.
@@ -304,7 +381,7 @@ public partial class MainWindow : Window
             PositionStaticNewsWindow(newsWindow);
             newsWindow.Show();
         }
-        catch (Exception exception)
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
             _staticNewsWindow = null;
             ViewModel.EntryMessage = $"Static news window could not open: {exception.Message}";
@@ -317,6 +394,12 @@ public partial class MainWindow : Window
         _staticNewsWindow = null;
         newsWindow?.Close();
     }
+
+    private void RunSafely(string operation, Action action) =>
+        ExceptionSafety.Run(action, exception => ReportRecoverableError(operation, exception));
+
+    private void ReportRecoverableError(string operation, Exception exception) =>
+        ViewModel?.ReportRecoverableError(operation, exception);
 
     private void PositionStaticNewsWindow(StaticNewsWindow newsWindow)
     {

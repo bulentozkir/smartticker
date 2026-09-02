@@ -101,7 +101,7 @@ internal static class EditConfigFileWorkflow
             await writer.WriteAsync(viewModel.ExportAlertsJson());
             viewModel.EntryMessage = $"Existing alert rules exported to {file.Name}.";
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
             viewModel.EntryMessage = $"Existing alert rules could not be exported: {exception.Message}";
         }
@@ -166,16 +166,16 @@ internal static class EditConfigFileWorkflow
             },
         };
 
-        cancel.Click += (_, _) => dialog.Close();
+        cancel.Click += (_, _) => ExceptionSafety.Run(dialog.Close);
         export.Click += (_, _) =>
         {
             choice = EditConfigChoice.Export;
-            dialog.Close();
+            ExceptionSafety.Run(dialog.Close);
         };
         open.Click += (_, _) =>
         {
             choice = EditConfigChoice.Open;
-            dialog.Close();
+            ExceptionSafety.Run(dialog.Close);
         };
 
         await dialog.ShowDialog(owner);

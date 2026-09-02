@@ -55,8 +55,8 @@ public sealed class MarqueeText : UserControl
     {
         ClipToBounds = true;
         Content = _canvas;
-        _timer.Tick += OnAnimationTick;
-        SizeChanged += (_, _) => RebuildCopies();
+        _timer.Tick += (sender, args) => ExceptionSafety.Run(() => OnAnimationTick(sender, args));
+        SizeChanged += (_, _) => ExceptionSafety.Run(RebuildCopies);
         AttachedToVisualTree += OnAttachedToVisualTree;
         DetachedFromVisualTree += OnDetachedFromVisualTree;
     }
@@ -118,7 +118,9 @@ public sealed class MarqueeText : UserControl
             change.Property == TickerFontSizeProperty ||
             change.Property == TickerFontWeightProperty)
         {
-            Dispatcher.UIThread.Post(RebuildCopies, DispatcherPriority.Loaded);
+            ExceptionSafety.Run(() => Dispatcher.UIThread.Post(
+                () => ExceptionSafety.Run(RebuildCopies),
+                DispatcherPriority.Loaded));
         }
 
         if (change.Property == IsPausedProperty)
@@ -129,15 +131,21 @@ public sealed class MarqueeText : UserControl
 
     private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
     {
-        RebuildCopies();
-        _clock.Restart();
-        _timer.Start();
+        ExceptionSafety.Run(() =>
+        {
+            RebuildCopies();
+            _clock.Restart();
+            _timer.Start();
+        });
     }
 
     private void OnDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
     {
-        _timer.Stop();
-        _clock.Stop();
+        ExceptionSafety.Run(() =>
+        {
+            _timer.Stop();
+            _clock.Stop();
+        });
     }
 
     private void RebuildCopies()
@@ -252,7 +260,7 @@ public sealed class MarqueeText : UserControl
             args.Handled = true;
             if (args.ClickCount == 2 && LinkCommand?.CanExecute(link) == true)
             {
-                LinkCommand.Execute(link);
+                ExceptionSafety.Run(() => LinkCommand.Execute(link));
             }
         };
         return content;

@@ -241,6 +241,26 @@ public sealed class QuoteGroupingUiContractTests
     }
 
     [Fact]
+    public void MainWindow_EventSinksAreContainedAndCompanionSyncIsDeferred()
+    {
+        var app = File.ReadAllText(ViewPath("../App.axaml.cs"));
+        var mainWindow = File.ReadAllText(ViewPath("MainWindow.axaml.cs"));
+
+        Assert.Contains("ShutdownMode.OnMainWindowClose", app);
+        Assert.Contains("Dispatcher.UIThread.UnhandledException", app);
+        Assert.Contains("RefreshPricesSafelyAsync", mainWindow);
+        Assert.Contains("RefreshNewsSafelyAsync", mainWindow);
+        Assert.Contains("QueueStaticNewsWindowSync();", mainWindow);
+        Assert.Contains("RunSafely(\"Applying a setting change\"", mainWindow);
+        Assert.Contains("ExceptionSafety.RunAsync", mainWindow);
+        Assert.Contains("ExceptionSafety.Run", File.ReadAllText(ViewPath("../Controls/MarqueeText.cs")));
+        Assert.Contains("ExceptionSafety.RunAsync", File.ReadAllText(ViewPath("AppSettingsWindow.axaml.cs")));
+        Assert.Contains("ExceptionSafety.RunAsync", File.ReadAllText(ViewPath("SettingsWindow.axaml.cs")));
+        Assert.DoesNotContain("_ = viewModel.RefreshPricesAsync();", mainWindow);
+        Assert.DoesNotContain("_ = viewModel.RefreshNewsAsync();", mainWindow);
+    }
+
+    [Fact]
     public void GroupManager_ExposesCrudAndOneGroupAssociationWorkflow()
     {
         var document = LoadView("QuoteGroupsWindow.axaml");

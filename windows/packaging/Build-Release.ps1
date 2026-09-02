@@ -10,7 +10,7 @@
     rest of the artifacts are still produced.
 
 .EXAMPLE
-    ./Build-Release.ps1 -Version 1.0.2
+    ./Build-Release.ps1 -Version 1.0.3
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(

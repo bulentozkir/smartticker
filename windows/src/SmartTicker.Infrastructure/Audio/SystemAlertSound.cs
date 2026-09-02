@@ -18,14 +18,22 @@ public sealed class SystemAlertSound : IAlertSound
         // Console.Beep blocks for the tone duration, so the buzz runs off the UI thread.
         _ = Task.Run(() =>
         {
-            for (var index = 0; index < times; index++)
+            try
             {
-                if (index > 0)
+                for (var index = 0; index < times; index++)
                 {
-                    Thread.Sleep(GapMilliseconds);
-                }
+                    if (index > 0)
+                    {
+                        Thread.Sleep(GapMilliseconds);
+                    }
 
-                PlayOnce();
+                    PlayOnce();
+                }
+            }
+            catch (Exception exception) when (exception is not
+                (OutOfMemoryException or StackOverflowException or AccessViolationException or System.Runtime.InteropServices.SEHException))
+            {
+                System.Diagnostics.Trace.TraceError(exception.ToString());
             }
         });
     }

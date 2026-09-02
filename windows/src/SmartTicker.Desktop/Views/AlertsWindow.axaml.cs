@@ -10,5 +10,6 @@ public partial class AlertsWindow : Window
         InitializeComponent();
     }
 
-    private void ShowHelp(object? sender, RoutedEventArgs e) => HelpWindow.Open(this);
+    private void ShowHelp(object? sender, RoutedEventArgs e) =>
+        ExceptionSafety.Run(() => HelpWindow.Open(this));
 }

@@ -2,6 +2,7 @@ using Avalonia.Media;
 using SmartTicker.Core.Models;
 using SmartTicker.Core.Services;
 using SmartTicker.Desktop.ViewModels;
+using SmartTicker.Infrastructure.Persistence;
 
 namespace SmartTicker.Desktop.Tests;
 
@@ -529,12 +530,12 @@ public sealed class SourceValidationTests
         await viewModel.RefreshPricesAsync();
 
         var changed = Assert.Single(viewModel.StaticQuoteGroups).Rows.Single();
-        Assert.Equal(Color.Parse("#8B4513"), Assert.IsType<SolidColorBrush>(changed.Background).Color);
+        Assert.Equal(Color.Parse("#8B4513"), Assert.IsAssignableFrom<ISolidColorBrush>(changed.Background).Color);
 
         await viewModel.RefreshPricesAsync();
 
         var unchanged = Assert.Single(viewModel.StaticQuoteGroups).Rows.Single();
-        Assert.Equal(Color.Parse("#8B4513"), Assert.IsType<SolidColorBrush>(unchanged.Background).Color);
+        Assert.Equal(Color.Parse("#8B4513"), Assert.IsAssignableFrom<ISolidColorBrush>(unchanged.Background).Color);
     }
 
     [Fact]
@@ -565,7 +566,7 @@ public sealed class SourceValidationTests
         var rows = Assert.Single(viewModel.StaticNewsGroups).Rows;
         Assert.Equal(["First", "Second"], rows.Select(row => row.Headline));
         Assert.Equal(Brushes.Transparent, rows[0].Background);
-        Assert.Equal(Color.Parse("#8B4513"), Assert.IsType<SolidColorBrush>(rows[1].Background).Color);
+        Assert.Equal(Color.Parse("#8B4513"), Assert.IsAssignableFrom<ISolidColorBrush>(rows[1].Background).Color);
     }
 
     [Fact]
@@ -613,6 +614,245 @@ public sealed class SourceValidationTests
         Assert.Null(store.Saved);
     }
 
+    [Fact]
+    public async Task PriceRefresh_ContainsProviderExceptions()
+    {
+        var subscription = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: new ThrowingQuoteFetcher(),
+            settingsStore: new TestSettingsStore(SmartTickerSettings.Default with
+            {
+                Subscriptions = [subscription],
+                AcknowledgedSources = ["example.com"],
+            }));
+
+        await viewModel.RefreshPricesAsync();
+
+        Assert.Contains("Price refresh failed", viewModel.EntryMessage);
+        Assert.Contains("price provider failed", viewModel.EntryMessage);
+    }
+
+    [Fact]
+    public async Task NewsRefresh_ContainsProviderExceptions()
+    {
+        var subscription = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: new TestSettingsStore(SmartTickerSettings.Default with
+            {
+                Subscriptions = [subscription],
+                AcknowledgedSources = ["example.com"],
+            }),
+            newsFetcher: new ThrowingNewsFetcher());
+
+        await viewModel.RefreshNewsAsync();
+
+        Assert.Contains("News refresh failed", viewModel.EntryMessage);
+        Assert.Contains("news provider failed", viewModel.EntryMessage);
+    }
+
+    [Fact]
+    public async Task DisposeDuringPriceRefresh_DoesNotEscapeAnObjectDisposedException()
+    {
+        var subscription = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        var fetcher = new CancellableQuoteFetcher();
+        var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: fetcher,
+            settingsStore: new TestSettingsStore(SmartTickerSettings.Default with
+            {
+                Subscriptions = [subscription],
+                AcknowledgedSources = ["example.com"],
+            }));
+        var refresh = viewModel.RefreshPricesAsync();
+        await fetcher.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        viewModel.Dispose();
+
+        await refresh;
+    }
+
+    [Fact]
+    public async Task ProviderResultAfterDispose_IsIgnoredEvenWhenProviderIgnoresCancellation()
+    {
+        var subscription = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        var fetcher = new DelayedQuoteFetcher();
+        var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: fetcher,
+            settingsStore: new TestSettingsStore(SmartTickerSettings.Default with
+            {
+                Subscriptions = [subscription],
+                AcknowledgedSources = ["example.com"],
+            }));
+        var refresh = viewModel.RefreshPricesAsync();
+        await fetcher.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        viewModel.Dispose();
+        fetcher.Release.TrySetResult();
+        await refresh;
+
+        Assert.Empty(viewModel.LatestQuotes);
+    }
+
+    [Fact]
+    public async Task ProviderResultForRemovedQuote_IsIgnored()
+    {
+        var subscription = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        var fetcher = new DelayedQuoteFetcher();
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: fetcher,
+            settingsStore: new TestSettingsStore(SmartTickerSettings.Default with
+            {
+                Subscriptions = [subscription],
+                AcknowledgedSources = ["example.com"],
+            }));
+        var refresh = viewModel.RefreshPricesAsync();
+        await fetcher.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        await viewModel.RemoveSubscriptionCommand.ExecuteAsync(subscription);
+        fetcher.Release.TrySetResult();
+        await refresh;
+
+        Assert.Empty(viewModel.Subscriptions);
+        Assert.Empty(viewModel.LatestQuotes);
+    }
+
+    [Fact]
+    public async Task UpdateAfterExternalRemoval_ReportsStaleEditorInsteadOfThrowing()
+    {
+        var subscription = Subscription("MSFT", "Example", "https://example.com/MSFT");
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: new TestSettingsStore(SmartTickerSettings.Default with
+            {
+                Subscriptions = [subscription],
+            }));
+        viewModel.EditSubscriptionCommand.Execute(subscription);
+        var imported = viewModel.ApplyEditedSettingsJson("""{"version":1,"subscriptions":[]}""");
+
+        await viewModel.AddSubscriptionCommand.ExecuteAsync(null);
+
+        Assert.True(imported.Success);
+        Assert.Empty(viewModel.Subscriptions);
+        Assert.Contains("changed outside this form", viewModel.EntryMessage);
+    }
+
+    [Fact]
+    public void ViewSwitch_ContainsSettingsStoreFailures()
+    {
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: new ThrowingSaveSettingsStore(SmartTickerSettings.Default));
+
+        viewModel.SetTickerViewCommand.Execute("static-prices-news");
+
+        Assert.True(viewModel.IsStaticPricesWithNewsView);
+        Assert.Contains("Settings could not be saved", viewModel.EntryMessage);
+    }
+
+    [Fact]
+    public void AlertStoreLoadFailure_IsReportedWithoutEscapingStartup()
+    {
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            alertStore: new ThrowingAlertStore(throwOnLoad: true));
+
+        Assert.Contains("Alert rules could not be loaded", viewModel.EntryMessage);
+    }
+
+    [Fact]
+    public void AlertStoreSaveFailure_IsReportedWithoutEscapingPropertyChange()
+    {
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            alertStore: new ThrowingAlertStore(throwOnLoad: false));
+
+        viewModel.AlertBuzzCount = 9;
+
+        Assert.Contains("Alert rules could not be saved", viewModel.EntryMessage);
+    }
+
+    [Fact]
+    public void MalformedStartupSettings_AreNotOverwrittenByViewChangesOrShutdown()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "SmartTicker.Tests", Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(directory, "settings.json");
+        const string malformed = "{ not valid json";
+        Directory.CreateDirectory(directory);
+        File.WriteAllText(path, malformed);
+
+        try
+        {
+            var viewModel = new MainViewModel(
+                selectorDiscovery: null,
+                quoteFetcher: null,
+                settingsStore: new LocalJsonSettingsStore(path));
+
+            Assert.Contains("Settings could not be loaded", viewModel.EntryMessage);
+            viewModel.SetTickerViewCommand.Execute("static-prices-news");
+            viewModel.Dispose();
+
+            Assert.Equal(malformed, File.ReadAllText(path));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task QuoteMutationsAndViewSwitches_RemainStableAcrossRepeatedTransitions()
+    {
+        var store = new TestSettingsStore(SmartTickerSettings.Default with
+        {
+            AllowWebsiteCookiesAndCrossHostRedirects = true,
+        });
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: store);
+        var modes = new[]
+        {
+            "scrolling-prices",
+            "scrolling-prices-news",
+            "static-prices",
+            "static-prices-news",
+        };
+
+        for (var iteration = 0; iteration < 20; iteration++)
+        {
+            viewModel.SelectedSource = viewModel.SourceAlternatives.Single(source => source.HomePage is null);
+            viewModel.NewSymbol = $"Q{iteration}";
+            viewModel.NewSourceUrlSuffix = $"https://example.com/Q{iteration}";
+            viewModel.NewCollectPrice = true;
+            viewModel.NewCollectNews = true;
+            await viewModel.AddSubscriptionCommand.ExecuteAsync(null);
+            var added = Assert.Single(viewModel.Subscriptions);
+
+            viewModel.SetTickerViewCommand.Execute(modes[iteration % modes.Length]);
+            viewModel.EditSubscriptionCommand.Execute(added);
+            viewModel.NewSymbol = $"Q{iteration}U";
+            await viewModel.AddSubscriptionCommand.ExecuteAsync(null);
+            var updated = Assert.Single(viewModel.Subscriptions);
+            Assert.Equal($"Q{iteration}U", updated.Symbol);
+
+            viewModel.SetTickerViewCommand.Execute(modes[(iteration + 1) % modes.Length]);
+            await viewModel.RemoveSubscriptionCommand.ExecuteAsync(updated);
+            Assert.Empty(viewModel.Subscriptions);
+        }
+
+        Assert.NotNull(store.Saved);
+        Assert.DoesNotContain("failed", viewModel.EntryMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static TickerSubscription Subscription(string symbol, string sourceName, string sourceUri) =>
         new(
             Guid.NewGuid(),
@@ -635,6 +875,26 @@ public sealed class SourceValidationTests
         public void Save(SmartTickerSettings saved) => Saved = saved;
     }
 
+    private sealed class ThrowingSaveSettingsStore(SmartTickerSettings settings) : ISettingsStore
+    {
+        public string FilePath => string.Empty;
+
+        public SmartTickerSettings Load() => settings;
+
+        public void Save(SmartTickerSettings saved) => throw new InvalidOperationException("disk unavailable");
+    }
+
+    private sealed class ThrowingAlertStore(bool throwOnLoad) : IAlertStore
+    {
+        public string FilePath => string.Empty;
+
+        public AlertSettings Load() => throwOnLoad
+            ? throw new InvalidOperationException("alert store unavailable")
+            : AlertSettings.Default;
+
+        public void Save(AlertSettings settings) => throw new InvalidOperationException("alert store unavailable");
+    }
+
     private sealed class SuccessfulQuoteFetcher : IQuoteFetcher
     {
         public List<Guid> Requests { get; } = [];
@@ -653,6 +913,60 @@ public sealed class SourceValidationTests
                 DateTimeOffset.UtcNow,
                 true,
                 "ok"));
+        }
+    }
+
+    private sealed class ThrowingQuoteFetcher : IQuoteFetcher
+    {
+        public Task<QuoteSnapshot> FetchAsync(
+            TickerSubscription subscription,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("price provider failed");
+    }
+
+    private sealed class ThrowingNewsFetcher : INewsFetcher
+    {
+        public Task<NewsSnapshot> FetchAsync(
+            TickerSubscription subscription,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("news provider failed");
+    }
+
+    private sealed class CancellableQuoteFetcher : IQuoteFetcher
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<QuoteSnapshot> FetchAsync(
+            TickerSubscription subscription,
+            CancellationToken cancellationToken = default)
+        {
+            Started.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            throw new InvalidOperationException("The cancellation wait unexpectedly completed.");
+        }
+    }
+
+    private sealed class DelayedQuoteFetcher : IQuoteFetcher
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<QuoteSnapshot> FetchAsync(
+            TickerSubscription subscription,
+            CancellationToken cancellationToken = default)
+        {
+            Started.TrySetResult();
+            await Release.Task;
+            return new QuoteSnapshot(
+                subscription.Id,
+                subscription.Symbol,
+                subscription.SourceName,
+                100m,
+                "USD",
+                DateTimeOffset.UtcNow,
+                true,
+                "ok");
         }
     }
 

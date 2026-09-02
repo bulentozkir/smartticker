@@ -11,9 +11,12 @@ public partial class SourcePermissionWindow : Window
         InitializeComponent();
     }
 
-    private void Approve(object? sender, RoutedEventArgs e) => Close(SourcePermissionDecision.Approve);
+    private void Approve(object? sender, RoutedEventArgs e) =>
+        ExceptionSafety.Run(() => Close(SourcePermissionDecision.Approve));
 
-    private void Skip(object? sender, RoutedEventArgs e) => Close(SourcePermissionDecision.Skip);
+    private void Skip(object? sender, RoutedEventArgs e) =>
+        ExceptionSafety.Run(() => Close(SourcePermissionDecision.Skip));
 
-    private void Cancel(object? sender, RoutedEventArgs e) => Close(SourcePermissionDecision.Cancel);
+    private void Cancel(object? sender, RoutedEventArgs e) =>
+        ExceptionSafety.Run(() => Close(SourcePermissionDecision.Cancel));
 }

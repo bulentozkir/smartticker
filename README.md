@@ -14,8 +14,8 @@ Open the [SmartTicker Releases](https://github.com/bulentozkir/smartticker/relea
 
 **Windows**
 
-- Most Windows PCs: download `SmartTicker-1.0.2-win-x64.msi`.
-- Windows on ARM devices: download `SmartTicker-1.0.2-win-arm64.msi`.
+- Most Windows PCs: download `SmartTicker-1.0.3-win-x64.msi`.
+- Windows on ARM devices: download `SmartTicker-1.0.3-win-arm64.msi`.
 - Run the downloaded MSI and follow the installer. The installer is currently unsigned, so Windows may display an unknown-publisher or SmartScreen warning.
 - The `.msixbundle` is intended for Microsoft Store submission. Direct sideloading requires the bundle to be signed with a certificate trusted by the target computer.
 
@@ -23,10 +23,10 @@ After installation, open **SmartTicker** from the Start menu. Right-click the ti
 
 **Debian and Ubuntu**
 
-Download `smartticker_1.0.2_amd64.deb`, open a terminal in the download directory, and run:
+Download `smartticker_1.0.3_amd64.deb`, open a terminal in the download directory, and run:
 
 ```bash
-sudo apt install ./smartticker_1.0.2_amd64.deb
+sudo apt install ./smartticker_1.0.3_amd64.deb
 ```
 
 Launch SmartTicker from the desktop application menu or by running `smartticker`. Only `amd64` Linux systems are currently packaged; no macOS package is available yet.
@@ -144,7 +144,7 @@ Settings and alert rules can be exported and imported independently.
 
 ![Backup section with export and import buttons](docs/screenshots/backup.png)
 
-## Release 1.0.2
+## Release 1.0.3
 
 Available as an MSIX bundle and MSI installers for Windows (x64 and arm64), and a `.deb` for Debian-based Linux. See [releases](releases/README.md).
 

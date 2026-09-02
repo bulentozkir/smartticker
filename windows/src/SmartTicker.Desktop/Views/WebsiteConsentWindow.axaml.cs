@@ -11,9 +11,12 @@ public partial class WebsiteConsentWindow : Window
         InitializeComponent();
     }
 
-    private void Accept(object? sender, RoutedEventArgs e) => Close(WebsiteConsentDecision.Accept);
+    private void Accept(object? sender, RoutedEventArgs e) =>
+        ExceptionSafety.Run(() => Close(WebsiteConsentDecision.Accept));
 
-    private void Reject(object? sender, RoutedEventArgs e) => Close(WebsiteConsentDecision.Reject);
+    private void Reject(object? sender, RoutedEventArgs e) =>
+        ExceptionSafety.Run(() => Close(WebsiteConsentDecision.Reject));
 
-    private void Cancel(object? sender, RoutedEventArgs e) => Close(WebsiteConsentDecision.Cancel);
+    private void Cancel(object? sender, RoutedEventArgs e) =>
+        ExceptionSafety.Run(() => Close(WebsiteConsentDecision.Cancel));
 }

@@ -332,7 +332,7 @@ public static partial class MarkdownHelpRenderer
             Focusable = false,
             FontWeight = FontWeight.SemiBold,
         };
-        button.Click += (_, _) =>
+        button.Click += (_, _) => ExceptionSafety.Run(() =>
         {
             if (destination?.StartsWith('#') == true)
             {
@@ -342,7 +342,7 @@ public static partial class MarkdownHelpRenderer
             {
                 openExternalLink(uri);
             }
-        };
+        });
         return button;
     }
 

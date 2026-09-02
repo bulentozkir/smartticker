@@ -11,24 +11,28 @@ public partial class SettingsWindow : Window
     public SettingsWindow()
     {
         InitializeComponent();
-        DataContextChanged += (_, _) =>
+        DataContextChanged += (_, _) => ExceptionSafety.Run(() =>
         {
             if (DataContext is MainViewModel viewModel)
             {
                 viewModel.ConfirmAlertRemoval = ConfirmAlertRemovalAsync;
             }
-        };
+        });
     }
 
-    private void ShowHelp(object? sender, RoutedEventArgs e) => HelpWindow.Open(this);
+    private void ShowHelp(object? sender, RoutedEventArgs e) =>
+        ExceptionSafety.Run(() => HelpWindow.Open(this));
 
-    private void OpenQuoteGroups(object? sender, RoutedEventArgs e) => QuoteGroupsWindow.Open(this, DataContext);
+    private void OpenQuoteGroups(object? sender, RoutedEventArgs e) =>
+        ExceptionSafety.Run(() => QuoteGroupsWindow.Open(this, DataContext));
 
     private async void ImportSampleConfig(object? sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel viewModel)
         {
-            await SampleConfigImportWorkflow.RunAsync(this, viewModel);
+            await ExceptionSafety.RunAsync(
+                () => SampleConfigImportWorkflow.RunAsync(this, viewModel),
+                exception => viewModel.ReportRecoverableError("Importing the sample config", exception));
         }
     }
 
@@ -44,7 +48,9 @@ public partial class SettingsWindow : Window
         if (sender is Button { DataContext: TickerSubscription subscription } &&
             DataContext is MainViewModel viewModel)
         {
-            viewModel.EditSubscriptionCommand.Execute(subscription);
+            ExceptionSafety.Run(
+                () => viewModel.EditSubscriptionCommand.Execute(subscription),
+                exception => viewModel.ReportRecoverableError("Editing quote", exception));
         }
     }
 
@@ -53,7 +59,9 @@ public partial class SettingsWindow : Window
         if (sender is Button { DataContext: TickerSubscription subscription } &&
             DataContext is MainViewModel viewModel)
         {
-            viewModel.RemoveSubscriptionCommand.Execute(subscription);
+            ExceptionSafety.Run(
+                () => viewModel.RemoveSubscriptionCommand.Execute(subscription),
+                exception => viewModel.ReportRecoverableError("Removing quote", exception));
         }
     }
 }

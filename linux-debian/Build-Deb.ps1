@@ -7,7 +7,7 @@
     Requires a WSL distribution with dpkg-deb available (Debian and Ubuntu both have it).
 
 .EXAMPLE
-    ./Build-Deb.ps1 -Version 1.0.2
+    ./Build-Deb.ps1 -Version 1.0.3
 #>
 [CmdletBinding()]
 param(

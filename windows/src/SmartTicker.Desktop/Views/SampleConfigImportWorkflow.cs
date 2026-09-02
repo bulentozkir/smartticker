@@ -63,7 +63,7 @@ internal static class SampleConfigImportWorkflow
             viewModel.EntryMessage = $"Existing config exported to {file.Name}.";
             return true;
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
             viewModel.EntryMessage = $"Existing config could not be exported: {exception.Message}";
             return false;
@@ -128,16 +128,16 @@ internal static class SampleConfigImportWorkflow
             },
         };
 
-        cancel.Click += (_, _) => dialog.Close();
+        cancel.Click += (_, _) => ExceptionSafety.Run(dialog.Close);
         export.Click += (_, _) =>
         {
             choice = SampleConfigImportChoice.ExportExisting;
-            dialog.Close();
+            ExceptionSafety.Run(dialog.Close);
         };
         import.Click += (_, _) =>
         {
             choice = SampleConfigImportChoice.ImportSample;
-            dialog.Close();
+            ExceptionSafety.Run(dialog.Close);
         };
 
         await dialog.ShowDialog(owner);

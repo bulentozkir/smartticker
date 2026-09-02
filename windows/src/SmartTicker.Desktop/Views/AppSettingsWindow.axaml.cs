@@ -33,7 +33,9 @@ public partial class AppSettingsWindow : Window
     {
         if (DataContext is MainViewModel viewModel)
         {
-            await SampleConfigImportWorkflow.RunAsync(this, viewModel);
+            await ExceptionSafety.RunAsync(
+                () => SampleConfigImportWorkflow.RunAsync(this, viewModel),
+                exception => viewModel.ReportRecoverableError("Importing the sample config", exception));
         }
     }
 
@@ -41,7 +43,9 @@ public partial class AppSettingsWindow : Window
     {
         if (DataContext is MainViewModel viewModel)
         {
-            await EditConfigFileWorkflow.RunAsync(this, viewModel, ConfigFileKind.Settings);
+            await ExceptionSafety.RunAsync(
+                () => EditConfigFileWorkflow.RunAsync(this, viewModel, ConfigFileKind.Settings),
+                exception => viewModel.ReportRecoverableError("Opening the app config", exception));
         }
     }
 
@@ -49,7 +53,9 @@ public partial class AppSettingsWindow : Window
     {
         if (DataContext is MainViewModel viewModel)
         {
-            await EditConfigFileWorkflow.RunAsync(this, viewModel, ConfigFileKind.Alerts);
+            await ExceptionSafety.RunAsync(
+                () => EditConfigFileWorkflow.RunAsync(this, viewModel, ConfigFileKind.Alerts),
+                exception => viewModel.ReportRecoverableError("Opening alert rules", exception));
         }
     }
 
@@ -93,6 +99,14 @@ public partial class AppSettingsWindow : Window
 
             await viewModel.ValidateAllSourcesAsync();
         }
+        catch (OperationCanceledException)
+        {
+            viewModel.SourceValidationStatus = "Source validation was cancelled.";
+        }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+        {
+            viewModel.ReportRecoverableError("Source validation", exception);
+        }
         finally
         {
             if (button is not null)
@@ -132,7 +146,10 @@ public partial class AppSettingsWindow : Window
             await writer.WriteAsync(viewModel.ExportSettingsJson());
             viewModel.EntryMessage = $"Settings exported to {file.Name}.";
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
             viewModel.EntryMessage = $"Settings could not be exported: {exception.Message}";
         }
@@ -185,7 +202,10 @@ public partial class AppSettingsWindow : Window
 
             viewModel.ReportImportSuccess(file.Name, result.Settings!.Subscriptions.Length);
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
             viewModel.ReportImportFailure("the selected file", [exception.Message]);
         }
@@ -219,7 +239,10 @@ public partial class AppSettingsWindow : Window
             await writer.WriteAsync(viewModel.ExportAlertsJson());
             viewModel.EntryMessage = $"Alert rules exported to {file.Name}.";
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
             viewModel.EntryMessage = $"Alert rules could not be exported: {exception.Message}";
         }
@@ -269,7 +292,10 @@ public partial class AppSettingsWindow : Window
                 viewModel.ReportImportFailure(file.Name, result.Errors);
             }
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
             viewModel.ReportImportFailure("the selected file", [exception.Message]);
         }

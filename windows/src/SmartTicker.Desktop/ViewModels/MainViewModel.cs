@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -145,11 +146,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 ReportImportFailure("the starter quotes from GitHub", result.Errors);
             }
         }
-        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
             ReportImportFailure(
                 "the starter quotes from GitHub",
-                [exception is TaskCanceledException ? "The download timed out." : exception.Message]);
+            [exception is OperationCanceledException ? "The download was cancelled or timed out." : exception.Message]);
         }
         finally
         {
@@ -433,14 +434,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public IBrush AlertBlinkBrush => ToBrush(AlertBlinkColorHex, SmartTickerSettings.DefaultAlertBlinkColor);
 
-    private static readonly IBrush AlertFlashTextBrush = new SolidColorBrush(Color.Parse("#000000"));
+    private static readonly IBrush AlertFlashTextBrush = new ImmutableSolidColorBrush(0xFF000000u);
 
     private const int ChangeBlinkSeconds = 3;
 
     // Fixed brown so a refreshed price or a brand-new headline reads differently from a fired alert.
-    private static readonly IBrush ChangeBlinkBrush = new SolidColorBrush(Color.Parse("#8B4513"));
+    private static readonly IBrush ChangeBlinkBrush = new ImmutableSolidColorBrush(0xFF8B4513u);
 
-    private static readonly IBrush ChangeBlinkTextBrush = new SolidColorBrush(Color.Parse("#FFFFFF"));
+    private static readonly IBrush ChangeBlinkTextBrush = new ImmutableSolidColorBrush(0xFFFFFFFFu);
 
     private static IBrush ToBrush(string hex, string fallback) =>
         new SolidColorBrush(Color.Parse(HexColor.TryNormalize(hex, out var normalized) ? normalized : fallback));
@@ -477,6 +478,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private SourceAcknowledgementLedger _acknowledgements = new();
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private bool _isApplyingSettings;
+    private volatile bool _isDisposed;
+    private bool _settingsPersistenceBlocked;
 
     public MainViewModel()
         : this(null, null, null, null)
@@ -507,7 +510,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _settingsStore = settingsStore;
         _newsFetcher = newsFetcher;
         _linkLauncher = linkLauncher;
-        _blinkTimer.Tick += (_, _) => OnBlinkTick();
+        _blinkTimer.Tick += (_, _) => RunSafely("Blink update", OnBlinkTick);
         SelectedSource = SourceAlternatives[0];
         LoadSettings();
         LoadAlerts();
@@ -554,7 +557,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private void SetLanguage(string? code) => Language = AppLanguages.Normalize(code);
 
     [RelayCommand]
-    private void SetTickerView(string? mode)
+    private void SetTickerView(string? mode) =>
+        RunSafely("Changing view", () => ApplyTickerView(mode));
+
+    private void ApplyTickerView(string? mode)
     {
         var (useStaticView, showNews) = mode switch
         {
@@ -947,8 +953,18 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    private async Task AddSubscriptionAsync()
+    private Task AddSubscriptionAsync() =>
+        RunSafelyAsync(IsEditing ? "Updating quote" : "Adding quote", AddSubscriptionCoreAsync);
+
+    private async Task AddSubscriptionCoreAsync()
     {
+        if (EditingSubscription is { } currentEdit && FindSubscriptionIndex(currentEdit.Id) < 0)
+        {
+            EditingSubscription = null;
+            EntryMessage = "The quote changed outside this form. Select Edit and try again.";
+            return;
+        }
+
         if (RequiresAcknowledgement)
         {
             EntryMessage = $"Confirm your access rights for {CurrentSourceHost} before adding this entry.";
@@ -995,7 +1011,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         if (EditingSubscription is { } editing)
         {
-            var index = Subscriptions.IndexOf(editing);
+            var index = FindSubscriptionIndex(editing.Id);
             Subscriptions[index] = subscription!.WithNewsRepeatLimit(NewNewsRepeatLimit);
             _newsRepeatFilter.Forget(editing.Id);
             EntryMessage = $"Updated {subscription!.Symbol} from {subscription.SourceName}.";
@@ -1070,7 +1086,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    private async Task RemoveSubscriptionAsync(TickerSubscription? subscription)
+    private Task RemoveSubscriptionAsync(TickerSubscription? subscription) =>
+        RunSafelyAsync("Removing quote", () => RemoveSubscriptionCoreAsync(subscription));
+
+    private async Task RemoveSubscriptionCoreAsync(TickerSubscription? subscription)
     {
         if (subscription is null)
         {
@@ -1088,7 +1107,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             }
         }
 
-        Subscriptions.Remove(subscription);
+        var index = FindSubscriptionIndex(subscription.Id);
+        if (index < 0)
+        {
+            EntryMessage = $"{subscription.Symbol} was already removed.";
+            return;
+        }
+
+        subscription = Subscriptions[index];
+        Subscriptions.RemoveAt(index);
         _hiddenNewsQuotes.Remove(subscription.Id);
         if (SelectedGroupQuote?.Id == subscription.Id)
         {
@@ -1141,14 +1168,20 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     public async Task RefreshPricesAsync()
     {
-        if (_quoteFetcher is null || IsPaused ||
-            !await _priceRefreshGate.WaitAsync(0, _lifetimeCancellation.Token))
+        if (_quoteFetcher is null || IsPaused || _isDisposed)
         {
             return;
         }
 
+        var entered = false;
         try
         {
+            entered = await _priceRefreshGate.WaitAsync(0, _lifetimeCancellation.Token);
+            if (!entered)
+            {
+                return;
+            }
+
             var priceSubscriptions = Subscriptions
                 .Where(item => item.CollectPrice && CanAccessSource(item.SourceUri))
                 .ToArray();
@@ -1157,6 +1190,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             foreach (var subscription in priceSubscriptions)
             {
                 var snapshot = await _quoteFetcher.FetchAsync(subscription, _lifetimeCancellation.Token);
+                _lifetimeCancellation.Token.ThrowIfCancellationRequested();
+                if (!Subscriptions.Any(item => item.Id == subscription.Id))
+                {
+                    continue;
+                }
+
                 var previous = LatestQuotes.FirstOrDefault(item => item.SubscriptionId == subscription.Id);
                 if (HasPriceChanged(previous, snapshot))
                 {
@@ -1183,23 +1222,48 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
         {
         }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+        {
+            ReportRecoverableError("Price refresh", exception);
+        }
         finally
         {
-            _priceRefreshGate.Release();
+            if (entered)
+            {
+                _priceRefreshGate.Release();
+            }
+        }
+    }
+
+    public async Task RefreshPricesSafelyAsync(string operation)
+    {
+        try
+        {
+            await RefreshPricesAsync();
+        }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+        {
+            ReportRecoverableError(operation, exception);
         }
     }
 
     [RelayCommand]
     public async Task RefreshNewsAsync()
     {
-        if (_newsFetcher is null || IsPaused ||
-            !await _newsRefreshGate.WaitAsync(0, _lifetimeCancellation.Token))
+        if (_newsFetcher is null || IsPaused || _isDisposed)
         {
             return;
         }
 
+        var entered = false;
         try
         {
+            entered = await _newsRefreshGate.WaitAsync(0, _lifetimeCancellation.Token);
+            if (!entered)
+            {
+                return;
+            }
+
             var newsSubscriptions = Subscriptions
                 .Where(item => item.CollectNews && CanAccessSource(item.SourceUri))
                 .ToArray();
@@ -1208,6 +1272,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             foreach (var subscription in newsSubscriptions)
             {
                 var snapshot = await _newsFetcher.FetchAsync(subscription, _lifetimeCancellation.Token);
+                _lifetimeCancellation.Token.ThrowIfCancellationRequested();
+                if (!Subscriptions.Any(item => item.Id == subscription.Id))
+                {
+                    continue;
+                }
+
                 if (snapshot.Success)
                 {
                     snapshot = snapshot with
@@ -1245,10 +1315,34 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
         {
         }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+        {
+            ReportRecoverableError("News refresh", exception);
+        }
         finally
         {
-            _newsRefreshGate.Release();
+            if (entered)
+            {
+                _newsRefreshGate.Release();
+            }
         }
+    }
+
+    public async Task RefreshNewsSafelyAsync(string operation)
+    {
+        try
+        {
+            await RefreshNewsAsync();
+        }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+        {
+            ReportRecoverableError(operation, exception);
+        }
+    }
+
+    public void ReportRecoverableError(string operation, Exception exception)
+    {
+        EntryMessage = $"{operation} failed: {exception.Message}";
     }
 
     [RelayCommand]
@@ -1316,9 +1410,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 ? $"No reliable {label} selector was found. The page may require JavaScript or a manual selector."
                 : $"Found {suggestions.Count} possible {label} selector(s). Test the selected value before saving.";
         }
-        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
-            DiscoveryMessage = exception is TaskCanceledException
+            DiscoveryMessage = exception is OperationCanceledException
                 ? "Selector discovery timed out."
                 : exception.Message;
         }
@@ -1397,9 +1491,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 ? "No reliable news selector was found. The page may require JavaScript or a manual selector."
                 : $"Found {suggestions.Count} possible news selector(s). Verify one before saving.";
         }
-        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
-            NewsDiscoveryMessage = exception is TaskCanceledException ? "News selector discovery timed out." : exception.Message;
+            NewsDiscoveryMessage = exception is OperationCanceledException ? "News selector discovery timed out." : exception.Message;
         }
         finally
         {
@@ -1473,9 +1567,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 ? "Validation is unavailable in the designer."
                 : $"{probe.SourceUri.Host} → {string.Join("; ", results)}";
         }
-        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
-            ValidationMessage = exception is TaskCanceledException
+            ValidationMessage = exception is OperationCanceledException
                 ? "The page did not respond in time."
                 : exception.Message;
         }
@@ -1769,8 +1863,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             _startupRegistration.SetEnabled(value);
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
-            or System.Security.SecurityException or InvalidOperationException)
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
             EntryMessage = $"Startup setting could not be changed: {exception.Message}";
             RevertLaunchAtLogin();
@@ -1787,8 +1880,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             _isApplyingSettings = true;
             LaunchAtLogin = _startupRegistration?.IsEnabled ?? false;
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
-            or System.Security.SecurityException)
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
         }
         finally
@@ -2372,6 +2464,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         ApplySettings(result.Settings!);
+        _settingsPersistenceBlocked = false;
         UpdateTickerLines();
         RaiseAcknowledgementChanged();
         ReportImportSuccess("the edited settings.json", result.Settings!.Subscriptions.Length);
@@ -2401,7 +2494,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private void StartWatchingConfigFiles()
     {
-        _configReloadTimer.Tick += (_, _) => ReloadChangedConfigFiles();
+        _configReloadTimer.Tick += (_, _) => RunSafely("Configuration reload", ReloadChangedConfigFiles);
         _settingsWatcher = CreateConfigWatcher(_settingsStore?.FilePath, () => _settingsFileChanged = true);
         _alertsWatcher = CreateConfigWatcher(_alertStore?.FilePath, () => _alertsFileChanged = true);
     }
@@ -2423,13 +2516,35 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             };
 
             // Editors save through temp files and renames, so every event restarts one debounce window.
-            void Queue(object? sender, FileSystemEventArgs args) => Dispatcher.UIThread.Post(() =>
+            void Queue(object? sender, FileSystemEventArgs args)
             {
-                onChanged();
-                _configReloadAttempts = 0;
-                _configReloadTimer.Stop();
-                _configReloadTimer.Start();
-            });
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                try
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (_isDisposed)
+                        {
+                            return;
+                        }
+
+                        RunSafely("Configuration file change", () =>
+                        {
+                            onChanged();
+                            _configReloadAttempts = 0;
+                            _configReloadTimer.Stop();
+                            _configReloadTimer.Start();
+                        });
+                    });
+                }
+                catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+                {
+                }
+            }
 
             watcher.Changed += Queue;
             watcher.Created += Queue;
@@ -2446,6 +2561,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private void ReloadChangedConfigFiles()
     {
+        if (_isDisposed)
+        {
+            return;
+        }
+
         _configReloadTimer.Stop();
 
         // SmartTicker's own saves raise the same events; only an outside edit should be re-imported.
@@ -2507,7 +2627,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             json = File.ReadAllText(filePath);
             return true;
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
             return false;
         }
@@ -2522,22 +2642,30 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var alerts = _alertStore.Load();
-        _isApplyingAlerts = true;
         try
         {
-            AlertSoundEnabled = alerts.SoundEnabled;
-            AlertBlinkSeconds = alerts.BlinkSeconds;
-            AlertBuzzCount = alerts.BuzzCount;
-            AlertRules.Clear();
-            foreach (var rule in alerts.Rules)
+            var alerts = _alertStore.Load();
+            _isApplyingAlerts = true;
+            try
             {
-                AlertRules.Add(rule);
+                AlertSoundEnabled = alerts.SoundEnabled;
+                AlertBlinkSeconds = alerts.BlinkSeconds;
+                AlertBuzzCount = alerts.BuzzCount;
+                AlertRules.Clear();
+                foreach (var rule in alerts.Rules)
+                {
+                    AlertRules.Add(rule);
+                }
+            }
+            finally
+            {
+                _isApplyingAlerts = false;
             }
         }
-        finally
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
-            _isApplyingAlerts = false;
+            AlertMessage = $"Alert rules could not be loaded: {exception.Message}";
+            EntryMessage = AlertMessage;
         }
     }
 
@@ -2548,14 +2676,22 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        _alertStore.Save(new AlertSettings
+        try
         {
-            Rules = [.. AlertRules],
-            SoundEnabled = AlertSoundEnabled,
-            BlinkSeconds = AlertBlinkSeconds,
-            BuzzCount = AlertBuzzCount,
-        });
-        _lastSelfWrite = DateTimeOffset.Now;
+            _alertStore.Save(new AlertSettings
+            {
+                Rules = [.. AlertRules],
+                SoundEnabled = AlertSoundEnabled,
+                BlinkSeconds = AlertBlinkSeconds,
+                BuzzCount = AlertBuzzCount,
+            });
+            _lastSelfWrite = DateTimeOffset.Now;
+        }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+        {
+            AlertMessage = $"Alert rules could not be saved: {exception.Message}";
+            EntryMessage = AlertMessage;
+        }
     }
 
     partial void OnAlertSoundEnabledChanged(bool value) => SaveAlerts();
@@ -2832,6 +2968,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private void OnBlinkTick()
     {
+        if (_isDisposed)
+        {
+            return;
+        }
+
         var now = DateTimeOffset.Now;
         foreach (var key in _blinkingUntil.Where(pair => pair.Value <= now).Select(pair => pair.Key).ToArray())
         {
@@ -2962,18 +3103,46 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _isDisposed = true;
         SaveSettings();
-        _configReloadTimer.Stop();
-        _settingsWatcher?.Dispose();
-        _alertsWatcher?.Dispose();
-        _lifetimeCancellation.Cancel();
-        _lifetimeCancellation.Dispose();
-        _priceRefreshGate.Dispose();
-        _newsRefreshGate.Dispose();
-        (_selectorDiscovery as IDisposable)?.Dispose();
-        (_newsSelectorDiscovery as IDisposable)?.Dispose();
-        (_quoteFetcher as IDisposable)?.Dispose();
-        (_newsFetcher as IDisposable)?.Dispose();
+        ExceptionSafety.Run(_blinkTimer.Stop);
+        ExceptionSafety.Run(_configReloadTimer.Stop);
+        ExceptionSafety.Run(() => _settingsWatcher?.Dispose());
+        ExceptionSafety.Run(() => _alertsWatcher?.Dispose());
+        ExceptionSafety.Run(_lifetimeCancellation.Cancel);
+        ExceptionSafety.Run(() => (_selectorDiscovery as IDisposable)?.Dispose());
+        ExceptionSafety.Run(() => (_newsSelectorDiscovery as IDisposable)?.Dispose());
+        ExceptionSafety.Run(() => (_quoteFetcher as IDisposable)?.Dispose());
+        ExceptionSafety.Run(() => (_newsFetcher as IDisposable)?.Dispose());
+    }
+
+    private void RunSafely(string operation, Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+        {
+            ReportRecoverableError(operation, exception);
+        }
+    }
+
+    private async Task RunSafelyAsync(string operation, Func<Task> action)
+    {
+        try
+        {
+            await action();
+        }
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+        {
+            ReportRecoverableError(operation, exception);
+        }
     }
 
     private void ClearEntryForm()
@@ -3017,8 +3186,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 ? "Enter every ticker and source URL manually. Duplicate symbols are allowed."
                 : $"Loaded {Subscriptions.Count} configured entr{(Subscriptions.Count == 1 ? "y" : "ies")} from local settings.";
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
+            _settingsPersistenceBlocked = true;
             EntryMessage = $"Settings could not be loaded: {exception.Message}";
         }
 
@@ -3211,6 +3381,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         ApplySettings(result.Settings!);
+        _settingsPersistenceBlocked = false;
         SaveSettings();
         UpdateTickerLines();
         RaiseAcknowledgementChanged();
@@ -3220,7 +3391,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private void SaveSettings()
     {
-        if (_settingsStore is null || _isApplyingSettings)
+        if (_settingsStore is null || _isApplyingSettings || _settingsPersistenceBlocked)
         {
             return;
         }
@@ -3230,7 +3401,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             _settingsStore.Save(CurrentSettings());
             _lastSelfWrite = DateTimeOffset.Now;
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
             EntryMessage = $"Settings could not be saved: {exception.Message}";
         }

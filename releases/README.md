@@ -5,7 +5,7 @@ Build and packaging scripts write generated artifacts beneath `releases/windows/
 Generate them with:
 
 ```powershell
-pwsh -NoProfile -File windows/packaging/Build-Release.ps1 -Version 1.0.2
+pwsh -NoProfile -File windows/packaging/Build-Release.ps1 -Version 1.0.3
 ```
 
 Expected layout:

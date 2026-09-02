@@ -46,9 +46,9 @@ internal static class ConfirmDialog
         confirm.Click += (_, _) =>
         {
             result = true;
-            dialog.Close();
+            ExceptionSafety.Run(dialog.Close);
         };
-        cancel.Click += (_, _) => dialog.Close();
+        cancel.Click += (_, _) => ExceptionSafety.Run(dialog.Close);
 
         await dialog.ShowDialog(owner);
         return result;

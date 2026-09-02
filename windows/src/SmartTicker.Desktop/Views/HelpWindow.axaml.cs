@@ -28,8 +28,16 @@ public partial class HelpWindow : Window
     public HelpWindow()
     {
         InitializeComponent();
-        Opened += async (_, _) => await LoadHelpAsync();
-        Closed += (_, _) => _lifetimeCancellation.Cancel();
+        Opened += async (_, _) => await ExceptionSafety.RunAsync(
+            LoadHelpAsync,
+            exception =>
+            {
+                if (IsVisible)
+                {
+                    StatusText.Text = $"Help could not be displayed: {exception.Message}";
+                }
+            });
+        Closed += (_, _) => ExceptionSafety.Run(_lifetimeCancellation.Cancel);
     }
 
     public static void Open(Window owner)
@@ -71,7 +79,7 @@ public partial class HelpWindow : Window
         catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
         {
         }
-        catch (Exception)
+        catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
             RenderHelp(ReadEmbeddedHelp());
             StatusText.Text = "Online help is unavailable. Showing the built-in guide.";
@@ -111,7 +119,8 @@ public partial class HelpWindow : Window
                 Padding = new Avalonia.Thickness(8, 6),
                 Foreground = new SolidColorBrush(Color.Parse("#C9D1D9")),
             };
-            button.Click += (_, _) => NavigateToAnchor((string)button.Tag!);
+            button.Click += (_, _) => ExceptionSafety.Run(
+                () => NavigateToAnchor((string)button.Tag!));
             NavigationPanel.Children.Add(button);
         }
     }
@@ -141,7 +150,7 @@ public partial class HelpWindow : Window
             Timeout = TimeSpan.FromSeconds(15),
             MaxResponseContentBufferSize = MaximumHelpBytes,
         };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("SmartTicker/1.0.2");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("SmartTicker/1.0.3");
         return client;
     }
 }

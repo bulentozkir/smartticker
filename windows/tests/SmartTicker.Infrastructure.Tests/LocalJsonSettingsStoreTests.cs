@@ -92,4 +92,5 @@ public sealed class LocalJsonSettingsStoreTests
             Directory.Delete(directory, true);
         }
     }
+
 }

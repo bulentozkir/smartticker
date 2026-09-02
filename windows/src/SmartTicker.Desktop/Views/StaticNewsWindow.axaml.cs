@@ -18,13 +18,16 @@ public partial class StaticNewsWindow : Window
 
     private void OpenStaticNews(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is Border { DataContext: StaticNewsRow { SourceUri: { } sourceUri } } &&
-            e.ClickCount == 2 &&
-            e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        RunSafely("Opening news source", () =>
         {
-            e.Handled = true;
-            ViewModel?.OpenLinkCommand.Execute(sourceUri);
-        }
+            if (sender is Border { DataContext: StaticNewsRow { SourceUri: { } sourceUri } } &&
+                e.ClickCount == 2 &&
+                e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                e.Handled = true;
+                ViewModel?.OpenLinkCommand.Execute(sourceUri);
+            }
+        });
     }
 
     private async void BeginGroupDrag(object? sender, PointerPressedEventArgs e)
@@ -40,6 +43,10 @@ public partial class StaticNewsWindow : Window
             {
                 await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
             }
+            catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
+            {
+                ViewModel?.ReportRecoverableError("Reordering News groups", exception);
+            }
             finally
             {
                 _draggedGroupName = null;
@@ -49,24 +56,35 @@ public partial class StaticNewsWindow : Window
 
     private void GroupDragOver(object? sender, DragEventArgs e)
     {
-        var canMove = sender is Control { DataContext: StaticNewsGroup group } &&
-            _draggedGroupName is not null &&
-            !string.Equals(_draggedGroupName, group.Name, StringComparison.OrdinalIgnoreCase);
-        e.DragEffects = canMove ? DragDropEffects.Move : DragDropEffects.None;
-        e.Handled = true;
+        RunSafely("Reordering News groups", () =>
+        {
+            var canMove = sender is Control { DataContext: StaticNewsGroup group } &&
+                _draggedGroupName is not null &&
+                !string.Equals(_draggedGroupName, group.Name, StringComparison.OrdinalIgnoreCase);
+            e.DragEffects = canMove ? DragDropEffects.Move : DragDropEffects.None;
+            e.Handled = true;
+        });
     }
 
     private void GroupDrop(object? sender, DragEventArgs e)
     {
-        if (sender is Control { DataContext: StaticNewsGroup group } control &&
-            _draggedGroupName is { } sourceName &&
-            !string.Equals(sourceName, group.Name, StringComparison.OrdinalIgnoreCase))
+        RunSafely("Reordering News groups", () =>
         {
-            var placeAfter = e.GetPosition(control).X >= control.Bounds.Width / 2;
-            ViewModel?.MoveQuoteGroup(sourceName, group.Name, placeAfter);
-            e.DragEffects = DragDropEffects.Move;
-        }
+            if (sender is Control { DataContext: StaticNewsGroup group } control &&
+                _draggedGroupName is { } sourceName &&
+                !string.Equals(sourceName, group.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                var placeAfter = e.GetPosition(control).X >= control.Bounds.Width / 2;
+                ViewModel?.MoveQuoteGroup(sourceName, group.Name, placeAfter);
+                e.DragEffects = DragDropEffects.Move;
+            }
 
-        e.Handled = true;
+            e.Handled = true;
+        });
     }
+
+    private void RunSafely(string operation, Action action) =>
+        ExceptionSafety.Run(
+            action,
+            exception => ViewModel?.ReportRecoverableError(operation, exception));
 }
