@@ -107,7 +107,8 @@
                                 <TextBlock Classes="caption" Text="Height" VerticalAlignment="Center" Margin="14,0,0,0" />
                                 <NumericUpDown Value="{Binding ScrollingWindowHeight}" Minimum="50" Maximum="900" Increment="10"
                                                FormatString="0" Width="120" FontSize="15" FontWeight="SemiBold"
-                                               HorizontalContentAlignment="Center" />
+                                               HorizontalContentAlignment="Center"
+                                               ToolTip.Tip="Automatically increases when enabled Price and News rows need more space." />
                                 <TextBlock Classes="caption" Text="px" VerticalAlignment="Center" />
                             </StackPanel>
 

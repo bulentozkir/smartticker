@@ -406,6 +406,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public bool IsStaticGroupedNewsView => ShowNewsLine && UseStaticGroupedView;
 
+    public double MinimumMainWindowHeight => UseStaticGroupedView
+        ? SmartTickerSettings.MinimumStaticPricesWindowHeight
+        : RequiredScrollingWindowHeight;
+
     public bool IsStaticTickerContentVisible => UseStaticGroupedView && ShowPriceLine;
 
     public bool HasQuoteGroups => QuoteGroups.Count > 0;
@@ -2081,6 +2085,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        EnsureMainWindowCanShowSelectedView();
         UpdateVisibleRows();
         SaveSettings();
     }
@@ -2094,6 +2099,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        EnsureMainWindowCanShowSelectedView();
         UpdateVisibleRows();
         SaveSettings();
     }
@@ -2110,6 +2116,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        EnsureMainWindowCanShowSelectedView();
         UpdatePriceRows();
         UpdateNewsRows();
         SaveSettings();
@@ -2142,7 +2149,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     partial void OnScrollingWindowHeightChanged(int value) =>
         ApplyWindowDimension(
             value,
-            SmartTickerSettings.MinimumScrollingWindowHeight,
+            RequiredScrollingWindowHeight,
             SmartTickerSettings.MaximumScrollingWindowHeight,
             newValue => ScrollingWindowHeight = newValue,
             isActive: !UseStaticGroupedView,
@@ -2285,6 +2292,45 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             _isApplyingConfiguredWindowSize = false;
         }
+
+        EnsureMainWindowCanShowSelectedView();
+    }
+
+    private int RequiredScrollingWindowHeight => Math.Max(
+        SmartTickerSettings.MinimumScrollingWindowHeight,
+        (int)Math.Ceiling(TickerLayoutCalculator.MinimumHeight(
+            PriceRowCount,
+            NewsRowCount,
+            ShowPriceLine,
+            ShowNewsLine,
+            ScrollingViewFontSize + 6)));
+
+    private void EnsureMainWindowCanShowSelectedView()
+    {
+        OnPropertyChanged(nameof(MinimumMainWindowHeight));
+        var minimum = (int)Math.Ceiling(MinimumMainWindowHeight);
+        if (WindowHeight >= minimum)
+        {
+            return;
+        }
+
+        _isApplyingConfiguredWindowSize = true;
+        try
+        {
+            WindowHeight = minimum;
+            if (UseStaticGroupedView)
+            {
+                StaticPricesWindowHeight = minimum;
+            }
+            else
+            {
+                ScrollingWindowHeight = minimum;
+            }
+        }
+        finally
+        {
+            _isApplyingConfiguredWindowSize = false;
+        }
     }
 
     partial void OnWindowHeightChanged(double value)
@@ -2299,6 +2345,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnShowPriceLineChanged(bool value)
     {
+        EnsureMainWindowCanShowSelectedView();
         OnPropertyChanged(nameof(IsPriceVisible));
         OnPropertyChanged(nameof(IsScrollingPriceView));
         OnPropertyChanged(nameof(IsStaticGroupedPriceView));
@@ -2311,6 +2358,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnShowNewsLineChanged(bool value)
     {
+        EnsureMainWindowCanShowSelectedView();
         OnPropertyChanged(nameof(IsNewsVisible));
         OnPropertyChanged(nameof(IsScrollingNewsView));
         OnPropertyChanged(nameof(IsStaticGroupedNewsView));
@@ -2326,6 +2374,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     partial void OnUseStaticGroupedViewChanged(bool value)
     {
         ApplyConfiguredMainWindowSize();
+        OnPropertyChanged(nameof(MinimumMainWindowHeight));
         OnPropertyChanged(nameof(IsScrollingPriceView));
         OnPropertyChanged(nameof(IsStaticGroupedPriceView));
         OnPropertyChanged(nameof(IsScrollingTickerView));

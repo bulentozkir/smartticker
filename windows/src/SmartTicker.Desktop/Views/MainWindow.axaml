@@ -13,7 +13,7 @@
         Width="{Binding WindowWidth}"
         Height="{Binding WindowHeight}"
         MinWidth="420"
-        MinHeight="50"
+        MinHeight="{Binding MinimumMainWindowHeight}"
         CanResize="True"
         WindowDecorations="None"
         Topmost="True"

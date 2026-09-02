@@ -331,6 +331,31 @@ public sealed class SourceValidationTests
         Assert.False(store.Saved!.UseStaticGroupedView);
     }
 
+    [Fact]
+    public void ScrollingPricesWithNews_ExpandsAWindowThatCannotFitAllRows()
+    {
+        var store = new TestSettingsStore(SmartTickerSettings.Default with
+        {
+            PriceRowCount = 2,
+            NewsRowCount = 2,
+            ScrollingViewFontSize = 15,
+            ScrollingWindowSize = new WindowSizeSettings(1200, 64),
+        });
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: store);
+
+        viewModel.SetTickerViewCommand.Execute("scrolling-prices-news");
+
+        Assert.True(viewModel.ShowNewsLine);
+        Assert.True(viewModel.IsScrollingNewsView);
+        Assert.Equal(96, viewModel.MinimumMainWindowHeight);
+        Assert.Equal(96, viewModel.WindowHeight);
+        Assert.Equal(96, viewModel.ScrollingWindowHeight);
+        Assert.Equal(96, store.Saved!.ScrollingWindowSize.Height);
+    }
+
     [Theory]
     [InlineData("scrolling-prices", false, false)]
     [InlineData("scrolling-prices-news", false, true)]

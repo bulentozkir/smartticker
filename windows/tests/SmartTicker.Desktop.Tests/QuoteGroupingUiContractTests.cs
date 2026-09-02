@@ -124,6 +124,7 @@ public sealed class QuoteGroupingUiContractTests
         Assert.Contains("{Binding StaticNewsWindowHeight}", values);
         Assert.Equal("{Binding WindowWidth}", (string?)mainWindow.Root!.Attribute("Width"));
         Assert.Equal("{Binding WindowHeight}", (string?)mainWindow.Root.Attribute("Height"));
+        Assert.Equal("{Binding MinimumMainWindowHeight}", (string?)mainWindow.Root.Attribute("MinHeight"));
         Assert.Equal("{Binding StaticNewsWindowWidth}", (string?)newsWindow.Root!.Attribute("Width"));
         Assert.Equal("{Binding StaticNewsWindowHeight}", (string?)newsWindow.Root.Attribute("Height"));
     }

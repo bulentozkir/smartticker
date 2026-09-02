@@ -120,6 +120,10 @@ through 4320 pixels, and static News height is 240 through 4320 pixels.
 
 Manual resizing updates the saved dimensions for the active view after the drag settles.
 All three size pairs are included in a settings backup. Window positions are not stored.
+If a scrolling size is too short for the selected Price/News rows and scrolling font
+size, SmartTicker raises that saved height automatically. Selecting **Left-to-right
+scroll: Prices with News** therefore always makes room for the News rows instead of
+silently hiding them.
 Whenever a window opens or moves, SmartTicker keeps at least its top-left 32-pixel corner
 inside a screen working area and clamps global X and Y to at least 1. This keeps the move
 grip or title corner reachable with the mouse even after a monitor is disconnected.
@@ -397,7 +401,8 @@ App Settings stores three independent size pairs:
 
 Changing a value applies immediately when that window or view is active. The published
 sample demonstrates 1200 × 96 scrolling, 1200 × 720 static Prices, and 760 × 480 static
-News, with 15-point scrolling text and 14-point static text.
+News, with 15-point scrolling text and 14-point static text. A scrolling height below the
+space required by the enabled rows is automatically increased to the required minimum.
 
 Use the four choices under **View** to choose whether News is displayed and whether the
 layout scrolls or remains static. Changing the view never deletes configured entries.

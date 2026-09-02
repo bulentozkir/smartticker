@@ -86,6 +86,7 @@ source validation, group ordering, backups, static-table behavior, and alert rul
 - Independent refresh intervals from 30 to 300 seconds, with both Price and News requests spread across their own one-second slots
 - Separate 9–24 point font sizes for scrolling rows and static rows
 - Separate persisted width/height settings for scrolling, static Prices, and static News windows
+- Automatic scrolling-height expansion when enabled Price/News rows would not fit
 - Every window keeps its top-left drag/title corner at positive on-screen coordinates so it remains reachable
 
 **Price alerts**

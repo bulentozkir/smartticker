@@ -23,6 +23,22 @@ public static class TickerLayoutCalculator
         return chrome + Math.Max(1, rows) * NaturalRowHeight;
     }
 
+    public static double MinimumHeight(
+        int priceRowCount,
+        int newsRowCount,
+        bool priceEnabled = true,
+        bool newsEnabled = true,
+        double minimumRowHeight = MinimumRowHeight)
+    {
+        var rows = (priceEnabled ? ClampRows(priceRowCount) : 0) +
+            (newsEnabled ? ClampRows(newsRowCount) : 0);
+        var chrome = priceEnabled && newsEnabled ? ChromeWithNews : ChromeWithoutNews;
+        return chrome + Math.Max(1, rows) * Math.Clamp(
+            minimumRowHeight,
+            MinimumRowHeight,
+            MaximumRowHeight);
+    }
+
     public static TickerLayout Calculate(
         double availableHeight,
         int priceRowCount,
