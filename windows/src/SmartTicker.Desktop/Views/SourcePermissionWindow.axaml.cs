@@ -10,6 +10,7 @@ public partial class SourcePermissionWindow : Window
     {
         InitializeComponent();
         WindowReachability.Attach(this);
+        WindowReachability.KeepDialogInFront(this);
     }
 
     private void Approve(object? sender, RoutedEventArgs e) =>

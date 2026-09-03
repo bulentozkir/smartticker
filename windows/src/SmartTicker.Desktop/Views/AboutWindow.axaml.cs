@@ -15,6 +15,7 @@ public partial class AboutWindow : Window
     {
         InitializeComponent();
         WindowReachability.Attach(this);
+        WindowReachability.KeepDialogInFront(this);
         VersionText.Text = $"Version {ResolveVersion()}";
     }
 

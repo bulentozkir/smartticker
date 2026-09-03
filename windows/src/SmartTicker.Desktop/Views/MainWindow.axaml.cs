@@ -30,7 +30,7 @@ public partial class MainWindow : Window
     private bool _staticNewsSyncQueued;
     private bool _newsRefreshesFirst;
     private bool _isClosing;
-    private Size? _pendingMainWindowSize;
+    private PendingMainWindowSize? _pendingMainWindowSize;
 
     public MainWindow()
     {
@@ -40,10 +40,13 @@ public partial class MainWindow : Window
         _windowSizeSaveTimer.Tick += (_, _) => RunSafely("Saving window size", () =>
         {
             _windowSizeSaveTimer.Stop();
-            if (_pendingMainWindowSize is { } size && ViewModel is { } viewModel)
+            if (_pendingMainWindowSize is { } pending && ViewModel is { } viewModel)
             {
                 _pendingMainWindowSize = null;
-                viewModel.CaptureMainWindowSize(size.Width, size.Height);
+                viewModel.CaptureMainWindowSize(
+                    pending.Size.Width,
+                    pending.Size.Height,
+                    pending.UseStaticGroupedView);
                 viewModel.PersistSettings();
             }
         });
@@ -76,7 +79,9 @@ public partial class MainWindow : Window
         {
             if (ViewModel is { } viewModel)
             {
-                _pendingMainWindowSize = e.NewSize;
+                _pendingMainWindowSize = new PendingMainWindowSize(
+                    e.NewSize,
+                    viewModel.UseStaticGroupedView);
                 _windowSizeSaveTimer.Stop();
                 _windowSizeSaveTimer.Start();
             }
@@ -100,6 +105,8 @@ public partial class MainWindow : Window
     }
 
     private MainViewModel? ViewModel => DataContext as MainViewModel;
+
+    private readonly record struct PendingMainWindowSize(Size Size, bool UseStaticGroupedView);
 
     private void OnRefreshTimerTick(object? sender, EventArgs e) =>
         RunSafely("Scheduling data refresh", () => StartNextRefreshSlots(

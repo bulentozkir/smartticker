@@ -50,7 +50,7 @@ internal static class ConfirmDialog
             },
         };
         WindowReachability.Attach(dialog);
-        dialog.Opened += (_, _) => ExceptionSafety.Run(dialog.Activate);
+        WindowReachability.KeepDialogInFront(dialog);
 
         confirm.Click += (_, _) =>
         {

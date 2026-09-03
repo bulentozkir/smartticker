@@ -166,6 +166,7 @@ internal static class EditConfigFileWorkflow
             },
         };
         WindowReachability.Attach(dialog);
+        WindowReachability.KeepDialogInFront(dialog);
 
         cancel.Click += (_, _) => ExceptionSafety.Run(dialog.Close);
         export.Click += (_, _) =>

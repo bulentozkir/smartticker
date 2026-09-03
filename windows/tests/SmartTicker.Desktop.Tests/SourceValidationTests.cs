@@ -152,6 +152,29 @@ public sealed class SourceValidationTests
     }
 
     [Fact]
+    public void DelayedResize_IsSavedForTheViewThatWasActuallyResized()
+    {
+        var store = new TestSettingsStore(SmartTickerSettings.Default with
+        {
+            ScrollingWindowSize = new WindowSizeSettings(1100, 80),
+            StaticPricesWindowSize = new WindowSizeSettings(1300, 700),
+        });
+        using var viewModel = new MainViewModel(
+            selectorDiscovery: null,
+            quoteFetcher: null,
+            settingsStore: store);
+
+        viewModel.SetTickerViewCommand.Execute("static-prices");
+        viewModel.CaptureMainWindowSize(1180, 90, useStaticGroupedView: false);
+        viewModel.PersistSettings();
+
+        Assert.Equal(new WindowSizeSettings(1180, 90), store.Saved!.ScrollingWindowSize);
+        Assert.Equal(new WindowSizeSettings(1300, 700), store.Saved.StaticPricesWindowSize);
+        Assert.Equal(1300, viewModel.WindowWidth);
+        Assert.Equal(700, viewModel.WindowHeight);
+    }
+
+    [Fact]
     public void GetPendingSourcePermissionReviews_GroupsEntriesByHost()
     {
         var settings = SmartTickerSettings.Default with

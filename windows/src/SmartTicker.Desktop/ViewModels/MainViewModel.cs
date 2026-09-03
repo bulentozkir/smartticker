@@ -2226,14 +2226,19 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     internal void CaptureMainWindowSize(double width, double height)
     {
+        CaptureMainWindowSize(width, height, UseStaticGroupedView);
+    }
+
+    internal void CaptureMainWindowSize(double width, double height, bool useStaticGroupedView)
+    {
         var capturedWidth = Math.Clamp(
             (int)Math.Round(width),
             SmartTickerSettings.MinimumWindowWidth,
             SmartTickerSettings.MaximumWindowWidth);
-        var minimumHeight = UseStaticGroupedView
+        var minimumHeight = useStaticGroupedView
             ? SmartTickerSettings.MinimumStaticPricesWindowHeight
             : SmartTickerSettings.MinimumScrollingWindowHeight;
-        var maximumHeight = UseStaticGroupedView
+        var maximumHeight = useStaticGroupedView
             ? SmartTickerSettings.MaximumStaticWindowHeight
             : SmartTickerSettings.MaximumScrollingWindowHeight;
         var capturedHeight = Math.Clamp((int)Math.Round(height), minimumHeight, maximumHeight);
@@ -2241,9 +2246,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _isCapturingWindowSize = true;
         try
         {
-            WindowWidth = capturedWidth;
-            WindowHeight = capturedHeight;
-            if (UseStaticGroupedView)
+            if (useStaticGroupedView == UseStaticGroupedView)
+            {
+                WindowWidth = capturedWidth;
+                WindowHeight = capturedHeight;
+            }
+
+            if (useStaticGroupedView)
             {
                 StaticPricesWindowWidth = capturedWidth;
                 StaticPricesWindowHeight = capturedHeight;

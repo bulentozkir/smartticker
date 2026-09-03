@@ -38,7 +38,7 @@ public sealed class QuoteGroupingUiContractTests
         var confirmation = File.ReadAllText(ViewPath("ConfirmDialog.cs"));
         Assert.Contains("Topmost = true", confirmation);
         Assert.Contains("ShowInTaskbar = false", confirmation);
-        Assert.Contains("dialog.Activate", confirmation);
+        Assert.Contains("WindowReachability.KeepDialogInFront(dialog);", confirmation);
     }
 
     [Fact]
@@ -193,6 +193,39 @@ public sealed class QuoteGroupingUiContractTests
         {
             Assert.Contains("WindowReachability.Attach(dialog);", File.ReadAllText(ViewPath(fileName)));
         }
+    }
+
+    [Fact]
+    public void EveryModalDialogUsesTheSharedForegroundGuard()
+    {
+        foreach (var fileName in new[]
+                 {
+                     "AboutWindow.axaml.cs",
+                     "SourcePermissionWindow.axaml.cs",
+                     "WebsiteConsentWindow.axaml.cs",
+                 })
+        {
+            Assert.Contains(
+                "WindowReachability.KeepDialogInFront(this);",
+                File.ReadAllText(ViewPath(fileName)));
+        }
+
+        foreach (var fileName in new[]
+                 {
+                     "ConfirmDialog.cs",
+                     "EditConfigFileWorkflow.cs",
+                     "SampleConfigImportWorkflow.cs",
+                 })
+        {
+            Assert.Contains(
+                "WindowReachability.KeepDialogInFront(dialog);",
+                File.ReadAllText(ViewPath(fileName)));
+        }
+
+        var reachability = File.ReadAllText(ViewPath("WindowReachability.cs"));
+        Assert.Contains("dialog.Topmost = true", reachability);
+        Assert.Contains("dialog.ShowInTaskbar = false", reachability);
+        Assert.Contains("dialog.Activate", reachability);
     }
 
     [Fact]

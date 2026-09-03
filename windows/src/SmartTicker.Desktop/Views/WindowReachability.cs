@@ -27,6 +27,18 @@ internal static class WindowReachability
         window.PositionChanged += (_, _) => ExceptionSafety.Run(() => QueueEnsureReachable(window, state));
     }
 
+    /// <summary>
+    /// Keeps an owned modal visible above SmartTicker's always-on-top windows and gives it focus
+    /// when opened. Without this, Windows can place a non-topmost modal behind the main window,
+    /// leaving its disabled owner visible while the dialog cannot be clicked.
+    /// </summary>
+    public static void KeepDialogInFront(Window dialog)
+    {
+        dialog.Topmost = true;
+        dialog.ShowInTaskbar = false;
+        dialog.Opened += (_, _) => ExceptionSafety.Run(dialog.Activate);
+    }
+
     public static void EnsureReachable(Window window)
     {
         var state = States.GetValue(window, _ => new GuardState { IsAttached = true });

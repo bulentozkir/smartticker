@@ -10,6 +10,7 @@ public partial class WebsiteConsentWindow : Window
     {
         InitializeComponent();
         WindowReachability.Attach(this);
+        WindowReachability.KeepDialogInFront(this);
     }
 
     private void Accept(object? sender, RoutedEventArgs e) =>
