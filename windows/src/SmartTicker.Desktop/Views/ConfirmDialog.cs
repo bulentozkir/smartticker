@@ -23,6 +23,8 @@ internal static class ConfirmDialog
             Width = 460,
             SizeToContent = SizeToContent.Height,
             CanResize = false,
+            Topmost = true,
+            ShowInTaskbar = false,
             Background = Avalonia.Media.Brush.Parse("#0D1117"),
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Content = new StackPanel
@@ -48,6 +50,7 @@ internal static class ConfirmDialog
             },
         };
         WindowReachability.Attach(dialog);
+        dialog.Opened += (_, _) => ExceptionSafety.Run(dialog.Activate);
 
         confirm.Click += (_, _) =>
         {

@@ -34,6 +34,11 @@ public sealed class QuoteGroupingUiContractTests
         Assert.Contains("\"No\"", codeBehind);
         Assert.Contains("if (approved)", codeBehind);
         Assert.Contains("RemoveSubscriptionCommand.ExecuteAsync(subscription)", codeBehind);
+
+        var confirmation = File.ReadAllText(ViewPath("ConfirmDialog.cs"));
+        Assert.Contains("Topmost = true", confirmation);
+        Assert.Contains("ShowInTaskbar = false", confirmation);
+        Assert.Contains("dialog.Activate", confirmation);
     }
 
     [Fact]
