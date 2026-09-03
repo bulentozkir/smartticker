@@ -318,6 +318,7 @@ public sealed class SourceValidationTests
         Assert.Equal("100.00", row.LastText);
         Assert.Equal("+9.09", row.ChangeText);
         Assert.Equal("+10.00%", row.ChangePercentText);
+        Assert.Equal("ok News collection is disabled for this quote.", row.StatusText);
     }
 
     [Fact]

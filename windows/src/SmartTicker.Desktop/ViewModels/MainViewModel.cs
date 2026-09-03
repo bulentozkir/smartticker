@@ -2804,13 +2804,35 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             lastText,
             changeText,
             percentText,
-            quote?.Status ?? Text.Loading,
+            BuildStaticQuoteStatus(subscription, quote),
             string.Join(" | ", sessionParts),
             subscription.SourceUri,
             background,
             symbolBrush,
             lastBrush,
             changeBrush);
+    }
+
+    private string BuildStaticQuoteStatus(TickerSubscription subscription, QuoteSnapshot? quote)
+    {
+        var priceStatus = quote?.Status ?? Text.Loading;
+        if (!subscription.CollectNews)
+        {
+            return $"{priceStatus} News collection is disabled for this quote.";
+        }
+
+        var news = LatestNewsFor(subscription.Id);
+        if (news is { Success: false })
+        {
+            return $"{priceStatus} News refresh failed: {news.Status}";
+        }
+
+        if (news is { Success: true, Headlines.Count: 0 })
+        {
+            return $"{priceStatus} No headlines matched the configured news selector.";
+        }
+
+        return priceStatus;
     }
 
     private static string FormatPercent(decimal? percent) => percent is { } value
