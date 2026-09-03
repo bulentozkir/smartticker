@@ -55,13 +55,25 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void RemoveSubscription(object? sender, RoutedEventArgs e)
+    private async void RemoveSubscription(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: TickerSubscription subscription } &&
             DataContext is MainViewModel viewModel)
         {
-            ExceptionSafety.Run(
-                () => viewModel.RemoveSubscriptionCommand.Execute(subscription),
+            await ExceptionSafety.RunAsync(
+                async () =>
+                {
+                    var approved = await ConfirmDialog.ShowAsync(
+                        this,
+                        "Remove quote",
+                        $"Remove {subscription.Symbol} from {subscription.SourceName}?",
+                        "Yes, remove",
+                        "No");
+                    if (approved)
+                    {
+                        await viewModel.RemoveSubscriptionCommand.ExecuteAsync(subscription);
+                    }
+                },
                 exception => viewModel.ReportRecoverableError("Removing quote", exception));
         }
     }

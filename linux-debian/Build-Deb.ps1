@@ -39,6 +39,7 @@ if (-not $dotnet) {
 Write-Host '=== Publishing linux-x64 ==='
 & $dotnet publish $project `
     --configuration $Configuration `
+    --framework net10.0 `
     --runtime linux-x64 `
     --self-contained true `
     -p:Version=$Version `

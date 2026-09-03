@@ -7,6 +7,36 @@ namespace SmartTicker.Desktop.Tests;
 public sealed class QuoteGroupingUiContractTests
 {
     [Fact]
+    public void QuoteEditor_ShowsConfiguredEntriesBesideTheForm()
+    {
+        var document = LoadView("SettingsWindow.axaml");
+        var editor = Assert.Single(document.Descendants(), element =>
+            (string?)element.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml")) ==
+                "QuoteEditorPane");
+        var entries = Assert.Single(document.Descendants(), element =>
+            (string?)element.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml")) ==
+                "ConfiguredEntriesPane");
+
+        Assert.Equal("1", (string?)editor.Attribute("Grid.Row"));
+        Assert.Equal("0", (string?)editor.Attribute("Grid.Column"));
+        Assert.Equal("1", (string?)entries.Attribute("Grid.Row"));
+        Assert.Equal("1", (string?)entries.Attribute("Grid.Column"));
+    }
+
+    [Fact]
+    public void QuoteEditor_RequiresApprovalBeforeRemovingAConfiguredEntry()
+    {
+        var codeBehind = File.ReadAllText(ViewPath("SettingsWindow.axaml.cs"));
+
+        Assert.Contains("ConfirmDialog.ShowAsync(", codeBehind);
+        Assert.Contains("\"Remove quote\"", codeBehind);
+        Assert.Contains("\"Yes, remove\"", codeBehind);
+        Assert.Contains("\"No\"", codeBehind);
+        Assert.Contains("if (approved)", codeBehind);
+        Assert.Contains("RemoveSubscriptionCommand.ExecuteAsync(subscription)", codeBehind);
+    }
+
+    [Fact]
     public void QuoteEditor_ExposesEditableGroupLookupAndManager()
     {
         var document = LoadView("SettingsWindow.axaml");

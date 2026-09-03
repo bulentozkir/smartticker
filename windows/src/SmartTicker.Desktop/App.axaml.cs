@@ -67,7 +67,7 @@ public partial class App : Avalonia.Application
                     new GitHubStarterSettingsSource(websiteAccessPolicy),
                     new LocalJsonAlertStore(),
                     new SystemAlertSound(),
-                    StartupRegistrationFactory.Create(),
+                    CreateStartupRegistration(),
                     websiteAccessPolicy);
             }
             catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
@@ -81,5 +81,14 @@ public partial class App : Avalonia.Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static IStartupRegistration CreateStartupRegistration()
+    {
+#if WINDOWS
+        return WindowsStartupRegistration.Create();
+#else
+        return StartupRegistrationFactory.Create();
+#endif
     }
 }

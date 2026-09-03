@@ -23,7 +23,7 @@ script directly:
 
 ```bash
 dotnet publish ../windows/src/SmartTicker.Desktop/SmartTicker.Desktop.csproj \
-  --configuration Release --runtime linux-x64 --self-contained true \
+  --configuration Release --framework net10.0 --runtime linux-x64 --self-contained true \
   -p:Version=1.0.3 --output ./publish
 
 bash build-deb.sh 1.0.3 "$PWD/publish" "$PWD/out" ../windows/packaging/Assets/AppIcon256.png

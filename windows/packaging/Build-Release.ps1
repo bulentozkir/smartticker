@@ -115,6 +115,7 @@ foreach ($identifier in $Runtime) {
     if ($PSCmdlet.ShouldProcess($identifier, 'dotnet publish')) {
         & $dotnet publish $project `
             --configuration $Configuration `
+            --framework net10.0-windows10.0.17763.0 `
             --runtime $identifier `
             --self-contained true `
             -p:Version=$Version `

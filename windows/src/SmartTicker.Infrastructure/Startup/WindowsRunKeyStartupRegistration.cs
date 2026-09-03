@@ -12,6 +12,8 @@ namespace SmartTicker.Infrastructure.Startup;
 public sealed class WindowsRunKeyStartupRegistration : IStartupRegistration
 {
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string StartupApprovedPath =
+        @"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
     private const string ValueName = "SmartTicker";
 
     private readonly string? _executablePath;
@@ -28,7 +30,9 @@ public sealed class WindowsRunKeyStartupRegistration : IStartupRegistration
         get
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath);
-            return key?.GetValue(ValueName) is string value && !string.IsNullOrWhiteSpace(value);
+            return key?.GetValue(ValueName) is string value
+                && !string.IsNullOrWhiteSpace(value)
+                && !IsDisabledByUser(ReadStartupApprovedValue());
         }
     }
 
@@ -50,5 +54,20 @@ public sealed class WindowsRunKeyStartupRegistration : IStartupRegistration
 
         // Quoted so a path containing spaces is still launched as a single argument.
         key.SetValue(ValueName, $"\"{_executablePath}\"", RegistryValueKind.String);
+
+        if (IsDisabledByUser(ReadStartupApprovedValue()))
+        {
+            throw new InvalidOperationException(
+                "Windows disabled SmartTicker in Startup apps. Re-enable it in Settings > Apps > Startup.");
+        }
+    }
+
+    internal static bool IsDisabledByUser(byte[]? startupApprovedValue) =>
+        startupApprovedValue is { Length: > 0 } && startupApprovedValue[0] == 3;
+
+    private static byte[]? ReadStartupApprovedValue()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(StartupApprovedPath);
+        return key?.GetValue(ValueName) as byte[];
     }
 }

@@ -7,11 +7,16 @@ namespace SmartTicker.Desktop.Views;
 /// <summary>Avalonia has no built-in message box, so the confirmation is a small owned window.</summary>
 internal static class ConfirmDialog
 {
-    public static async Task<bool> ShowAsync(Window owner, string title, string message, string confirmText)
+    public static async Task<bool> ShowAsync(
+        Window owner,
+        string title,
+        string message,
+        string confirmText,
+        string cancelText = "Keep them")
     {
         var result = false;
         var confirm = new Button { Content = confirmText, Padding = new Avalonia.Thickness(18, 8) };
-        var cancel = new Button { Content = "Keep them", Padding = new Avalonia.Thickness(18, 8) };
+        var cancel = new Button { Content = cancelText, Padding = new Avalonia.Thickness(18, 8) };
         var dialog = new Window
         {
             Title = title,
