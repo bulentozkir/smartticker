@@ -108,7 +108,7 @@ source validation, group ordering, backups, static-table behavior, and alert rul
 
 **Everything else**
 
-- Available in 16 languages, switchable from the right-click menu
+- Available in 16 languages for menus, status text, and the complete online/offline Help guide; an open Help window updates immediately
 - Optional automatic start when you sign in
 - Export and import for both settings and alert rules
 - One-click **Import Sample Quotes Config**, behind a confirmation that offers to export your current config first

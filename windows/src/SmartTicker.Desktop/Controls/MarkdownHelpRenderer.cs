@@ -192,14 +192,19 @@ public static partial class MarkdownHelpRenderer
         BorderBrush = Brush("#30363D"),
         BorderThickness = new Thickness(1),
         CornerRadius = new CornerRadius(4),
-        Padding = new Thickness(14, 11),
-        Child = new SelectableTextBlock
+        Child = new ScrollViewer
         {
-            Text = code.Lines.ToString(),
-            FontFamily = new FontFamily("Cascadia Mono, Consolas"),
-            FontSize = 13,
-            Foreground = CodeBrush,
-            TextWrapping = TextWrapping.Wrap,
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            Padding = new Thickness(14, 11),
+            Content = new SelectableTextBlock
+            {
+                Text = code.Lines.ToString(),
+                FontFamily = new FontFamily("Cascadia Mono, Consolas"),
+                FontSize = 13,
+                Foreground = CodeBrush,
+                TextWrapping = TextWrapping.NoWrap,
+            },
         },
     };
 
@@ -397,7 +402,7 @@ public static partial class MarkdownHelpRenderer
 
     private static IBrush Brush(string color) => new SolidColorBrush(Color.Parse(color));
 
-    [GeneratedRegex(@"[^\p{L}\p{Nd}\s-]")]
+    [GeneratedRegex(@"[^\p{L}\p{M}\p{Nd}\s-]")]
     private static partial Regex NonSlugCharacter();
 
     [GeneratedRegex(@"\s+")]

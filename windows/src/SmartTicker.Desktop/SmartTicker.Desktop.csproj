@@ -12,6 +12,9 @@
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
     <EmbeddedResource Include="..\..\..\HELPME.md" Link="Help\HELPME.md" />
+    <EmbeddedResource Include="..\..\..\help\HELPME.*.md"
+              Link="Help\%(Filename)%(Extension)"
+              WithCulture="false" />
   </ItemGroup>
 
   <ItemGroup>

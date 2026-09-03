@@ -33,13 +33,17 @@ Right-click the ticker to open its menu. The main configuration commands are:
 - **About SmartTicker**: show the installed version and license notice.
 - **Exit**: close SmartTicker completely.
 
-The Help window checks the following online document whenever you open it:
+The Help window immediately formats the built-in guide for the selected app language,
+then checks the matching online guide whenever you open Help or change **Language**. The
+English online guide is:
 
 <https://raw.githubusercontent.com/bulentozkir/smartticker/refs/heads/main/HELPME.md>
 
-If the online document cannot be downloaded, SmartTicker formats and displays the copy
-embedded in your installed application. Close Help with its normal title-bar close
-control.
+Translated guides use `help/HELPME.<language-code>.md` in the same repository. If the
+online document cannot be downloaded, SmartTicker keeps the matching translated copy
+embedded in your installed application. Changing **Language** updates the Help title,
+status, navigation, and complete guide immediately. Close Help with its normal title-bar
+close control.
 
 ## Main ticker controls
 
@@ -166,14 +170,14 @@ compare against. A fired alert keeps its own alert blink colour and takes preced
 | Command | Effect |
 | --- | --- |
 | **Refresh prices now** | Restart the staggered price cycle and request its first time slot when SmartTicker is not paused. |
-| **Refresh news now** | Request all permitted entries that collect news immediately when SmartTicker is not paused. |
+| **Refresh news now** | Restart the staggered News cycle and request its first time slot when SmartTicker is not paused. |
 | **Pause / Resume** | Toggle refreshing and marquee movement. |
 | **View > Left-to-right scroll: Prices only** | Use only the horizontal price marquee. This is the default. |
 | **View > Left-to-right scroll: Prices with News** | Use both horizontal marquees. |
 | **View > Static view: Prices only** | Use only responsive static quote tiles. |
 | **View > Static view: Prices with News** | Use quote tiles plus the separate static News window. |
 | **View > Open static news window** | Reopen the separate News window after closing it. Available in static mode when news is enabled. |
-| **Language** | Choose one of the 16 supported menu/status languages. |
+| **Language** | Choose one of 16 languages for menus, status text, and the complete Help guide. An open Help window updates immediately. |
 
 Line visibility, language, and the other configuration values are saved automatically.
 
@@ -769,8 +773,9 @@ an authorized documented API through a compatible public page.
 	and code blocks rather than Markdown punctuation.
 - Use **On this page** on the left to jump to a major section. Links in the Quick
 	navigation table also scroll within the document.
-- Select **Reload** to fetch the current published guide. If that fails, SmartTicker
-	formats the guide embedded in the installed application.
+- Close and reopen Help, or change **Language**, to request the matching published guide.
+	Until it arrives, SmartTicker displays the formatted guide embedded in the installed
+	application.
 
 ### Online Help is unavailable or out of date
 
@@ -778,8 +783,8 @@ an authorized documented API through a compatible public page.
 - Open the raw GitHub address shown near the beginning of this guide in a browser to
 	inspect the published file directly.
 - SmartTicker uses the embedded guide when the request fails or returns an empty file.
-- Online changes appear only after the updated `HELPME.md` is published on the
-	repository's `main` branch.
+- Online changes appear only after `HELPME.md` or the matching
+  `help/HELPME.<language-code>.md` is published on the repository's `main` branch.
 
 ## Support
 

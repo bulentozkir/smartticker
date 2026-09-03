@@ -1,7 +1,10 @@
 using System.Xml.Linq;
+using System.Text.RegularExpressions;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using SmartTicker.Core.Models;
 using SmartTicker.Desktop.Controls;
+using SmartTicker.Desktop.Localization;
 using SmartTicker.Desktop.Views;
 
 namespace SmartTicker.Desktop.Tests;
@@ -48,6 +51,78 @@ public sealed class HelpContentContractTests
     }
 
     [Fact]
+    public void EverySupportedLanguage_HasACompleteDistinctEmbeddedGuideAndLocalizedChrome()
+    {
+        var english = File.ReadAllText(RepositoryPath("HELPME.md"));
+        var expectedStructure = StructureOf(english);
+
+        foreach (var language in AppLanguages.Supported)
+        {
+            var path = language == AppLanguages.Default
+                ? RepositoryPath("HELPME.md")
+                : RepositoryPath("help", $"HELPME.{language}.md");
+            Assert.True(File.Exists(path), $"Missing Help translation for '{language}': {path}");
+            var source = File.ReadAllText(path);
+
+            Assert.Equal(source, HelpWindow.ReadEmbeddedHelp(language));
+            Assert.Equal(expectedStructure, StructureOf(source));
+            Assert.Contains("SmartTicker", source);
+            Assert.Contains("1.0.3", source);
+            Assert.Contains("settings.json", source);
+            Assert.Contains("alerts.json", source);
+            Assert.Contains("SMARTTICKER_DATA_DIRECTORY", source);
+            Assert.Contains("Left-to-right scroll: Prices with News", source);
+            Assert.Contains("https://github.com/bulentozkir/smartticker/issues", source);
+            Assert.DoesNotContain("**Reload**", source, StringComparison.OrdinalIgnoreCase);
+
+            var strings = HelpLocalization.For(language);
+            Assert.All(
+                new[]
+                {
+                    strings.Title,
+                    strings.Subtitle,
+                    strings.Navigation,
+                    strings.CheckingOnline,
+                    strings.OnlineLoaded,
+                    strings.OfflineLoaded,
+                },
+                value => Assert.False(string.IsNullOrWhiteSpace(value)));
+            var expectedPath = language == AppLanguages.Default
+                ? "/bulentozkir/smartticker/refs/heads/main/HELPME.md"
+                : $"/bulentozkir/smartticker/refs/heads/main/help/HELPME.{language}.md";
+            Assert.Equal(expectedPath, HelpWindow.HelpUriFor(language).AbsolutePath);
+            if (language != AppLanguages.Default)
+            {
+                Assert.NotEqual(english, source);
+                Assert.Contains(
+                    $"https://raw.githubusercontent.com/bulentozkir/smartticker/refs/heads/main/help/HELPME.{language}.md",
+                    source);
+                Assert.DoesNotContain(
+                    "https://raw.githubusercontent.com/bulentozkir/smartticker/refs/heads/main/HELPME.md",
+                    source);
+            }
+        }
+
+        var resources = typeof(HelpWindow).Assembly.GetManifestResourceNames()
+            .Where(name => name.Contains(".HELPME", StringComparison.OrdinalIgnoreCase) &&
+                name.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        Assert.Equal(AppLanguages.Supported.Count, resources.Length);
+    }
+
+    [Fact]
+    public void OpenHelp_ReloadsEmbeddedContentWhenTheAppLanguageChanges()
+    {
+        var code = File.ReadAllText(DesktopPath("Views", "HelpWindow.axaml.cs"));
+
+        Assert.Contains("PropertyChanged += OnViewModelPropertyChanged", code);
+        Assert.Contains("nameof(MainViewModel.Language)", code);
+        Assert.Contains("ReloadHelp();", code);
+        Assert.Contains("RenderHelp(ReadEmbeddedHelp(language), language);", code);
+        Assert.Contains("generation != Volatile.Read(ref _loadGeneration)", code);
+    }
+
+    [Fact]
     public void EveryConfigurationSurface_OpensHelpWindow()
     {
         var windowNames = new[]
@@ -74,9 +149,13 @@ public sealed class HelpContentContractTests
 
         Assert.Equal("True", (string?)window.Root!.Attribute("Topmost"));
         Assert.Contains("window.Activate();", code);
-        Assert.Contains(
+        Assert.Equal(
             "https://raw.githubusercontent.com/bulentozkir/smartticker/refs/heads/main/HELPME.md",
-            code);
+            HelpWindow.HelpUriFor("en").AbsoluteUri);
+        Assert.Equal(
+            "https://raw.githubusercontent.com/bulentozkir/smartticker/refs/heads/main/help/HELPME.de.md",
+            HelpWindow.HelpUriFor("de").AbsoluteUri);
+        Assert.Contains("HelpUriFor(language)", code);
     }
 
     [Fact]
@@ -128,6 +207,16 @@ public sealed class HelpContentContractTests
     }
 
     [Fact]
+    public void MarkdownRenderer_PreservesCombiningMarksInLocalizedAnchors()
+    {
+        const string markdown = "## सहायता खोलें";
+
+        var rendered = MarkdownHelpRenderer.Render(markdown, _ => { }, _ => { });
+
+        Assert.Equal("सहायता-खोलें", Assert.Single(rendered.Headings).Anchor);
+    }
+
+    [Fact]
     public void HelpWindow_UsesFormattedContentAndSectionNavigation()
     {
         var document = XDocument.Load(DesktopPath("Views", "HelpWindow.axaml"));
@@ -164,6 +253,14 @@ public sealed class HelpContentContractTests
 
     private static string DesktopPath(params string[] parts)
         => RepositoryPath(["windows", "src", "SmartTicker.Desktop", .. parts]);
+
+    private static (int H1, int H2, int H3, int Fences, int Tables) StructureOf(string markdown) =>
+        (
+            Regex.Matches(markdown, "(?m)^# ").Count,
+            Regex.Matches(markdown, "(?m)^## ").Count,
+            Regex.Matches(markdown, "(?m)^### ").Count,
+            Regex.Matches(markdown, "(?m)^```").Count,
+            Regex.Matches(markdown, "(?m)^\\| ---").Count);
 
     private static string RepositoryPath(params string[] parts)
     {

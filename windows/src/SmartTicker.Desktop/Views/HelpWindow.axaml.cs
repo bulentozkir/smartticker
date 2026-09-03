@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -10,7 +11,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Media;
+using SmartTicker.Core.Models;
 using SmartTicker.Desktop.Controls;
+using SmartTicker.Desktop.Localization;
+using SmartTicker.Desktop.ViewModels;
 using SmartTicker.Infrastructure.Launching;
 
 namespace SmartTicker.Desktop.Views;
@@ -18,45 +22,109 @@ namespace SmartTicker.Desktop.Views;
 public partial class HelpWindow : Window
 {
     private const int MaximumHelpBytes = 1_048_576;
-    private static readonly Uri HelpUri =
-        new("https://raw.githubusercontent.com/bulentozkir/smartticker/refs/heads/main/HELPME.md");
     private static readonly HttpClient HelpClient = CreateHelpClient();
 
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly Dictionary<string, Control> _headingTargets = new(StringComparer.OrdinalIgnoreCase);
+    private MainViewModel? _viewModel;
+    private int _loadGeneration;
+    private bool _isOpened;
 
     public HelpWindow()
     {
         InitializeComponent();
         WindowReachability.Attach(this);
-        Opened += async (_, _) => await ExceptionSafety.RunAsync(
-            LoadHelpAsync,
-            exception =>
+        DataContextChanged += (_, _) => ObserveViewModel();
+        Opened += (_, _) =>
+        {
+            _isOpened = true;
+            ReloadHelp();
+        };
+        Closed += (_, _) => ExceptionSafety.Run(() =>
+        {
+            _isOpened = false;
+            if (_viewModel is not null)
             {
-                if (IsVisible)
-                {
-                    StatusText.Text = $"Help could not be displayed: {exception.Message}";
-                }
-            });
-        Closed += (_, _) => ExceptionSafety.Run(_lifetimeCancellation.Cancel);
+                _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            }
+
+            _lifetimeCancellation.Cancel();
+        });
     }
 
     public static void Open(Window owner)
     {
-        var window = new HelpWindow();
+        var window = new HelpWindow { DataContext = owner.DataContext };
         window.Show(owner);
         window.Activate();
     }
 
-    private async Task LoadHelpAsync()
+    internal static Uri HelpUriFor(string? language)
     {
-        StatusText.Text = "Loading online help…";
+        var code = AppLanguages.Normalize(language);
+        var path = code == AppLanguages.Default ? "HELPME.md" : $"help/HELPME.{code}.md";
+        return new Uri($"https://raw.githubusercontent.com/bulentozkir/smartticker/refs/heads/main/{path}");
+    }
+
+    private void ObserveViewModel()
+    {
+        if (_viewModel is not null)
+        {
+            _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        }
+
+        _viewModel = DataContext as MainViewModel;
+        if (_viewModel is not null)
+        {
+            _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        }
+
+        ApplyChrome(CurrentLanguage);
+        if (_isOpened)
+        {
+            ReloadHelp();
+        }
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs change)
+    {
+        if (change.PropertyName == nameof(MainViewModel.Language))
+        {
+            ReloadHelp();
+        }
+    }
+
+    private string CurrentLanguage => AppLanguages.Normalize(_viewModel?.Language);
+
+    private void ReloadHelp()
+    {
+        var language = CurrentLanguage;
+        var generation = Interlocked.Increment(ref _loadGeneration);
+        var strings = ApplyChrome(language);
+        RenderHelp(ReadEmbeddedHelp(language), language);
+        StatusText.Text = strings.CheckingOnline;
+        _ = ExceptionSafety.RunAsync(
+            () => LoadOnlineHelpAsync(language, generation),
+            exception =>
+            {
+                if (generation == Volatile.Read(ref _loadGeneration) && IsVisible)
+                {
+                    StatusText.Text = $"{strings.OfflineLoaded} {exception.Message}";
+                }
+            });
+    }
+
+    private async Task LoadOnlineHelpAsync(string language, int generation)
+    {
+        var strings = HelpLocalization.For(language);
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, HelpUri);
+            using var request = new HttpRequestMessage(HttpMethod.Get, HelpUriFor(language));
             request.Headers.CacheControl = new CacheControlHeaderValue { NoCache = true };
-            using var response = await HelpClient.SendAsync(request, _lifetimeCancellation.Token);
+            using var response = await HelpClient
+                .SendAsync(request, _lifetimeCancellation.Token)
+                .ConfigureAwait(false);
             if (response.StatusCode != HttpStatusCode.OK)
             {
                 throw new HttpRequestException($"The help server returned {(int)response.StatusCode}.");
@@ -68,26 +136,54 @@ public partial class HelpWindow : Window
                 throw new InvalidDataException("The online help document is too large.");
             }
 
-            var help = await response.Content.ReadAsStringAsync(_lifetimeCancellation.Token);
+            var help = await response.Content
+                .ReadAsStringAsync(_lifetimeCancellation.Token)
+                .ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(help))
             {
                 throw new InvalidDataException("The online help document is empty.");
             }
 
-            RenderHelp(help);
-            StatusText.Text = "Online guide loaded from the SmartTicker repository.";
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (generation != Volatile.Read(ref _loadGeneration) || !IsVisible)
+                {
+                    return;
+                }
+
+                RenderHelp(help, language);
+                StatusText.Text = strings.OnlineLoaded;
+            });
         }
         catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
         {
         }
         catch (Exception exception) when (ExceptionSafety.IsRecoverable(exception))
         {
-            RenderHelp(ReadEmbeddedHelp());
-            StatusText.Text = "Online help is unavailable. Showing the built-in guide.";
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (generation == Volatile.Read(ref _loadGeneration) && IsVisible)
+                {
+                    StatusText.Text = strings.OfflineLoaded;
+                }
+            });
         }
     }
 
-    private void RenderHelp(string markdown)
+    private HelpStrings ApplyChrome(string language)
+    {
+        var strings = HelpLocalization.For(language);
+        Title = strings.Title;
+        HelpTitleText.Text = strings.Title;
+        HelpSubtitleText.Text = strings.Subtitle;
+        NavigationTitleText.Text = strings.Navigation;
+        var direction = language == "ar" ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        HelpContentHost.FlowDirection = direction;
+        NavigationPanel.FlowDirection = direction;
+        return strings;
+    }
+
+    private void RenderHelp(string markdown, string language)
     {
         var document = MarkdownHelpRenderer.Render(
             markdown,
@@ -100,7 +196,7 @@ public partial class HelpWindow : Window
         foreach (var heading in document.Headings)
         {
             _headingTargets[heading.Anchor] = heading.Target;
-            if (heading.Level != 2)
+            if (heading.Level is < 2 or > 3)
             {
                 continue;
             }
@@ -117,8 +213,10 @@ public partial class HelpWindow : Window
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
                 Background = Brushes.Transparent,
                 BorderThickness = new Avalonia.Thickness(0),
-                Padding = new Avalonia.Thickness(8, 6),
+                Padding = new Avalonia.Thickness(heading.Level == 2 ? 8 : 20, heading.Level == 2 ? 6 : 4),
                 Foreground = new SolidColorBrush(Color.Parse("#C9D1D9")),
+                FontSize = heading.Level == 2 ? 13 : 11,
+                Opacity = heading.Level == 2 ? 1 : 0.82,
             };
             button.Click += (_, _) => ExceptionSafety.Run(
                 () => NavigateToAnchor((string)button.Tag!));
@@ -134,11 +232,15 @@ public partial class HelpWindow : Window
         }
     }
 
-    private static string ReadEmbeddedHelp()
+    internal static string ReadEmbeddedHelp(string? language)
     {
         var assembly = typeof(HelpWindow).Assembly;
+        var code = AppLanguages.Normalize(language);
+        var suffix = code == AppLanguages.Default ? ".HELPME.md" : $".HELPME.{code}.md";
         var resourceName = assembly.GetManifestResourceNames()
-            .Single(name => name.EndsWith(".HELPME.md", StringComparison.Ordinal));
+            .FirstOrDefault(name => name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) ??
+            assembly.GetManifestResourceNames()
+                .Single(name => name.EndsWith(".HELPME.md", StringComparison.Ordinal));
         using var stream = assembly.GetManifestResourceStream(resourceName)!;
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();

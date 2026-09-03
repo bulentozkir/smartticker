@@ -12,8 +12,8 @@
         Background="#10151D">
     <Grid Margin="20" RowDefinitions="Auto,Auto,*" RowSpacing="12">
         <StackPanel Grid.Row="0" Spacing="3">
-            <TextBlock Text="SmartTicker Help" FontSize="24" FontWeight="SemiBold" Foreground="#70E1A1" />
-            <TextBlock Text="Configuration guide" Opacity="0.75" />
+            <TextBlock Name="HelpTitleText" Text="SmartTicker Help" FontSize="24" FontWeight="SemiBold" Foreground="#70E1A1" />
+            <TextBlock Name="HelpSubtitleText" Text="Configuration guide" Opacity="0.75" />
         </StackPanel>
 
         <TextBlock Name="StatusText" Grid.Row="1" Text="Loading online help…" TextWrapping="Wrap" Opacity="0.8" />
@@ -22,7 +22,7 @@
             <Border Background="#0B1017" BorderBrush="#2D3748" BorderThickness="1"
                     CornerRadius="4" Padding="10">
                 <Grid RowDefinitions="Auto,*" RowSpacing="8">
-                    <TextBlock Text="ON THIS PAGE" FontSize="11" FontWeight="SemiBold"
+                    <TextBlock Name="NavigationTitleText" Text="ON THIS PAGE" FontSize="11" FontWeight="SemiBold"
                                Foreground="#8B949E" Margin="8,4" />
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled">
